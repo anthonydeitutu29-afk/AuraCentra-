@@ -1,0 +1,6 @@
+{
+  "name": "AuraCentra",
+  "description": "Professional Ghanaian & African business discovery, verification, and networking ecosystem connecting trusted enterprises with customers.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
