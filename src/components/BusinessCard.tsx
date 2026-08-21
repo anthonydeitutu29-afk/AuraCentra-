@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   CheckCircle2, 
   Star, 
@@ -9,12 +9,11 @@ import {
   BookmarkCheck, 
   Layers, 
   Clock, 
-  ExternalLink,
-  ShieldCheck,
-  Eye,
-  ArrowUpRight,
-  QrCode,
-  FileText
+  Eye, 
+  QrCode, 
+  FileText,
+  Share2,
+  Check
 } from 'lucide-react';
 import { Business } from '../types';
 
@@ -28,6 +27,7 @@ interface BusinessCardProps {
   onQuickContactWhatsApp: (business: Business) => void;
   onOpenQuote?: (business: Business) => void;
   onOpenQR?: (business: Business) => void;
+  onShare?: (business: Business) => void;
 }
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
@@ -40,20 +40,43 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
   onQuickContactWhatsApp,
   onOpenQuote,
   onOpenQR,
+  onShare,
 }) => {
+  const [justShared, setJustShared] = useState(false);
+
   // Check if open now based on today's day
   const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
   const currentDay = daysOfWeek[new Date().getDay()];
   const todayHours = business.openingHours ? business.openingHours[currentDay] : 'Open';
   const isOpen = todayHours && todayHours.toLowerCase() !== 'closed';
 
+  const handleShareClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onShare) {
+      onShare(business);
+    } else if (navigator.share) {
+      navigator.share({
+        title: `${business.name} - AuraCentra Ghana`,
+        text: `Discover ${business.name} on AuraCentra Ghana: ${business.tagline || business.description}`,
+        url: window.location.href,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(`${window.location.origin}/#business-${business.id}`);
+      setJustShared(true);
+      setTimeout(() => setJustShared(false), 2000);
+    }
+  };
+
   return (
     <div 
-      className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-blue-100/90 dark:border-slate-800 shadow-sm hover:shadow-lg hover:shadow-blue-600/10 hover:border-blue-400/80 dark:hover:border-blue-500/50 transition-all duration-300 flex flex-col overflow-hidden"
+      className="group relative bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-blue-100/90 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-blue-600/10 hover:border-blue-400/80 dark:hover:border-blue-500/60 transition-all duration-300 hover:-translate-y-2 transform-gpu flex flex-col overflow-hidden will-change-transform"
       id={`business-card-${business.id}`}
     >
-      {/* Cover Image & Quick Badges */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer" onClick={() => onSelect(business)}>
+      {/* Cover Image & Action Badges */}
+      <div 
+        className="relative aspect-[16/10] sm:aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer select-none" 
+        onClick={() => onSelect(business)}
+      >
         <img
           src={business.coverImage || business.gallery[0] || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80'}
           alt={business.name}
@@ -61,15 +84,31 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           loading="lazy"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-black/10 to-black/20" />
+        {/* Ambient Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-black/20 to-black/30 pointer-events-none" />
 
-        {/* Top Badges: Category & Actions */}
-        <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between">
+        {/* Top Badges: Category & Quick Utility Actions */}
+        <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
           <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-slate-900/95 text-blue-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-blue-50 dark:border-slate-800">
             {business.category}
           </span>
 
           <div className="flex items-center gap-1.5">
+            {/* Share Button */}
+            <button
+              type="button"
+              onClick={handleShareClick}
+              className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
+                justShared
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
+              }`}
+              title="Share business profile"
+              aria-label="Share business"
+            >
+              {justShared ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+            </button>
+
             {/* Compare Toggle Button */}
             <button
               type="button"
@@ -77,12 +116,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 e.stopPropagation();
                 onToggleCompare(business);
               }}
-              className={`p-2 rounded-full backdrop-blur-md transition-all ${
+              className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
                 isCompared
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white'
+                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
               }`}
               title={isCompared ? 'Remove from compare' : 'Compare with other businesses'}
+              aria-label="Compare business"
             >
               <Layers className="w-3.5 h-3.5" />
             </button>
@@ -95,8 +135,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                   e.stopPropagation();
                   onOpenQR(business);
                 }}
-                className="p-2 rounded-full backdrop-blur-md bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white transition-all"
+                className="p-2 rounded-full backdrop-blur-md bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer"
                 title="View QR Code & Share"
+                aria-label="View QR Code"
               >
                 <QrCode className="w-3.5 h-3.5" />
               </button>
@@ -109,12 +150,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 e.stopPropagation();
                 onToggleSave(business.id);
               }}
-              className={`p-2 rounded-full backdrop-blur-md transition-all ${
+              className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
                 isSaved
                   ? 'bg-rose-500 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white'
+                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
               }`}
               title={isSaved ? 'Remove from saved' : 'Save business'}
+              aria-label="Save business"
             >
               {isSaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
             </button>
@@ -137,7 +179,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             ) : null}
           </div>
 
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider backdrop-blur-md ${
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider backdrop-blur-md shadow-xs ${
             isOpen ? 'bg-emerald-500/90 text-white' : 'bg-slate-700/90 text-white'
           }`}>
             {isOpen ? 'Open Now' : 'Closed'}
@@ -210,12 +252,12 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5">
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2">
           {/* Primary View Profile Button */}
           <button
             type="button"
             onClick={() => onSelect(business)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2 px-3 rounded-full transition-all shadow-xs"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2.5 px-3 rounded-xl sm:rounded-full transition-all shadow-xs cursor-pointer min-h-[40px]"
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Profile</span>
@@ -226,7 +268,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             <button
               type="button"
               onClick={() => onOpenQuote(business)}
-              className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60"
+              className="inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl sm:rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60 cursor-pointer min-h-[40px]"
               title="Request Quote"
             >
               <FileText className="w-3.5 h-3.5" />
@@ -238,8 +280,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           <button
             type="button"
             onClick={() => onQuickContactWhatsApp(business)}
-            className="inline-flex items-center justify-center p-2 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-emerald-200/80 dark:border-emerald-800/60"
+            className="inline-flex items-center justify-center p-2.5 rounded-xl sm:rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-emerald-200/80 dark:border-emerald-800/60 cursor-pointer min-h-[40px] min-w-[40px]"
             title="Chat directly on WhatsApp"
+            aria-label="WhatsApp chat"
           >
             <MessageSquare className="w-4 h-4" />
           </button>
@@ -247,8 +290,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           {/* Direct Phone Call */}
           <a
             href={`tel:${business.phone}`}
-            className="inline-flex items-center justify-center p-2 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-all border border-slate-200 dark:border-slate-700"
+            className="inline-flex items-center justify-center p-2.5 rounded-xl sm:rounded-full bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-all border border-slate-200 dark:border-slate-700 min-h-[40px] min-w-[40px]"
             title={`Call ${business.phone}`}
+            aria-label="Call business"
           >
             <Phone className="w-4 h-4" />
           </a>

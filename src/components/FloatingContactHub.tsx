@@ -37,10 +37,10 @@ export const FloatingContactHub: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40" id="floating-admin-contact-hub">
+    <div className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 z-30" id="floating-admin-contact-hub">
       {/* Expanded Quick Contact Card */}
       {isOpen && (
-        <div className="mb-3 w-[calc(100vw-2.5rem)] sm:w-80 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-blue-200 dark:border-slate-800 p-5 space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="mb-3 w-[calc(100vw-2rem)] max-w-sm sm:w-80 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-blue-200 dark:border-slate-800 p-4 sm:p-5 space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-200">
           {/* Header */}
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2.5">

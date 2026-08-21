@@ -15,6 +15,7 @@ import {
   Filter,
   PlusCircle
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Business, 
   Category, 
@@ -22,7 +23,8 @@ import {
   UserProfile, 
   FilterState,
   BusinessInquiry,
-  ToastNotification
+  ToastNotification,
+  BusinessReport
 } from './types';
 import { 
   getStoredBusinesses, 
@@ -40,7 +42,9 @@ import {
   saveExecutiveSectionVisibility,
   calculateDistanceKm,
   getStoredInquiries,
-  saveInquiries
+  saveInquiries,
+  getStoredReports,
+  saveReports
 } from './utils/storage';
 
 // Subcomponents
@@ -61,6 +65,9 @@ import { QuoteInquiryModal } from './components/QuoteInquiryModal';
 import { QRCodeShareModal } from './components/QRCodeShareModal';
 import { VerificationCertificateModal } from './components/VerificationCertificateModal';
 import { InquiriesManagerModal } from './components/InquiriesManagerModal';
+import { PromotionalBanner } from './components/PromotionalBanner';
+import { ScrollProgressBar } from './components/ScrollProgressBar';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 export default function App() {
   // Theme state
@@ -73,6 +80,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>(getStoredCategories);
   const [reviews, setReviews] = useState<BusinessReview[]>(getStoredReviews);
   const [inquiries, setInquiries] = useState<BusinessInquiry[]>(getStoredInquiries);
+  const [reports, setReports] = useState<BusinessReport[]>(getStoredReports);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(getStoredCurrentUser);
   const [savedBusinessIds, setSavedBusinessIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('auracentra_saved_ids');
@@ -159,6 +167,10 @@ export default function App() {
   useEffect(() => {
     saveInquiries(inquiries);
   }, [inquiries]);
+
+  useEffect(() => {
+    saveReports(reports);
+  }, [reports]);
 
   useEffect(() => {
     saveCurrentUser(currentUser);
@@ -346,6 +358,36 @@ export default function App() {
   };
 
   // Feature Handlers
+  const handleShareBusiness = useCallback((business: Business) => {
+    const shareData = {
+      title: `${business.name} - AuraCentra Ghana`,
+      text: `Discover ${business.name} on AuraCentra Ghana: ${business.tagline || business.description}`,
+      url: `${window.location.origin}/#business-${business.id}`,
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareData.url);
+      showToast('Link Copied!', `Direct profile link for ${business.name} copied to clipboard.`, 'success');
+    }
+  }, [showToast]);
+
+  const handleSharePlatform = useCallback(() => {
+    const shareData = {
+      title: 'AuraCentra Ghana - Connect • Discover • Grow',
+      text: 'A digital platform where businesses enlist and customers get access to what they need, without stress.',
+      url: window.location.origin,
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareData.url);
+      showToast('Platform Link Copied!', 'AuraCentra link copied to clipboard. Share with friends and entrepreneurs!', 'success');
+    }
+  }, [showToast]);
+
   const handleOpenQuote = useCallback((business: Business) => {
     setQuoteBusiness(business);
   }, []);
@@ -377,6 +419,55 @@ export default function App() {
   const handleDeleteInquiry = useCallback((id: string) => {
     setInquiries((prev) => prev.filter((inq) => inq.id !== id));
     showToast('Inquiry Removed', 'The quote record has been deleted.', 'info');
+  }, [showToast]);
+
+  const handleReportBusiness = useCallback((reportData: {
+    businessId: string;
+    businessName: string;
+    reporterName?: string;
+    reporterEmail?: string;
+    reporterPhone?: string;
+    reason: any;
+    reasonLabel: string;
+    details: string;
+  }) => {
+    const newReport: BusinessReport = {
+      id: `rep-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      ...reportData,
+      reportedAt: new Date().toISOString(),
+      status: 'pending',
+    };
+    setReports((prev) => [newReport, ...prev]);
+    showToast(
+      'Report Submitted Successfully',
+      `Your report for ${reportData.businessName} has been logged and queued for admin review.`,
+      'success'
+    );
+  }, [showToast]);
+
+  const handleUpdateReportStatus = useCallback((
+    reportId: string, 
+    status: BusinessReport['status'], 
+    adminNotes?: string
+  ) => {
+    setReports((prev) =>
+      prev.map((r) =>
+        r.id === reportId
+          ? {
+              ...r,
+              status,
+              adminNotes: adminNotes !== undefined ? adminNotes : r.adminNotes,
+              resolvedAt: new Date().toISOString(),
+            }
+          : r
+      )
+    );
+    showToast('Report Updated', `Report flagged status marked as ${status.replace('_', ' ')}.`, 'info');
+  }, [showToast]);
+
+  const handleDeleteReport = useCallback((reportId: string) => {
+    setReports((prev) => prev.filter((r) => r.id !== reportId));
+    showToast('Report Deleted', 'The report record has been removed.', 'info');
   }, [showToast]);
 
   // Compute filtered & sorted businesses
@@ -461,6 +552,7 @@ export default function App() {
           currentUser={currentUser}
           businesses={businesses}
           categories={categories}
+          reports={reports}
           showExecutiveSection={showExecutiveSection}
           onToggleExecutiveSection={handleToggleExecutiveSection}
           onUpdateBusiness={handleUpdateBusiness}
@@ -470,6 +562,8 @@ export default function App() {
           onRejectVerification={handleRejectVerification}
           onAddCategory={handleAddCategory}
           onDeleteCategory={handleDeleteCategory}
+          onUpdateReportStatus={handleUpdateReportStatus}
+          onDeleteReport={handleDeleteReport}
           onSignOut={handleSignOut}
           onBackToPortal={() => setCurrentView('portal')}
         />
@@ -478,7 +572,10 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 ${theme === 'dark' ? 'dark' : ''}`} id="auracentra-app-root">
+    <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-x-hidden ${theme === 'dark' ? 'dark' : ''}`} id="auracentra-app-root">
+      {/* 0. Subtle Exploration Progress Bar at the Very Top of Screen */}
+      <ScrollProgressBar />
+
       {/* 1. Global Navigation Bar */}
       <Navbar
         currentUser={currentUser}
@@ -494,6 +591,7 @@ export default function App() {
         onOpenInquiriesModal={() => setIsInquiriesModalOpen(true)}
         onOpenAdminDashboard={() => setCurrentView('admin')}
         onSignOut={handleSignOut}
+        onSharePlatform={handleSharePlatform}
       />
 
       {/* 2. Hero & Focused Search Component */}
@@ -509,7 +607,14 @@ export default function App() {
         onSelectBusiness={(b) => setSelectedBusiness(b)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-28 sm:pb-12 space-y-6 sm:space-y-12">
+        {/* Promotional & Urgent Announcements Ribbon */}
+        <PromotionalBanner
+          onOpenRegister={() => setIsRegisterModalOpen(true)}
+          onSelectCategory={(categoryId) => handleFilterChange({ category: categoryId })}
+          onShowToast={showToast}
+        />
+
         {/* 3. Executive Featured Spotlight Section (if any featured businesses exist) */}
         {showExecutiveSection && executiveBusinesses.length > 0 && (
           <section className="space-y-4" id="executive-spotlight-section">
@@ -525,24 +630,44 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {executiveBusinesses.slice(0, 3).map((biz) => (
-                <BusinessCard
-                  key={biz.id}
-                  business={biz}
-                  isSaved={savedBusinessIds.includes(biz.id)}
-                  isCompared={comparedBusinessIds.includes(biz.id)}
-                  onToggleSave={handleToggleSave}
-                  onToggleCompare={handleToggleCompare}
-                  onSelect={(b) => setSelectedBusiness(b)}
-                  onOpenQuote={handleOpenQuote}
-                  onOpenQR={handleOpenQR}
-                  onQuickContactWhatsApp={(b) => {
-                    window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
-                  }}
-                />
-              ))}
-            </div>
+            <motion.div 
+              layout 
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <AnimatePresence mode="popLayout">
+                {executiveBusinesses.slice(0, 3).map((biz) => (
+                  <motion.div
+                    key={biz.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    transition={{
+                      layout: { type: "spring", stiffness: 350, damping: 30 },
+                      opacity: { duration: 0.25 },
+                      scale: { duration: 0.25 }
+                    }}
+                    className="flex flex-col h-full"
+                  >
+                    <BusinessCard
+                      business={biz}
+                      isSaved={savedBusinessIds.includes(biz.id)}
+                      isCompared={comparedBusinessIds.includes(biz.id)}
+                      onToggleSave={handleToggleSave}
+                      onToggleCompare={handleToggleCompare}
+                      onSelect={(b) => setSelectedBusiness(b)}
+                      onOpenQuote={handleOpenQuote}
+                      onOpenQR={handleOpenQR}
+                      onShare={handleShareBusiness}
+                      onQuickContactWhatsApp={(b) => {
+                        window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
+                      }}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           </section>
         )}
 
@@ -597,29 +722,31 @@ export default function App() {
         {/* 5. Main Directory Listings Grid & Controls */}
         <section className="space-y-6 pt-4" id="main-directory-section">
           {/* Controls Bar: Sort, Price, Rating, Count */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900 dark:text-white">
-                {filteredBusinesses.length} {filteredBusinesses.length === 1 ? 'Business Found' : 'Businesses Found'}
+          <div className="flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
+                {filteredBusinesses.length} {filteredBusinesses.length === 1 ? 'Business Listed' : 'Businesses Listed'}
               </span>
               {filters.category && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold">
-                  Category: {categories.find((c) => c.id === filters.category)?.name || filters.category}
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold truncate max-w-[200px]">
+                  {categories.find((c) => c.id === filters.category)?.name || filters.category}
                 </span>
               )}
             </div>
 
             {/* Sort & Quick Filter Dropdowns */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <div className="flex items-center gap-1.5 text-slate-500">
+            <div className="grid grid-cols-1 xs:grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 text-xs">
+              <div className="hidden sm:flex items-center gap-1.5 text-slate-500 font-medium shrink-0">
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Sort by:</span>
+                <span>Sort & Filter:</span>
               </div>
 
+              {/* Sort selector */}
               <select
                 value={filters.sortBy}
                 onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-semibold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                aria-label="Sort businesses"
               >
                 <option value="featured">Featured & Verified First</option>
                 <option value="rating">Highest Rated (★ 5.0)</option>
@@ -631,7 +758,8 @@ export default function App() {
               <select
                 value={filters.minRating}
                 onChange={(e) => handleFilterChange({ minRating: Number(e.target.value) })}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-semibold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                aria-label="Filter by rating"
               >
                 <option value={0}>All Ratings</option>
                 <option value={4.5}>★ 4.5+ Stars</option>
@@ -642,36 +770,57 @@ export default function App() {
               <select
                 value={filters.priceLevel}
                 onChange={(e) => handleFilterChange({ priceLevel: e.target.value })}
-                className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-semibold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                aria-label="Filter by price"
               >
                 <option value="">All Prices</option>
-                <option value="$">$ (Budget Friendly)</option>
+                <option value="$">$ (Budget)</option>
                 <option value="$$">$$ (Moderate)</option>
-                <option value="$$$">$$$ (Premium / Luxury)</option>
+                <option value="$$$">$$$ (Premium)</option>
               </select>
             </div>
           </div>
 
-          {/* Business Cards Grid or Clean Empty State */}
+          {/* Business Cards Grid with Framer Motion Layout Animation */}
           {filteredBusinesses.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredBusinesses.map((biz) => (
-                <BusinessCard
-                  key={biz.id}
-                  business={biz}
-                  isSaved={savedBusinessIds.includes(biz.id)}
-                  isCompared={comparedBusinessIds.includes(biz.id)}
-                  onToggleSave={handleToggleSave}
-                  onToggleCompare={handleToggleCompare}
-                  onSelect={(b) => setSelectedBusiness(b)}
-                  onOpenQuote={handleOpenQuote}
-                  onOpenQR={handleOpenQR}
-                  onQuickContactWhatsApp={(b) => {
-                    window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
-                  }}
-                />
-              ))}
-            </div>
+            <motion.div 
+              layout 
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <AnimatePresence mode="popLayout">
+                {filteredBusinesses.map((biz) => (
+                  <motion.div
+                    key={biz.id}
+                    layout
+                    initial={{ opacity: 0, scale: 0.94, y: 15 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    transition={{
+                      layout: { type: "spring", stiffness: 350, damping: 30 },
+                      opacity: { duration: 0.25 },
+                      scale: { duration: 0.25 }
+                    }}
+                    className="flex flex-col h-full"
+                  >
+                    <BusinessCard
+                      business={biz}
+                      isSaved={savedBusinessIds.includes(biz.id)}
+                      isCompared={comparedBusinessIds.includes(biz.id)}
+                      onToggleSave={handleToggleSave}
+                      onToggleCompare={handleToggleCompare}
+                      onSelect={(b) => setSelectedBusiness(b)}
+                      onOpenQuote={handleOpenQuote}
+                      onOpenQR={handleOpenQR}
+                      onShare={handleShareBusiness}
+                      onQuickContactWhatsApp={(b) => {
+                        window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
+                      }}
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
           ) : businesses.length === 0 ? (
             /* Clean Empty State when No Demo Businesses Exist */
             <div className="p-8 sm:p-12 text-center rounded-3xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 shadow-sm space-y-4 max-w-2xl mx-auto">
@@ -737,6 +886,7 @@ export default function App() {
         onOpenQuote={handleOpenQuote}
         onOpenQR={handleOpenQR}
         onOpenCertificate={handleOpenCert}
+        onReportBusiness={handleReportBusiness}
       />
 
       <QuoteInquiryModal
@@ -824,6 +974,33 @@ export default function App() {
           window.scrollTo({ top: 400, behavior: 'smooth' });
         }}
         onOpenRegister={() => setIsRegisterModalOpen(true)}
+      />
+
+      {/* 10. Smartphone Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentUser={currentUser}
+        savedCount={savedBusinessIds.length}
+        inquiriesCount={inquiries.filter((i) => i.status === 'new').length}
+        comparedCount={comparedBusinessIds.length}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onScrollToTop={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onScrollToCategories={() => {
+          const el = document.getElementById('browse-categories-section');
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onScrollToDirectory={() => {
+          const el = document.getElementById('main-directory-section');
+          el?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenRegister={() => setIsRegisterModalOpen(true)}
+        onOpenSaved={() => setIsSavedModalOpen(true)}
+        onOpenInquiries={() => setIsInquiriesModalOpen(true)}
+        onOpenCompare={() => setIsCompareModalOpen(true)}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onSignOut={handleSignOut}
+        onOpenAdminDashboard={() => setCurrentView('admin')}
+        onSharePlatform={handleSharePlatform}
       />
     </div>
   );

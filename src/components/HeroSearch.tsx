@@ -89,12 +89,12 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
   };
 
   return (
-    <div className="relative w-full bg-gradient-to-b from-blue-50/90 via-white to-blue-50/30 dark:from-slate-900 dark:via-slate-950 dark:to-slate-950 border-b border-blue-100/80 dark:border-blue-950 py-10 sm:py-14 px-3 sm:px-6 lg:px-8">
+    <div className="relative w-full bg-gradient-to-b from-blue-50/90 via-white to-blue-50/30 dark:from-slate-900 dark:via-slate-950 dark:to-slate-950 border-b border-blue-100/80 dark:border-blue-950 py-6 sm:py-12 px-3 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         {/* Main Headline */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 dark:bg-blue-950/80 text-blue-800 dark:text-cyan-300 text-xs font-bold mb-3 border border-blue-200/80 dark:border-blue-800/80 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400" />
+        <div className="text-center mb-4 sm:mb-7">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full bg-blue-100/80 dark:bg-blue-950/80 text-blue-800 dark:text-cyan-300 text-[11px] sm:text-xs font-bold mb-2.5 sm:mb-3 border border-blue-200/80 dark:border-blue-800/80 shadow-xs">
+            <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-600 dark:text-cyan-400" />
             <span>Official Ghana Business Discovery Platform</span>
           </div>
           
@@ -114,20 +114,20 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
         <div ref={searchContainerRef} className="relative z-30 max-w-3xl mx-auto">
           <form
             onSubmit={handleSearchSubmit}
-            className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-full shadow-lg shadow-blue-600/5 hover:shadow-xl hover:shadow-blue-600/10 border border-blue-200 dark:border-blue-900/60 p-2 sm:p-2.5 transition-all focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500"
+            className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-full shadow-lg shadow-blue-600/5 hover:shadow-xl hover:shadow-blue-600/10 border border-blue-200 dark:border-blue-900/60 p-1.5 sm:p-2.5 transition-all focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-500"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Keyword Search Input */}
-              <div className="flex-1 flex items-center gap-2.5 px-3 py-1.5 sm:py-2">
-                <Search className="w-5 h-5 text-blue-600 dark:text-cyan-400 shrink-0" />
+              <div className="flex-1 flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-2 min-w-0">
+                <Search className="w-4 sm:w-5 h-4 sm:h-5 text-blue-600 dark:text-cyan-400 shrink-0" />
                 <input
                   type="text"
                   id="main-search-input"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onFocus={() => setIsFocused(true)}
-                  placeholder="Search businesses, services, products, or locations..."
-                  className="w-full bg-transparent text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-sm sm:text-base font-medium focus:outline-none"
+                  placeholder="Search businesses, services, or locations..."
+                  className="w-full bg-transparent text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-xs sm:text-base font-medium focus:outline-none min-w-0"
                   autoComplete="off"
                 />
                 {inputValue && (
@@ -137,10 +137,10 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                       setInputValue('');
                       onFilterChange({ searchQuery: '' });
                     }}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+                    className="p-1 sm:p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full shrink-0"
                     title="Clear search"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
                   </button>
                 )}
               </div>
@@ -149,13 +149,53 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               <button
                 type="submit"
                 id="hero-search-submit-btn"
-                className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold px-5 sm:px-7 py-3 rounded-xl sm:rounded-full shadow-md shadow-blue-600/25 transition-all shrink-0 cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold px-3.5 sm:px-7 py-2.5 sm:py-3 rounded-xl sm:rounded-full shadow-md shadow-blue-600/25 transition-all shrink-0 cursor-pointer"
               >
                 <span>Search</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-3.5 sm:w-4 h-3.5 sm:h-4 hidden xs:inline" />
               </button>
             </div>
           </form>
+
+          {/* Quick Popular Tap Filters for Mobile */}
+          <div className="mt-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 px-0.5 text-[11px] sm:text-xs">
+            <span className="text-slate-400 dark:text-slate-500 font-bold shrink-0 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3 text-blue-600 dark:text-cyan-400" />
+              <span className="hidden sm:inline">Popular:</span>
+            </span>
+            {['Accra', 'Kumasi', 'Technology', 'Healthcare', 'Restaurants', 'Verified Only'].map((tag) => {
+              const isVerifiedTag = tag === 'Verified Only';
+              const isSelected = isVerifiedTag ? filters.verificationOnly : (filters.city === tag || filters.searchQuery === tag);
+
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => {
+                    if (isVerifiedTag) {
+                      onFilterChange({ verificationOnly: !filters.verificationOnly });
+                    } else if (tag === 'Accra' || tag === 'Kumasi') {
+                      onFilterChange({ city: filters.city === tag ? '' : tag });
+                    } else {
+                      const matchedCat = categories.find((c) => c.name.toLowerCase().includes(tag.toLowerCase()));
+                      if (matchedCat) {
+                        onFilterChange({ category: filters.category === matchedCat.id ? '' : matchedCat.id });
+                      } else {
+                        onFilterChange({ searchQuery: tag });
+                      }
+                    }
+                  }}
+                  className={`shrink-0 px-2.5 py-1 rounded-full font-bold transition-all border cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80 hover:border-blue-400 hover:text-blue-600'
+                  }`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Autocomplete & Search History Dropdown */}
           {isFocused && (matchedBusinesses.length > 0 || matchedCategories.length > 0 || searchHistory.length > 0) && (

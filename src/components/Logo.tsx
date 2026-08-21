@@ -1,98 +1,141 @@
 import React from 'react';
+import { AuraCentraLogoSVG } from './AuraCentraLogo';
 
 interface LogoProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  variant?: 'full' | 'icon' | 'stacked' | 'horizontal';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  variant?: 'full' | 'icon' | 'stacked' | 'horizontal' | 'badge';
   className?: string;
   showTagline?: boolean;
   showSubtitle?: boolean;
   lightBackground?: boolean;
+  showRuleLines?: boolean;
 }
 
 export const Logo: React.FC<LogoProps> = ({
   size = 'md',
   variant = 'full',
   className = '',
-  showTagline = false,
+  showTagline = true,
   showSubtitle = false,
+  showRuleLines = true,
 }) => {
-  const iconDimensions = {
-    sm: 'w-7 h-7 sm:w-8 sm:h-8',
-    md: 'w-8 h-8 sm:w-10 sm:h-10',
-    lg: 'w-12 h-12 sm:w-14 sm:h-14',
-    xl: 'w-16 h-16 sm:w-20 sm:h-20',
+  const pixelSizes = {
+    xs: 26,
+    sm: 34,
+    md: 44,
+    lg: 58,
+    xl: 74,
+    '2xl': 98,
   };
 
   const titleSizes = {
-    sm: 'text-sm sm:text-base font-extrabold',
-    md: 'text-base sm:text-xl font-black tracking-tight',
-    lg: 'text-xl sm:text-2xl font-black tracking-tight',
-    xl: 'text-2xl sm:text-4xl font-black tracking-tight',
+    xs: 'text-sm font-black',
+    sm: 'text-base font-black tracking-tight',
+    md: 'text-lg sm:text-xl font-black tracking-tight',
+    lg: 'text-2xl sm:text-3xl font-black tracking-tight',
+    xl: 'text-3xl sm:text-4xl font-black tracking-tight',
+    '2xl': 'text-4xl sm:text-5xl font-black tracking-tight',
   };
 
   const taglineSizes = {
-    sm: 'text-[7px] sm:text-[9px]',
-    md: 'text-[7.5px] sm:text-[10px]',
-    lg: 'text-[10px] sm:text-xs',
-    xl: 'text-xs sm:text-sm',
+    xs: 'text-[7px]',
+    sm: 'text-[8px] tracking-[0.2em]',
+    md: 'text-[9px] sm:text-[10px] tracking-[0.24em]',
+    lg: 'text-[11px] sm:text-xs tracking-[0.26em]',
+    xl: 'text-xs sm:text-sm tracking-[0.28em]',
+    '2xl': 'text-sm sm:text-base tracking-[0.3em]',
   };
 
-  return (
-    <div className={`inline-flex items-center gap-3 select-none ${className}`} id="auracentra-brand-logo">
-      {/* Official AuraCentra AC Monogram Emblem */}
-      <div className={`relative ${iconDimensions[size]} shrink-0 rounded-2xl overflow-hidden shadow-md shadow-blue-600/20 bg-white border border-blue-100 dark:border-blue-900 flex items-center justify-center p-0.5 group transition-transform hover:scale-105`}>
-        <img
-          src="/auracentra-logo.png"
-          alt="AuraCentra Logo"
-          className="w-full h-full object-contain"
-          referrerPolicy="no-referrer"
-          onError={(e) => {
-            // Fallback SVG icon if image fails
-            const target = e.currentTarget;
-            target.style.display = 'none';
-            if (target.nextElementSibling) {
-              (target.nextElementSibling as HTMLElement).style.display = 'flex';
-            }
-          }}
-        />
-        
-        {/* Vector Fallback */}
-        <div className="hidden w-full h-full bg-gradient-to-br from-blue-600 via-blue-700 to-cyan-500 rounded-xl items-center justify-center text-white font-black text-xl tracking-tighter">
-          AC
+  if (variant === 'icon') {
+    return (
+      <div 
+        className={`inline-flex items-center justify-center relative p-1 rounded-2xl bg-white dark:bg-slate-900 border border-blue-100/90 dark:border-blue-900/60 shadow-sm transition-transform hover:scale-105 ${className}`}
+        id="auracentra-icon-logo"
+      >
+        <AuraCentraLogoSVG size={pixelSizes[size]} />
+      </div>
+    );
+  }
+
+  if (variant === 'stacked') {
+    return (
+      <div className={`flex flex-col items-center text-center select-none ${className}`} id="auracentra-brand-stacked">
+        {/* Monogram */}
+        <div className="relative p-2 rounded-3xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/70 shadow-md mb-2 flex items-center justify-center">
+          <AuraCentraLogoSVG size={pixelSizes[size] * 1.3} />
         </div>
+
+        {/* Title */}
+        <div className="flex items-center leading-none">
+          <span className={`${titleSizes[size]} text-[#0A1C44] dark:text-white`}>Aura</span>
+          <span className={`${titleSizes[size]} text-[#0088FF] dark:text-[#38BDF8]`}>Centra</span>
+        </div>
+
+        {/* Tagline */}
+        {(showTagline || showSubtitle) && (
+          <div className="flex items-center justify-center gap-2 w-full mt-1.5">
+            {showRuleLines && <div className="h-[1px] flex-1 max-w-[28px] bg-gradient-to-r from-transparent to-[#0088FF]" />}
+            <div className={`flex items-center gap-1.5 font-black ${taglineSizes[size]} text-[#0A1C44] dark:text-cyan-300 uppercase`}>
+              <span>CONNECT</span>
+              <span className="text-[#0088FF]">•</span>
+              <span>DISCOVER</span>
+              <span className="text-[#0088FF]">•</span>
+              <span>GROW</span>
+            </div>
+            {showRuleLines && <div className="h-[1px] flex-1 max-w-[28px] bg-gradient-to-l from-transparent to-[#0088FF]" />}
+          </div>
+        )}
+
+        {/* Subtitle Value Proposition */}
+        {showSubtitle && (
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 max-w-sm">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+              A digital platform where businesses enlist and customers get access to what they need,{' '}
+              <strong className="text-[#0088FF] dark:text-[#38BDF8] font-black">without stress.</strong>
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Default: Horizontal / Full Variant
+  return (
+    <div className={`inline-flex items-center gap-2.5 sm:gap-3.5 select-none ${className}`} id="auracentra-brand-logo">
+      {/* Official AuraCentra AC Monogram */}
+      <div className="relative shrink-0 p-1 sm:p-1.5 rounded-2xl bg-white dark:bg-slate-900 border border-blue-100/90 dark:border-blue-900/60 shadow-sm shadow-blue-600/10 flex items-center justify-center transition-transform hover:scale-105">
+        <AuraCentraLogoSVG size={pixelSizes[size]} />
       </div>
 
-      {variant !== 'icon' && (
-        <div className={`flex flex-col ${variant === 'stacked' ? 'items-center text-center' : ''}`}>
-          <div className="flex items-center gap-1.5 leading-none">
-            <span className={`${titleSizes[size]} bg-gradient-to-r from-blue-900 via-blue-700 to-blue-600 dark:from-white dark:via-blue-200 dark:to-cyan-400 bg-clip-text text-transparent`}>
-              AuraCentra
-            </span>
-          </div>
-
-          {/* Subline Tagline */}
-          <div className={`flex items-center gap-1.5 font-bold tracking-[0.2em] text-blue-600 dark:text-cyan-400 ${taglineSizes[size]} uppercase mt-0.5`}>
-            <span>CONNECT</span>
-            <span className="text-blue-400">•</span>
-            <span>DISCOVER</span>
-            <span className="text-blue-400">•</span>
-            <span>GROW</span>
-          </div>
-
-          {showSubtitle && (
-            <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-sm leading-snug">
-              A digital platform where businesses enlist and customers get access to what they need, <strong className="text-blue-600 dark:text-cyan-400">without stress</strong>.
-            </p>
-          )}
-
-          {showTagline && !showSubtitle && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Find Businesses. Discover Opportunities. Grow Together.
-            </p>
-          )}
+      {/* Brand Text Content */}
+      <div className="flex flex-col justify-center">
+        <div className="flex items-center leading-none">
+          <span className={`${titleSizes[size]} text-[#0A1C44] dark:text-white`}>Aura</span>
+          <span className={`${titleSizes[size]} text-[#0088FF] dark:text-[#38BDF8]`}>Centra</span>
         </div>
-      )}
+
+        {/* Subline Tagline */}
+        {showTagline && (
+          <div className="flex items-center gap-1.5 mt-0.5 sm:mt-1">
+            {showRuleLines && <div className="hidden sm:block w-3 h-[1px] bg-gradient-to-r from-transparent to-[#0088FF]" />}
+            <div className={`flex items-center gap-1 font-black ${taglineSizes[size]} text-[#0A1C44] dark:text-cyan-300 uppercase whitespace-nowrap`}>
+              <span>CONNECT</span>
+              <span className="text-[#0088FF]">•</span>
+              <span>DISCOVER</span>
+              <span className="text-[#0088FF]">•</span>
+              <span>GROW</span>
+            </div>
+            {showRuleLines && <div className="hidden sm:block w-3 h-[1px] bg-gradient-to-l from-transparent to-[#0088FF]" />}
+          </div>
+        )}
+
+        {showSubtitle && (
+          <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-sm leading-snug">
+            A digital platform where businesses enlist and customers get access to what they need,{' '}
+            <strong className="text-[#0088FF] dark:text-[#38BDF8] font-black">without stress.</strong>
+          </p>
+        )}
+      </div>
     </div>
   );
 };
-

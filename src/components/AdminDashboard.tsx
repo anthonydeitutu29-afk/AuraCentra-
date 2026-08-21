@@ -26,9 +26,13 @@ import {
   ExternalLink,
   Upload,
   AlertTriangle,
-  Clock
+  Clock,
+  Flag,
+  ShieldAlert,
+  AlertCircle,
+  Info
 } from 'lucide-react';
-import { Business, Category, UserProfile, VerificationDocument, DocumentType } from '../types';
+import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport } from '../types';
 import { Logo } from './Logo';
 import confetti from 'canvas-confetti';
 
@@ -36,6 +40,7 @@ interface AdminDashboardProps {
   currentUser: UserProfile;
   businesses: Business[];
   categories: Category[];
+  reports?: BusinessReport[];
   showExecutiveSection: boolean;
   onToggleExecutiveSection: (visible: boolean) => void;
   onUpdateBusiness: (business: Business) => void;
@@ -45,6 +50,8 @@ interface AdminDashboardProps {
   onRejectVerification: (businessId: string, reason: string) => void;
   onAddCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
+  onUpdateReportStatus?: (reportId: string, status: BusinessReport['status'], adminNotes?: string) => void;
+  onDeleteReport?: (reportId: string) => void;
   onSignOut: () => void;
   onBackToPortal: () => void;
 }
@@ -53,6 +60,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   currentUser,
   businesses,
   categories,
+  reports = [],
   showExecutiveSection,
   onToggleExecutiveSection,
   onUpdateBusiness,
@@ -62,11 +70,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onRejectVerification,
   onAddCategory,
   onDeleteCategory,
+  onUpdateReportStatus,
+  onDeleteReport,
   onSignOut,
   onBackToPortal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'verification' | 'businesses' | 'categories' | 'settings'>('verification');
+  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
+  const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
   
   // Verification Document Preview Modal State
   const [previewDoc, setPreviewDoc] = useState<{
@@ -86,6 +97,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Stats Calculations
   const verifiedCount = businesses.filter((b) => b.verificationStatus === 'verified').length;
   const pendingCount = businesses.filter((b) => b.verificationStatus === 'pending').length;
+  const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
   const totalViews = businesses.reduce((acc, b) => acc + (b.views || 0), 0);
   const totalLeads = businesses.reduce((acc, b) => acc + (b.leadsCount || 0), 0);
 
@@ -95,6 +107,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       b.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const filteredReports = reports.filter((r) => {
+    if (reportFilterStatus !== 'all' && r.status !== reportFilterStatus) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        r.businessName.toLowerCase().includes(q) ||
+        r.reasonLabel.toLowerCase().includes(q) ||
+        r.details.toLowerCase().includes(q) ||
+        (r.reporterName && r.reporterName.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
 
   const pendingBusinesses = businesses.filter((b) => b.verificationStatus === 'pending');
 
@@ -177,41 +203,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Metric Cards Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
           <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
             <div className="flex items-center justify-between text-slate-400 text-xs">
-              <span>Total Businesses</span>
+              <span>Total Listings</span>
               <Building2 className="w-4 h-4 text-blue-400" />
             </div>
             <div className="text-2xl font-black text-white">{businesses.length}</div>
-            <div className="text-[11px] text-emerald-400 font-medium">Active in database</div>
+            <div className="text-[11px] text-emerald-400 font-medium">Active in directory</div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
             <div className="flex items-center justify-between text-slate-400 text-xs">
-              <span>Pending Verifications</span>
+              <span>Pending ID Review</span>
               <Clock className="w-4 h-4 text-amber-400" />
             </div>
             <div className="text-2xl font-black text-amber-400">{pendingCount}</div>
-            <div className="text-[11px] text-amber-300">Requires Ghana ID review</div>
+            <div className="text-[11px] text-amber-300">Requires review</div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
             <div className="flex items-center justify-between text-slate-400 text-xs">
-              <span>Verified Enterprises</span>
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Flagged Reports</span>
+              <Flag className="w-4 h-4 text-rose-400" />
             </div>
-            <div className="text-2xl font-black text-emerald-400">{verifiedCount}</div>
-            <div className="text-[11px] text-slate-400">Gold & Standard badges</div>
+            <div className="text-2xl font-black text-rose-400">{pendingReportsCount}</div>
+            <div className="text-[11px] text-rose-300">Requires moderation</div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+            <div className="flex items-center justify-between text-slate-400 text-xs">
+              <span>Verified Badges</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-black text-emerald-400">{verifiedCount}</div>
+            <div className="text-[11px] text-slate-400">Gold & Standard</div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1 col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between text-slate-400 text-xs">
               <span>Customer Inquiries</span>
               <Activity className="w-4 h-4 text-sky-400" />
             </div>
             <div className="text-2xl font-black text-sky-400">{totalLeads}</div>
-            <div className="text-[11px] text-slate-400">WhatsApp & Phone leads</div>
+            <div className="text-[11px] text-slate-400">Direct leads</div>
           </div>
         </div>
 
@@ -231,6 +266,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {pendingCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-black">
                 {pendingCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('reports')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'reports'
+                ? 'bg-rose-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Flag className="w-4 h-4 text-rose-400" />
+            <span>Business Reports & Flags</span>
+            {pendingReportsCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                {pendingReportsCount}
               </span>
             )}
           </button>
@@ -386,6 +439,176 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <XCircle className="w-3.5 h-3.5" />
                           <span>Reject Submission</span>
                         </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: Business Reports & Trust Moderation */}
+        {activeTab === 'reports' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Flag className="w-4 h-4 text-rose-400" />
+                  <span>Flagged Business Reports & Content Moderation</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Review reported violations, fake verification claims, fraudulent activity, or inaccurate directory details.
+                </p>
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-xl border border-slate-700 overflow-x-auto">
+                {(['all', 'pending', 'reviewed', 'action_taken', 'dismissed'] as const).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setReportFilterStatus(status)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all whitespace-nowrap ${
+                      reportFilterStatus === status
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {status.replace('_', ' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filteredReports.length === 0 ? (
+              <div className="p-10 rounded-2xl bg-slate-800/40 border border-slate-800 text-center text-slate-400 text-xs space-y-2">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                <div className="font-bold text-white">No Reports Matching Filter</div>
+                <p className="text-slate-400 max-w-sm mx-auto">
+                  There are currently no flagged businesses under this status.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredReports.map((report) => {
+                  const targetBiz = businesses.find((b) => b.id === report.businessId);
+
+                  return (
+                    <div
+                      key={report.id}
+                      className="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-4 flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-rose-950/80 border border-rose-800/60 text-rose-400 flex items-center justify-center shrink-0">
+                              <Flag className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                <span>{report.businessName}</span>
+                                {targetBiz?.verificationStatus === 'verified' && (
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                )}
+                              </h4>
+                              <p className="text-xs text-rose-300 font-semibold">{report.reasonLabel}</p>
+                            </div>
+                          </div>
+
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                              report.status === 'pending'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                                : report.status === 'action_taken'
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                                : report.status === 'reviewed'
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                                : 'bg-slate-700 text-slate-300 border border-slate-600'
+                            }`}
+                          >
+                            {report.status.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        {/* Report description box */}
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700/60 space-y-2 text-xs">
+                          <div className="text-slate-300 leading-relaxed font-sans">
+                            "{report.details}"
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                            <div>
+                              <span className="text-slate-500">Reported By:</span>{' '}
+                              <span className="text-slate-300 font-semibold">{report.reporterName || 'Anonymous Community Member'}</span>
+                              {report.reporterEmail && ` (${report.reporterEmail})`}
+                              {report.reporterPhone && ` • ${report.reporterPhone}`}
+                            </div>
+                            <div>{new Date(report.reportedAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Moderation Actions */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-700/60">
+                        <div className="flex items-center gap-1.5">
+                          {targetBiz && (
+                            <button
+                              type="button"
+                              onClick={() => setEditingBusiness(targetBiz)}
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3 text-blue-400" />
+                              <span>Inspect / Edit Listing</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {report.status !== 'action_taken' && onUpdateReportStatus && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateReportStatus(report.id, 'action_taken')}
+                              className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer"
+                              title="Mark as Action Taken"
+                            >
+                              Action Taken
+                            </button>
+                          )}
+
+                          {report.status !== 'reviewed' && onUpdateReportStatus && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateReportStatus(report.id, 'reviewed')}
+                              className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer"
+                              title="Mark as Reviewed"
+                            >
+                              Reviewed
+                            </button>
+                          )}
+
+                          {report.status !== 'dismissed' && onUpdateReportStatus && (
+                            <button
+                              type="button"
+                              onClick={() => onUpdateReportStatus(report.id, 'dismissed')}
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold cursor-pointer"
+                              title="Dismiss Report"
+                            >
+                              Dismiss
+                            </button>
+                          )}
+
+                          {onDeleteReport && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteReport(report.id)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 border border-slate-700 cursor-pointer"
+                              title="Delete Report Record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

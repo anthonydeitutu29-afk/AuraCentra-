@@ -1,4 +1,4 @@
-import { Business, Category, BusinessReview, UserProfile, BusinessInquiry } from '../types';
+import { Business, Category, BusinessReview, UserProfile, BusinessInquiry, BusinessReport } from '../types';
 import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
 
 const STORAGE_KEYS = {
@@ -11,6 +11,8 @@ const STORAGE_KEYS = {
   THEME: 'auracentra_theme_live_v2',
   SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_live_v2',
   INQUIRIES: 'auracentra_inquiries_live_v2',
+  PROMOTIONS: 'auracentra_promotions_live_v2',
+  REPORTS: 'auracentra_reports_live_v2',
 };
 
 // Initial state getters and setters
@@ -183,5 +185,59 @@ export function saveInquiries(inquiries: BusinessInquiry[]): void {
     localStorage.setItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
   } catch (e) {
     console.error('Failed to save inquiries to storage', e);
+  }
+}
+
+export function getStoredPromotions(): any[] | null {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PROMOTIONS);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load promotions from storage', e);
+  }
+  return null;
+}
+
+export function savePromotions(promotions: any[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(promotions));
+  } catch (e) {
+    console.error('Failed to save promotions to storage', e);
+  }
+}
+
+export function getStoredReports(): BusinessReport[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.REPORTS);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load reports from storage', e);
+  }
+  return [
+    {
+      id: 'rep-101',
+      businessId: 'biz-3',
+      businessName: 'Osu Cyber & Software Solutions',
+      reporterName: 'Kofi Mensah',
+      reporterEmail: 'kofi.m@gmail.com',
+      reporterPhone: '+233 24 111 2233',
+      reason: 'incorrect_information',
+      reasonLabel: 'Incorrect Contact / Location Details',
+      details: 'The stated office suite number on 4th Oxford St was relocated to 8th Lane last month.',
+      reportedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      status: 'pending',
+    },
+  ];
+}
+
+export function saveReports(reports: BusinessReport[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
+  } catch (e) {
+    console.error('Failed to save reports to storage', e);
   }
 }

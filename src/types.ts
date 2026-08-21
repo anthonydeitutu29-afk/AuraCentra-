@@ -160,3 +160,43 @@ export interface ToastNotification {
   message?: string;
   duration?: number;
 }
+
+export interface PromotionalAnnouncement {
+  id: string;
+  type: 'urgent' | 'offer' | 'event' | 'alert';
+  badge: string;
+  title: string;
+  subtitle: string;
+  highlightText?: string;
+  promoCode?: string;
+  countdownTarget?: string;
+  ctaText: string;
+  ctaAction: 'register' | 'category' | 'verify' | 'quote' | 'explore' | 'link';
+  ctaTarget?: string;
+  isUrgent?: boolean;
+  active: boolean;
+}
+
+export type ReportReason = 
+  | 'inappropriate_content'
+  | 'fake_verification'
+  | 'fraud_or_scam'
+  | 'incorrect_information'
+  | 'closed_or_non_existent'
+  | 'harassment_or_abuse'
+  | 'other';
+
+export interface BusinessReport {
+  id: string;
+  businessId: string;
+  businessName: string;
+  reporterName?: string;
+  reporterEmail?: string;
+  reporterPhone?: string;
+  reason: ReportReason;
+  reasonLabel: string;
+  details: string;
+  reportedAt: string;
+  status: 'pending' | 'reviewed' | 'dismissed' | 'action_taken';
+  adminNotes?: string;
+}
