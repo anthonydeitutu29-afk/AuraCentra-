@@ -13,7 +13,9 @@ import {
   QrCode, 
   FileText,
   Share2,
-  Check
+  Check,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import { Business } from '../types';
 
@@ -21,6 +23,7 @@ interface BusinessCardProps {
   business: Business;
   isSaved: boolean;
   isCompared: boolean;
+  distanceKm?: number;
   onToggleSave: (businessId: string) => void;
   onToggleCompare: (business: Business) => void;
   onSelect: (business: Business) => void;
@@ -28,12 +31,14 @@ interface BusinessCardProps {
   onOpenQuote?: (business: Business) => void;
   onOpenQR?: (business: Business) => void;
   onShare?: (business: Business) => void;
+  onRate?: (business: Business) => void;
 }
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
   business,
   isSaved,
   isCompared,
+  distanceKm,
   onToggleSave,
   onToggleCompare,
   onSelect,
@@ -41,8 +46,14 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
   onOpenQuote,
   onOpenQR,
   onShare,
+  onRate,
 }) => {
   const [justShared, setJustShared] = useState(false);
+
+  // Format distance
+  const formattedDistance = distanceKm !== undefined 
+    ? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m away` : `${distanceKm.toFixed(1)} km away`)
+    : null;
 
   // Check if open now based on today's day
   const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
@@ -87,11 +98,20 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         {/* Ambient Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-black/20 to-black/30 pointer-events-none" />
 
-        {/* Top Badges: Category & Quick Utility Actions */}
+        {/* Top Badges: Category, Distance & Quick Utility Actions */}
         <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
-          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-slate-900/95 text-blue-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-blue-50 dark:border-slate-800">
-            {business.category}
-          </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-slate-900/95 text-blue-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-blue-50 dark:border-slate-800">
+              {business.category}
+            </span>
+
+            {formattedDistance && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-blue-600/95 text-white backdrop-blur-md shadow-md border border-blue-400/40 animate-in fade-in duration-150">
+                <MapPin className="w-3 h-3 text-cyan-300 fill-cyan-300" />
+                <span>{formattedDistance}</span>
+              </span>
+            )}
+          </div>
 
           <div className="flex items-center gap-1.5">
             {/* Share Button */}
@@ -214,11 +234,20 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
           {/* Rating, Reviews & Location */}
           <div className="flex items-center gap-2.5 text-xs mb-2.5">
-            <div className="flex items-center gap-1 text-amber-500 font-bold">
-              <Star className="w-3.5 h-3.5 fill-amber-400" />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onRate) onRate(business);
+                else onSelect(business);
+              }}
+              className="flex items-center gap-1 text-amber-500 font-bold hover:underline cursor-pointer group/rate"
+              title="Rate this business"
+            >
+              <Star className="w-3.5 h-3.5 fill-amber-400 group-hover/rate:scale-110 transition-transform" />
               <span>{business.rating.toFixed(1)}</span>
               <span className="text-slate-400 font-normal">({business.reviewCount})</span>
-            </div>
+            </button>
 
             <span className="text-slate-300 dark:text-slate-700">•</span>
 
@@ -251,51 +280,101 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 sm:gap-2">
-          {/* Primary View Profile Button */}
-          <button
-            type="button"
-            onClick={() => onSelect(business)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2.5 px-3 rounded-xl sm:rounded-full transition-all shadow-xs cursor-pointer min-h-[40px]"
-          >
-            <Eye className="w-3.5 h-3.5" />
-            <span>Profile</span>
-          </button>
+        {/* Action Buttons: One-Tap Contact & Engagement */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          {/* Top Row: Direct One-Tap Contact Channels (Website & Call) */}
+          {(business.website || business.phone) && (
+            <div className="grid grid-cols-2 gap-2">
+              {business.website ? (
+                <a
+                  href={business.website.startsWith('http') ? business.website : `https://${business.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/90 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-300 transition-all text-xs font-bold border border-slate-200/80 dark:border-slate-700/80 shadow-2xs group/web cursor-pointer min-h-[36px]"
+                  title={`Visit ${business.name} Website`}
+                >
+                  <Globe className="w-3.5 h-3.5 text-blue-500 group-hover/web:rotate-12 transition-transform shrink-0" />
+                  <span className="truncate">Website</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-0.5 shrink-0" />
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpenQuote) onOpenQuote(business);
+                    else onSelect(business);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/90 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200/80 dark:border-slate-700/80 min-h-[36px]"
+                >
+                  <FileText className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Inquire</span>
+                </button>
+              )}
 
-          {/* Quick Quote / Inquiry Button */}
-          {onOpenQuote && (
-            <button
-              type="button"
-              onClick={() => onOpenQuote(business)}
-              className="inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl sm:rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60 cursor-pointer min-h-[40px]"
-              title="Request Quote"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Quote</span>
-            </button>
+              {business.phone ? (
+                <a
+                  href={`tel:${business.phone}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-600 hover:text-white text-emerald-800 dark:text-emerald-300 transition-all text-xs font-bold border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs group/call cursor-pointer min-h-[36px]"
+                  title={`Call ${business.name}: ${business.phone}`}
+                >
+                  <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover/call:text-white group-hover/call:scale-110 transition-transform shrink-0" />
+                  <span className="truncate">Call</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(business);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-700 min-h-[36px]"
+                >
+                  <Eye className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Details</span>
+                </button>
+              )}
+            </div>
           )}
 
-          {/* Quick WhatsApp Contact */}
-          <button
-            type="button"
-            onClick={() => onQuickContactWhatsApp(business)}
-            className="inline-flex items-center justify-center p-2.5 rounded-xl sm:rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-emerald-200/80 dark:border-emerald-800/60 cursor-pointer min-h-[40px] min-w-[40px]"
-            title="Chat directly on WhatsApp"
-            aria-label="WhatsApp chat"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
+          {/* Bottom Row: Profile Modal, Quote, and WhatsApp */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Primary View Profile Button */}
+            <button
+              type="button"
+              onClick={() => onSelect(business)}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs cursor-pointer min-h-[38px]"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Full Profile</span>
+            </button>
 
-          {/* Direct Phone Call */}
-          <a
-            href={`tel:${business.phone}`}
-            className="inline-flex items-center justify-center p-2.5 rounded-xl sm:rounded-full bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-all border border-slate-200 dark:border-slate-700 min-h-[40px] min-w-[40px]"
-            title={`Call ${business.phone}`}
-            aria-label="Call business"
-          >
-            <Phone className="w-4 h-4" />
-          </a>
+            {/* Quick Quote / Inquiry Button */}
+            {onOpenQuote && (
+              <button
+                type="button"
+                onClick={() => onOpenQuote(business)}
+                className="inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60 cursor-pointer min-h-[38px]"
+                title="Request Quote"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Quote</span>
+              </button>
+            )}
+
+            {/* Quick WhatsApp Contact */}
+            <button
+              type="button"
+              onClick={() => onQuickContactWhatsApp(business)}
+              className="inline-flex items-center justify-center p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-emerald-200/80 dark:border-emerald-800/60 cursor-pointer min-h-[38px] min-w-[38px]"
+              title="Chat directly on WhatsApp"
+              aria-label="WhatsApp chat"
+            >
+              <MessageSquare className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

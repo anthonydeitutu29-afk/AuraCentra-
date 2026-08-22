@@ -200,3 +200,65 @@ export interface BusinessReport {
   status: 'pending' | 'reviewed' | 'dismissed' | 'action_taken';
   adminNotes?: string;
 }
+
+export interface CategorySuggestion {
+  id: string;
+  categoryName: string;
+  suggestedBy: string;
+  userEmail?: string;
+  userPhone?: string;
+  industry?: string;
+  description: string;
+  exampleBusinesses?: string;
+  createdAt: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
+}
+
+export interface PlatformFeedback {
+  id: string;
+  type: 'general' | 'category_suggestion' | 'feature_request' | 'business_review' | 'bug_report';
+  name: string;
+  email?: string;
+  rating?: number;
+  subject: string;
+  message: string;
+  targetBusinessId?: string;
+  targetBusinessName?: string;
+  createdAt: string;
+  status: 'new' | 'reviewed' | 'resolved';
+  adminReply?: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  coverImage: string;
+  category: string;
+  author: {
+    name: string;
+    role: string;
+    avatar: string;
+  };
+  readTime: string;
+  publishedAt: string;
+  tags: string[];
+  views: number;
+  likes: number;
+}
+
+export interface PopularityTrendData {
+  day: string;
+  date: string;
+  technology: number;
+  digitalMarketing: number;
+  hospitality: number;
+  healthcare: number;
+  fashion: number;
+  realEstate: number;
+  agriTech: number;
+}
+

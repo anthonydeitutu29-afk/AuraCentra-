@@ -24,7 +24,10 @@ import {
   FilterState,
   BusinessInquiry,
   ToastNotification,
-  BusinessReport
+  BusinessReport,
+  CategorySuggestion,
+  PlatformFeedback,
+  BlogPost
 } from './types';
 import { 
   getStoredBusinesses, 
@@ -44,7 +47,13 @@ import {
   getStoredInquiries,
   saveInquiries,
   getStoredReports,
-  saveReports
+  saveReports,
+  getStoredCategorySuggestions,
+  saveCategorySuggestions,
+  getStoredFeedback,
+  saveFeedback,
+  getStoredBlogPosts,
+  saveBlogPosts
 } from './utils/storage';
 
 // Subcomponents
@@ -68,6 +77,11 @@ import { InquiriesManagerModal } from './components/InquiriesManagerModal';
 import { PromotionalBanner } from './components/PromotionalBanner';
 import { ScrollProgressBar } from './components/ScrollProgressBar';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { PopularityTrendsChart } from './components/PopularityTrendsChart';
+import { SuggestCategoryModal } from './components/SuggestCategoryModal';
+import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
+import { BlogSection } from './components/BlogSection';
+import { BlogArticleModal } from './components/BlogArticleModal';
 
 export default function App() {
   // Theme state
@@ -115,6 +129,16 @@ export default function App() {
   // View state: 'portal' or 'admin'
   const [currentView, setCurrentView] = useState<'portal' | 'admin'>('portal');
 
+  // Suggestions, Feedback & Blog State
+  const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
+  const [feedback, setFeedback] = useState<PlatformFeedback[]>(getStoredFeedback);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(getStoredBlogPosts);
+  const [likedBlogPostIds, setLikedBlogPostIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('auracentra_liked_blogs');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPost | null>(null);
+
   // Modals state
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [mapBusiness, setMapBusiness] = useState<Business | null>(null);
@@ -126,6 +150,9 @@ export default function App() {
   const [isSavedModalOpen, setIsSavedModalOpen] = useState(false);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [isInquiriesModalOpen, setIsInquiriesModalOpen] = useState(false);
+  const [isSuggestCategoryOpen, setIsSuggestCategoryOpen] = useState(false);
+  const [isCustomerFeedbackOpen, setIsCustomerFeedbackOpen] = useState(false);
+  const [selectedBusinessForReview, setSelectedBusinessForReview] = useState<Business | null>(null);
 
   // Filters State
   const initialFilters: FilterState = {
@@ -171,6 +198,22 @@ export default function App() {
   useEffect(() => {
     saveReports(reports);
   }, [reports]);
+
+  useEffect(() => {
+    saveCategorySuggestions(suggestions);
+  }, [suggestions]);
+
+  useEffect(() => {
+    saveFeedback(feedback);
+  }, [feedback]);
+
+  useEffect(() => {
+    saveBlogPosts(blogPosts);
+  }, [blogPosts]);
+
+  useEffect(() => {
+    localStorage.setItem('auracentra_liked_blogs', JSON.stringify(likedBlogPostIds));
+  }, [likedBlogPostIds]);
 
   useEffect(() => {
     saveCurrentUser(currentUser);
@@ -470,6 +513,116 @@ export default function App() {
     showToast('Report Deleted', 'The report record has been removed.', 'info');
   }, [showToast]);
 
+  // Suggestion & Feedback Handlers
+  const handleSubmitCategorySuggestion = useCallback((suggestionData: {
+    categoryName: string;
+    industry: string;
+    description: string;
+    exampleBusinesses?: string;
+    suggestedBy: string;
+    userEmail?: string;
+  }) => {
+    const newSuggestion: CategorySuggestion = {
+      id: `sug-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ...suggestionData,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    setSuggestions((prev) => [newSuggestion, ...prev]);
+    showToast('Suggestion Submitted!', `Thank you! "${suggestionData.categoryName}" has been submitted for review.`, 'success');
+  }, [showToast]);
+
+  const handleSubmitCustomerFeedback = useCallback((feedbackData: {
+    type: 'general' | 'business_review' | 'bug_report' | 'feature_request';
+    rating?: number;
+    targetBusinessId?: string;
+    targetBusinessName?: string;
+    name: string;
+    email?: string;
+    subject: string;
+    message: string;
+  }) => {
+    const newFeedback: PlatformFeedback = {
+      id: `fb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ...feedbackData,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+    };
+    setFeedback((prev) => [newFeedback, ...prev]);
+    showToast('Feedback Received!', 'Thank you! Your review has been recorded to help the Ghanaian community.', 'success');
+  }, [showToast]);
+
+  const handleLikeBlogPost = useCallback((postId: string) => {
+    setLikedBlogPostIds((prev) => {
+      const isLiked = prev.includes(postId);
+      const updated = isLiked ? prev.filter((id) => id !== postId) : [...prev, postId];
+      
+      setBlogPosts((posts) =>
+        posts.map((p) =>
+          p.id === postId
+            ? { ...p, likes: Math.max(0, (p.likes || 0) + (isLiked ? -1 : 1)) }
+            : p
+        )
+      );
+      
+      showToast(isLiked ? 'Article Unliked' : 'Article Liked', isLiked ? 'Removed from saved articles.' : 'Thanks for supporting local business insights!', 'info');
+      return updated;
+    });
+  }, [showToast]);
+
+  const handleApproveAndCreateCategory = useCallback((suggestion: CategorySuggestion) => {
+    const newCatId = suggestion.categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const newCategory: Category = {
+      id: newCatId,
+      name: suggestion.categoryName,
+      slug: newCatId,
+      iconName: 'Building2',
+      itemCount: 0,
+      description: suggestion.description,
+    };
+    setCategories((prev) => [...prev, newCategory]);
+    setSuggestions((prev) =>
+      prev.map((s) => (s.id === suggestion.id ? { ...s, status: 'approved' } : s))
+    );
+    showToast('Category Approved & Live', `"${suggestion.categoryName}" is now active in the directory!`, 'success');
+  }, [showToast]);
+
+  const handleUpdateSuggestionStatus = useCallback((suggestionId: string, status: CategorySuggestion['status'], adminNotes?: string) => {
+    setSuggestions((prev) =>
+      prev.map((s) => (s.id === suggestionId ? { ...s, status, adminNotes } : s))
+    );
+    showToast('Suggestion Status Updated', `Status marked as ${status}.`, 'info');
+  }, [showToast]);
+
+  const handleDeleteSuggestion = useCallback((suggestionId: string) => {
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+    showToast('Suggestion Deleted', 'Suggestion record removed.', 'info');
+  }, [showToast]);
+
+  const handleUpdateFeedbackStatus = useCallback((feedbackId: string, status: PlatformFeedback['status'], adminReply?: string) => {
+    setFeedback((prev) =>
+      prev.map((f) => (f.id === feedbackId ? { ...f, status, adminReply } : f))
+    );
+    showToast('Feedback Updated', `Status marked as ${status}.`, 'info');
+  }, [showToast]);
+
+  const handleDeleteFeedback = useCallback((feedbackId: string) => {
+    setFeedback((prev) => prev.filter((f) => f.id !== feedbackId));
+    showToast('Feedback Deleted', 'Feedback record removed.', 'info');
+  }, [showToast]);
+
+  const getBusinessDistance = useCallback((biz: Business) => {
+    const lat = biz.coordinates?.lat ?? 5.6037;
+    const lng = biz.coordinates?.lng ?? -0.1870;
+    if (filters.userLat && filters.userLng) {
+      return calculateDistanceKm(filters.userLat, filters.userLng, lat, lng);
+    }
+    if (filters.sortBy === 'nearest') {
+      return calculateDistanceKm(5.6037, -0.1870, lat, lng);
+    }
+    return undefined;
+  }, [filters.userLat, filters.userLng, filters.sortBy]);
+
   // Compute filtered & sorted businesses
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b) => {
@@ -513,6 +666,13 @@ export default function App() {
 
       return true;
     }).sort((a, b) => {
+      if (filters.sortBy === 'nearest') {
+        const userLat = filters.userLat || 5.6037;
+        const userLng = filters.userLng || -0.1870;
+        const distA = calculateDistanceKm(userLat, userLng, a.coordinates?.lat ?? 5.6037, a.coordinates?.lng ?? -0.1870);
+        const distB = calculateDistanceKm(userLat, userLng, b.coordinates?.lat ?? 5.6037, b.coordinates?.lng ?? -0.1870);
+        return distA - distB;
+      }
       if (filters.sortBy === 'rating') {
         return b.rating - a.rating;
       }
@@ -553,6 +713,8 @@ export default function App() {
           businesses={businesses}
           categories={categories}
           reports={reports}
+          suggestions={suggestions}
+          feedback={feedback}
           showExecutiveSection={showExecutiveSection}
           onToggleExecutiveSection={handleToggleExecutiveSection}
           onUpdateBusiness={handleUpdateBusiness}
@@ -564,6 +726,11 @@ export default function App() {
           onDeleteCategory={handleDeleteCategory}
           onUpdateReportStatus={handleUpdateReportStatus}
           onDeleteReport={handleDeleteReport}
+          onUpdateSuggestionStatus={handleUpdateSuggestionStatus}
+          onDeleteSuggestion={handleDeleteSuggestion}
+          onApproveAndCreateCategory={handleApproveAndCreateCategory}
+          onUpdateFeedbackStatus={handleUpdateFeedbackStatus}
+          onDeleteFeedback={handleDeleteFeedback}
           onSignOut={handleSignOut}
           onBackToPortal={() => setCurrentView('portal')}
         />
@@ -605,6 +772,7 @@ export default function App() {
         onAddSearchHistory={handleAddSearchHistory}
         onClearSearchHistory={handleClearSearchHistory}
         onSelectBusiness={(b) => setSelectedBusiness(b)}
+        onShowToast={showToast}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-28 sm:pb-12 space-y-6 sm:space-y-12">
@@ -652,6 +820,7 @@ export default function App() {
                   >
                     <BusinessCard
                       business={biz}
+                      distanceKm={getBusinessDistance(biz)}
                       isSaved={savedBusinessIds.includes(biz.id)}
                       isCompared={comparedBusinessIds.includes(biz.id)}
                       onToggleSave={handleToggleSave}
@@ -660,6 +829,10 @@ export default function App() {
                       onOpenQuote={handleOpenQuote}
                       onOpenQR={handleOpenQR}
                       onShare={handleShareBusiness}
+                      onRate={(b) => {
+                        setSelectedBusinessForReview(b);
+                        setIsCustomerFeedbackOpen(true);
+                      }}
                       onQuickContactWhatsApp={(b) => {
                         window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
                       }}
@@ -682,6 +855,15 @@ export default function App() {
                 Discover verified professionals, artisans, tech hubs, and healthcare providers in Ghana.
               </p>
             </div>
+            
+            <button
+              type="button"
+              onClick={() => setIsSuggestCategoryOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-cyan-300 text-xs font-bold transition-all cursor-pointer border border-blue-200/60 dark:border-blue-800/60"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Suggest Category</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -749,6 +931,7 @@ export default function App() {
                 aria-label="Sort businesses"
               >
                 <option value="featured">Featured & Verified First</option>
+                <option value="nearest">📍 Nearest to Me (GPS)</option>
                 <option value="rating">Highest Rated (★ 5.0)</option>
                 <option value="reviews">Most Reviewed</option>
                 <option value="name">Alphabetical (A-Z)</option>
@@ -805,6 +988,7 @@ export default function App() {
                   >
                     <BusinessCard
                       business={biz}
+                      distanceKm={getBusinessDistance(biz)}
                       isSaved={savedBusinessIds.includes(biz.id)}
                       isCompared={comparedBusinessIds.includes(biz.id)}
                       onToggleSave={handleToggleSave}
@@ -813,6 +997,10 @@ export default function App() {
                       onOpenQuote={handleOpenQuote}
                       onOpenQR={handleOpenQR}
                       onShare={handleShareBusiness}
+                      onRate={(b) => {
+                        setSelectedBusinessForReview(b);
+                        setIsCustomerFeedbackOpen(true);
+                      }}
                       onQuickContactWhatsApp={(b) => {
                         window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
                       }}
@@ -832,7 +1020,7 @@ export default function App() {
                   Welcome to AuraCentra Ghana
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
-                  No businesses have been enlisted yet. Enlist your business now to connect with ready customers across Ghana!
+                  No businesses have been enlisted yet. Enlist your business now, or suggest a new category to get started!
                 </p>
               </div>
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -845,32 +1033,89 @@ export default function App() {
                   <PlusCircle className="w-4 h-4" />
                   <span>Enlist Your Business</span>
                 </button>
+                <button
+                  type="button"
+                  id="empty-state-suggest-btn"
+                  onClick={() => setIsSuggestCategoryOpen(true)}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs sm:text-sm font-bold border border-cyan-200 dark:border-cyan-800/60 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                  <span>Suggest a Category</span>
+                </button>
               </div>
             </div>
           ) : (
             /* Empty State when filters yield no result */
-            <div className="p-12 text-center rounded-3xl bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-              <Search className="w-10 h-10 text-slate-400 mx-auto" />
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                No businesses matched your search
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                Try typing a different keyword or resetting your filters.
-              </p>
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reset Search</span>
-              </button>
+            <div className="p-10 sm:p-14 text-center rounded-3xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-4 max-w-2xl mx-auto shadow-sm">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto">
+                <Search className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                  No businesses matched "{filters.searchQuery || filters.category || filters.city}"
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  Can't find the trade or business you're looking for? Suggest a category or send direct feedback so our admin team can enlist local providers in your region.
+                </p>
+              </div>
+
+              <div className="pt-3 flex flex-wrap items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Reset All Filters</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSuggestCategoryOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs font-bold border border-cyan-200 dark:border-cyan-800/60 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Suggest a Category</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCustomerFeedbackOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-600 transition-all cursor-pointer"
+                >
+                  <Star className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Leave Site Feedback</span>
+                </button>
+              </div>
             </div>
           )}
         </section>
+
+        {/* 6. Popularity Trends Analytics Line Chart (Recharts) */}
+        <PopularityTrendsChart
+          onSelectCategory={(categoryName) => {
+            const matched = categories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
+            if (matched) {
+              handleFilterChange({ category: matched.id });
+              const el = document.getElementById('main-directory-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              handleFilterChange({ searchQuery: categoryName });
+              const el = document.getElementById('main-directory-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }
+          }}
+        />
+
+        {/* 7. Ghana Business Growth & Insights Blog Section */}
+        <BlogSection
+          onSelectPost={(post) => setSelectedBlogPost(post)}
+          onLikePost={handleLikeBlogPost}
+          likedPostIds={likedBlogPostIds}
+        />
       </main>
 
-      {/* 6. Modals Ecosystem */}
+      {/* 8. Modals Ecosystem */}
       <BusinessDetailsModal
         business={selectedBusiness}
         isOpen={!!selectedBusiness}
@@ -887,6 +1132,31 @@ export default function App() {
         onOpenQR={handleOpenQR}
         onOpenCertificate={handleOpenCert}
         onReportBusiness={handleReportBusiness}
+      />
+
+      <SuggestCategoryModal
+        isOpen={isSuggestCategoryOpen}
+        onClose={() => setIsSuggestCategoryOpen(false)}
+        onSubmitSuggestion={handleSubmitCategorySuggestion}
+        initialCategoryName={filters.searchQuery}
+      />
+
+      <CustomerFeedbackModal
+        isOpen={isCustomerFeedbackOpen}
+        onClose={() => {
+          setIsCustomerFeedbackOpen(false);
+          setSelectedBusinessForReview(null);
+        }}
+        onSubmitFeedback={handleSubmitCustomerFeedback}
+        targetBusiness={selectedBusinessForReview}
+      />
+
+      <BlogArticleModal
+        post={selectedBlogPost}
+        isOpen={!!selectedBlogPost}
+        onClose={() => setSelectedBlogPost(null)}
+        onLikePost={handleLikeBlogPost}
+        isLiked={selectedBlogPost ? likedBlogPostIds.includes(selectedBlogPost.id) : false}
       />
 
       <QuoteInquiryModal

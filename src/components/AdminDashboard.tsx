@@ -32,7 +32,7 @@ import {
   AlertCircle,
   Info
 } from 'lucide-react';
-import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport } from '../types';
+import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback } from '../types';
 import { Logo } from './Logo';
 import confetti from 'canvas-confetti';
 
@@ -41,6 +41,8 @@ interface AdminDashboardProps {
   businesses: Business[];
   categories: Category[];
   reports?: BusinessReport[];
+  suggestions?: CategorySuggestion[];
+  feedback?: PlatformFeedback[];
   showExecutiveSection: boolean;
   onToggleExecutiveSection: (visible: boolean) => void;
   onUpdateBusiness: (business: Business) => void;
@@ -52,6 +54,11 @@ interface AdminDashboardProps {
   onDeleteCategory: (categoryId: string) => void;
   onUpdateReportStatus?: (reportId: string, status: BusinessReport['status'], adminNotes?: string) => void;
   onDeleteReport?: (reportId: string) => void;
+  onUpdateSuggestionStatus?: (suggestionId: string, status: CategorySuggestion['status'], adminNotes?: string) => void;
+  onDeleteSuggestion?: (suggestionId: string) => void;
+  onApproveAndCreateCategory?: (suggestion: CategorySuggestion) => void;
+  onUpdateFeedbackStatus?: (feedbackId: string, status: PlatformFeedback['status'], adminReply?: string) => void;
+  onDeleteFeedback?: (feedbackId: string) => void;
   onSignOut: () => void;
   onBackToPortal: () => void;
 }
@@ -61,6 +68,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   businesses,
   categories,
   reports = [],
+  suggestions = [],
+  feedback = [],
   showExecutiveSection,
   onToggleExecutiveSection,
   onUpdateBusiness,
@@ -72,10 +81,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteCategory,
   onUpdateReportStatus,
   onDeleteReport,
+  onUpdateSuggestionStatus,
+  onDeleteSuggestion,
+  onApproveAndCreateCategory,
+  onUpdateFeedbackStatus,
+  onDeleteFeedback,
   onSignOut,
   onBackToPortal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'businesses' | 'categories' | 'settings'>('verification');
+  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'suggestions' | 'feedback' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
   
@@ -286,6 +300,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {pendingReportsCount}
               </span>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('suggestions')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'suggestions'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span>Category Suggestions</span>
+            {suggestions.filter(s => s.status === 'pending').length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black">
+                {suggestions.filter(s => s.status === 'pending').length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('feedback')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'feedback'
+                ? 'bg-amber-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4 text-amber-400" />
+            <span>Customer Feedback & Ratings ({feedback.length})</span>
           </button>
 
           <button
@@ -613,6 +658,224 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: Category Suggestions from Community */}
+        {activeTab === 'suggestions' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-cyan-400" />
+                  <span>Category Expansion Suggestions</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  User and business suggestions for expanding Ghanaian industry classification.
+                </p>
+              </div>
+            </div>
+
+            {suggestions.length === 0 ? (
+              <div className="p-12 text-center rounded-2xl bg-slate-800/40 border border-slate-700/60 text-slate-400 space-y-2">
+                <Sparkles className="w-8 h-8 mx-auto text-slate-500" />
+                <div className="font-bold text-white">No Category Suggestions Pending</div>
+                <div className="text-xs">All submitted suggestions have been moderated or approved.</div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {suggestions.map((sug) => (
+                  <div
+                    key={sug.id}
+                    className="p-5 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3 shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 uppercase tracking-wider mb-1">
+                          {sug.industry || 'Proposed Sector'}
+                        </div>
+                        <h4 className="text-base font-black text-white">{sug.categoryName}</h4>
+                      </div>
+
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                          sug.status === 'pending'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+                            : sug.status === 'approved'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                        }`}
+                      >
+                        {sug.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                      "{sug.description}"
+                    </p>
+
+                    {sug.exampleBusinesses && (
+                      <div className="text-xs text-slate-400">
+                        <span className="font-semibold text-slate-300">Examples:</span> {sug.exampleBusinesses}
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                      <div>
+                        By: <span className="text-slate-200 font-semibold">{sug.suggestedBy}</span>
+                        {sug.userEmail && ` (${sug.userEmail})`}
+                      </div>
+                      <div>{new Date(sug.createdAt).toLocaleDateString()}</div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-slate-700/60 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {onApproveAndCreateCategory && sug.status !== 'approved' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApproveAndCreateCategory(sug);
+                              confetti({ particleCount: 50, spread: 60 });
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Approve & Add Category</span>
+                          </button>
+                        )}
+
+                        {onUpdateSuggestionStatus && sug.status === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateSuggestionStatus(sug.id, 'rejected', 'Does not meet category criteria.')}
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-700 hover:bg-rose-900 text-slate-300 hover:text-white text-xs font-semibold cursor-pointer"
+                          >
+                            Reject
+                          </button>
+                        )}
+                      </div>
+
+                      {onDeleteSuggestion && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteSuggestion(sug.id)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 cursor-pointer"
+                          title="Delete Suggestion"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: Customer Feedback & Business Reviews */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-amber-400" />
+                  <span>Customer Feedback & Rating Moderation</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Reviews, site satisfaction ratings, and customer feedback submitted by visitors.
+                </p>
+              </div>
+            </div>
+
+            {feedback.length === 0 ? (
+              <div className="p-12 text-center rounded-2xl bg-slate-800/40 border border-slate-700/60 text-slate-400 space-y-2">
+                <Users className="w-8 h-8 mx-auto text-slate-500" />
+                <div className="font-bold text-white">No Customer Feedback Yet</div>
+                <div className="text-xs">Ratings and reviews submitted by Ghanaian users will appear here.</div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {feedback.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-5 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3 shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-950/80 text-amber-300 border border-amber-800/60 uppercase">
+                            {item.type.replace('_', ' ')}
+                          </span>
+                          {item.rating && (
+                            <span className="text-xs font-black text-amber-400">
+                              {'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)} ({item.rating}/5)
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-bold text-white">{item.subject}</h4>
+                        {item.targetBusinessName && (
+                          <div className="text-xs text-blue-400 font-semibold">
+                            Target Business: {item.targetBusinessName}
+                          </div>
+                        )}
+                      </div>
+
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                          item.status === 'new'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                            : item.status === 'reviewed'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                            : 'bg-slate-700 text-slate-300'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                      "{item.message}"
+                    </p>
+
+                    <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                      <div>
+                        From: <span className="text-slate-200 font-semibold">{item.name}</span>
+                        {item.email && ` (${item.email})`}
+                      </div>
+                      <div>{new Date(item.createdAt).toLocaleDateString()}</div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-slate-700/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {onUpdateFeedbackStatus && item.status === 'new' && (
+                          <button
+                            type="button"
+                            onClick={() => onUpdateFeedbackStatus(item.id, 'reviewed')}
+                            className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer"
+                          >
+                            Mark Reviewed
+                          </button>
+                        )}
+                      </div>
+
+                      {onDeleteFeedback && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteFeedback(item.id)}
+                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 cursor-pointer"
+                          title="Delete Feedback"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

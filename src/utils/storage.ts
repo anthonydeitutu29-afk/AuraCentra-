@@ -1,5 +1,6 @@
-import { Business, Category, BusinessReview, UserProfile, BusinessInquiry, BusinessReport } from '../types';
+import { Business, Category, BusinessReview, UserProfile, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, BlogPost } from '../types';
 import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
+import { INITIAL_BLOG_POSTS } from '../data/blogData';
 
 const STORAGE_KEYS = {
   BUSINESSES: 'auracentra_businesses_live_v2',
@@ -13,6 +14,9 @@ const STORAGE_KEYS = {
   INQUIRIES: 'auracentra_inquiries_live_v2',
   PROMOTIONS: 'auracentra_promotions_live_v2',
   REPORTS: 'auracentra_reports_live_v2',
+  SUGGESTIONS: 'auracentra_suggestions_live_v2',
+  FEEDBACK: 'auracentra_feedback_live_v2',
+  BLOG_POSTS: 'auracentra_blog_posts_live_v2',
 };
 
 // Initial state getters and setters
@@ -241,3 +245,102 @@ export function saveReports(reports: BusinessReport[]): void {
     console.error('Failed to save reports to storage', e);
   }
 }
+
+export function getStoredCategorySuggestions(): CategorySuggestion[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.SUGGESTIONS);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load category suggestions', e);
+  }
+  return [
+    {
+      id: 'sug-1',
+      categoryName: 'Renewable Energy & Solar Installations',
+      suggestedBy: 'Kojo Antwi',
+      userEmail: 'kojo.solar@gmail.com',
+      userPhone: '+233 24 555 9012',
+      industry: 'Energy & Power',
+      description: 'Solar panel installers, inverter technicians, and lithium battery storage providers in Ghana.',
+      exampleBusinesses: 'SunPower Ghana, West Coast Solar, Volta Inverters',
+      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+      status: 'pending',
+    },
+    {
+      id: 'sug-2',
+      categoryName: 'Agro-Processing & Cold Chain Logistics',
+      suggestedBy: 'Esi Frimpong',
+      userEmail: 'esi.agro@yahoo.com',
+      userPhone: '+233 20 444 8811',
+      industry: 'Agriculture',
+      description: 'Cassava flour mills, cashew processors, mango dehydrators, and refrigerated transport.',
+      exampleBusinesses: 'FarmFresh Logistics, GoldCoast Agro Processors',
+      createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+      status: 'approved',
+      adminNotes: 'Great sector expansion, scheduled for upcoming release.',
+    }
+  ];
+}
+
+export function saveCategorySuggestions(suggestions: CategorySuggestion[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(suggestions));
+  } catch (e) {
+    console.error('Failed to save category suggestions', e);
+  }
+}
+
+export function getStoredFeedback(): PlatformFeedback[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.FEEDBACK);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load platform feedback', e);
+  }
+  return [
+    {
+      id: 'fb-1',
+      type: 'business_review',
+      name: 'Abena Darko',
+      email: 'abena.darko@gmail.com',
+      rating: 5,
+      subject: 'Exceptional Directory Experience',
+      message: 'Found a certified IT hardware specialist in East Legon within 5 minutes. The WhatsApp integration worked seamlessly.',
+      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      status: 'reviewed',
+    }
+  ];
+}
+
+export function saveFeedback(feedbackList: PlatformFeedback[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.FEEDBACK, JSON.stringify(feedbackList));
+  } catch (e) {
+    console.error('Failed to save platform feedback', e);
+  }
+}
+
+export function getStoredBlogPosts(): BlogPost[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.BLOG_POSTS);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load blog posts', e);
+  }
+  return INITIAL_BLOG_POSTS;
+}
+
+export function saveBlogPosts(posts: BlogPost[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.BLOG_POSTS, JSON.stringify(posts));
+  } catch (e) {
+    console.error('Failed to save blog posts', e);
+  }
+}
+
