@@ -66,6 +66,7 @@ export interface Business {
     linkedin?: string;
     twitter?: string;
     tiktok?: string;
+    youtube?: string;
   };
   city: string;
   region: string;
@@ -147,7 +148,7 @@ export interface FilterState {
   minRating: number;
   priceLevel: string;
   openNowOnly: boolean;
-  sortBy: 'featured' | 'rating' | 'reviews' | 'name' | 'nearest';
+  sortBy: 'featured' | 'rating' | 'reviews' | 'name' | 'nearest' | 'leads';
   userLat?: number;
   userLng?: number;
   maxDistanceKm?: number;

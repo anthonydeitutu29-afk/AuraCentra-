@@ -262,13 +262,14 @@ export default function App() {
     });
   };
 
-  const handleToggleCompare = (businessId: string) => {
+  const handleToggleCompare = (business: Business) => {
+    const businessId = business.id;
     setComparedBusinessIds((prev) => {
       if (prev.includes(businessId)) {
         return prev.filter((id) => id !== businessId);
       } else {
         if (prev.length >= 3) {
-          alert('You can compare up to 3 businesses at a time.');
+          showToast('Comparison Limit', 'You can compare up to 3 businesses at a time.', 'warning');
           return prev;
         }
         return [...prev, businessId];
@@ -654,16 +655,6 @@ export default function App() {
         return false;
       }
 
-      // Min rating
-      if (filters.minRating > 0 && b.rating < filters.minRating) {
-        return false;
-      }
-
-      // Price level
-      if (filters.priceLevel && b.priceLevel !== filters.priceLevel) {
-        return false;
-      }
-
       return true;
     }).sort((a, b) => {
       if (filters.sortBy === 'nearest') {
@@ -673,21 +664,18 @@ export default function App() {
         const distB = calculateDistanceKm(userLat, userLng, b.coordinates?.lat ?? 5.6037, b.coordinates?.lng ?? -0.1870);
         return distA - distB;
       }
-      if (filters.sortBy === 'rating') {
-        return b.rating - a.rating;
-      }
-      if (filters.sortBy === 'reviews') {
-        return b.reviewCount - a.reviewCount;
-      }
       if (filters.sortBy === 'name') {
         return a.name.localeCompare(b.name);
       }
-      // default: featured first, then verified, then reviews
+      if (filters.sortBy === 'leads') {
+        return (b.leadsCount || 0) - (a.leadsCount || 0);
+      }
+      // default: featured first, then verified, then newest
       if (a.isFeatured && !b.isFeatured) return -1;
       if (!a.isFeatured && b.isFeatured) return 1;
       if (a.verificationStatus === 'verified' && b.verificationStatus !== 'verified') return -1;
       if (a.verificationStatus !== 'verified' && b.verificationStatus === 'verified') return 1;
-      return b.reviewCount - a.reviewCount;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     });
   }, [businesses, filters]);
 
@@ -916,51 +904,58 @@ export default function App() {
               )}
             </div>
 
-            {/* Sort & Quick Filter Dropdowns */}
-            <div className="grid grid-cols-1 xs:grid-cols-3 sm:flex sm:flex-wrap items-center gap-2 text-xs">
-              <div className="hidden sm:flex items-center gap-1.5 text-slate-500 font-medium shrink-0">
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Sort & Filter:</span>
+            {/* Sort & Quick Filter Controls */}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 font-medium hidden sm:inline flex items-center gap-1">
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Sort By:</span>
+                </span>
+
+                <select
+                  value={filters.sortBy}
+                  onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
+                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                  aria-label="Sort businesses"
+                >
+                  <option value="featured">Featured & Verified First</option>
+                  <option value="nearest">📍 Nearest to Me (GPS)</option>
+                  <option value="leads">Most Inquired</option>
+                  <option value="name">Alphabetical (A-Z)</option>
+                </select>
               </div>
 
-              {/* Sort selector */}
-              <select
-                value={filters.sortBy}
-                onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
-                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
-                aria-label="Sort businesses"
-              >
-                <option value="featured">Featured & Verified First</option>
-                <option value="nearest">📍 Nearest to Me (GPS)</option>
-                <option value="rating">Highest Rated (★ 5.0)</option>
-                <option value="reviews">Most Reviewed</option>
-                <option value="name">Alphabetical (A-Z)</option>
-              </select>
+              {/* City Quick Filter */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={filters.city}
+                  onChange={(e) => handleFilterChange({ city: e.target.value })}
+                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                  aria-label="Filter by City"
+                >
+                  <option value="">All Ghana Regions</option>
+                  <option value="Accra">Greater Accra</option>
+                  <option value="Kumasi">Kumasi (Ashanti)</option>
+                  <option value="Tema">Tema</option>
+                  <option value="Takoradi">Takoradi</option>
+                  <option value="Tamale">Tamale</option>
+                  <option value="Cape Coast">Cape Coast</option>
+                </select>
 
-              {/* Min Rating Filter */}
-              <select
-                value={filters.minRating}
-                onChange={(e) => handleFilterChange({ minRating: Number(e.target.value) })}
-                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
-                aria-label="Filter by rating"
-              >
-                <option value={0}>All Ratings</option>
-                <option value={4.5}>★ 4.5+ Stars</option>
-                <option value={4.0}>★ 4.0+ Stars</option>
-              </select>
-
-              {/* Price Tier Filter */}
-              <select
-                value={filters.priceLevel}
-                onChange={(e) => handleFilterChange({ priceLevel: e.target.value })}
-                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
-                aria-label="Filter by price"
-              >
-                <option value="">All Prices</option>
-                <option value="$">$ (Budget)</option>
-                <option value="$$">$$ (Moderate)</option>
-                <option value="$$$">$$$ (Premium)</option>
-              </select>
+                {/* Verified Filter Button */}
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange({ verificationOnly: !filters.verificationOnly })}
+                  className={`px-3 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 border ${
+                    filters.verificationOnly
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-200'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Verified Only</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1109,6 +1104,7 @@ export default function App() {
 
         {/* 7. Ghana Business Growth & Insights Blog Section */}
         <BlogSection
+          posts={blogPosts}
           onSelectPost={(post) => setSelectedBlogPost(post)}
           onLikePost={handleLikeBlogPost}
           likedPostIds={likedBlogPostIds}
@@ -1124,14 +1120,13 @@ export default function App() {
         onToggleSave={handleToggleSave}
         isCompared={selectedBusiness ? comparedBusinessIds.includes(selectedBusiness.id) : false}
         onToggleCompare={handleToggleCompare}
-        reviews={reviews}
-        onAddReview={handleAddReview}
-        onHelpfulVote={handleHelpfulVote}
         onOpenMap={(b) => setMapBusiness(b)}
         onOpenQuote={handleOpenQuote}
         onOpenQR={handleOpenQR}
         onOpenCertificate={handleOpenCert}
         onReportBusiness={handleReportBusiness}
+        currentUser={currentUser}
+        onShowToast={showToast}
       />
 
       <SuggestCategoryModal
@@ -1147,8 +1142,9 @@ export default function App() {
           setIsCustomerFeedbackOpen(false);
           setSelectedBusinessForReview(null);
         }}
+        businesses={businesses}
+        preSelectedBusiness={selectedBusinessForReview}
         onSubmitFeedback={handleSubmitCustomerFeedback}
-        targetBusiness={selectedBusinessForReview}
       />
 
       <BlogArticleModal
@@ -1156,7 +1152,7 @@ export default function App() {
         isOpen={!!selectedBlogPost}
         onClose={() => setSelectedBlogPost(null)}
         onLikePost={handleLikeBlogPost}
-        isLiked={selectedBlogPost ? likedBlogPostIds.includes(selectedBlogPost.id) : false}
+        hasLiked={selectedBlogPost ? likedBlogPostIds.includes(selectedBlogPost.id) : false}
       />
 
       <QuoteInquiryModal
@@ -1177,6 +1173,7 @@ export default function App() {
         business={certBusiness}
         isOpen={!!certBusiness}
         onClose={() => setCertBusiness(null)}
+        onShowToast={showToast}
       />
 
       <InquiriesManagerModal

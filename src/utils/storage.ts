@@ -3,20 +3,20 @@ import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data
 import { INITIAL_BLOG_POSTS } from '../data/blogData';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_live_v2',
-  CATEGORIES: 'auracentra_categories_live_v2',
-  REVIEWS: 'auracentra_reviews_live_v2',
-  CURRENT_USER: 'auracentra_user_live_v2',
-  SAVED_BUSINESSES: 'auracentra_saved_live_v2',
-  SEARCH_HISTORY: 'auracentra_search_history_live_v2',
-  THEME: 'auracentra_theme_live_v2',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_live_v2',
-  INQUIRIES: 'auracentra_inquiries_live_v2',
-  PROMOTIONS: 'auracentra_promotions_live_v2',
-  REPORTS: 'auracentra_reports_live_v2',
-  SUGGESTIONS: 'auracentra_suggestions_live_v2',
-  FEEDBACK: 'auracentra_feedback_live_v2',
-  BLOG_POSTS: 'auracentra_blog_posts_live_v2',
+  BUSINESSES: 'auracentra_businesses_clean_v6',
+  CATEGORIES: 'auracentra_categories_clean_v6',
+  REVIEWS: 'auracentra_reviews_clean_v6',
+  CURRENT_USER: 'auracentra_user_clean_v6',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v6',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v6',
+  THEME: 'auracentra_theme_clean_v6',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v6',
+  INQUIRIES: 'auracentra_inquiries_clean_v6',
+  PROMOTIONS: 'auracentra_promotions_clean_v6',
+  REPORTS: 'auracentra_reports_clean_v6',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v6',
+  FEEDBACK: 'auracentra_feedback_clean_v6',
+  BLOG_POSTS: 'auracentra_blog_posts_clean_v6',
 };
 
 // Initial state getters and setters
@@ -24,7 +24,10 @@ export function getStoredBusinesses(): Business[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
     if (data) {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     }
   } catch (e) {
     console.error('Failed to load businesses from storage', e);
@@ -44,7 +47,10 @@ export function getStoredCategories(): Category[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
     if (data) {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
   } catch (e) {
     console.error('Failed to load categories from storage', e);
@@ -64,7 +70,10 @@ export function getStoredReviews(): BusinessReview[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.REVIEWS);
     if (data) {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     }
   } catch (e) {
     console.error('Failed to load reviews from storage', e);
@@ -221,21 +230,7 @@ export function getStoredReports(): BusinessReport[] {
   } catch (e) {
     console.error('Failed to load reports from storage', e);
   }
-  return [
-    {
-      id: 'rep-101',
-      businessId: 'biz-3',
-      businessName: 'Osu Cyber & Software Solutions',
-      reporterName: 'Kofi Mensah',
-      reporterEmail: 'kofi.m@gmail.com',
-      reporterPhone: '+233 24 111 2233',
-      reason: 'incorrect_information',
-      reasonLabel: 'Incorrect Contact / Location Details',
-      details: 'The stated office suite number on 4th Oxford St was relocated to 8th Lane last month.',
-      reportedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      status: 'pending',
-    },
-  ];
+  return [];
 }
 
 export function saveReports(reports: BusinessReport[]): void {
@@ -255,33 +250,7 @@ export function getStoredCategorySuggestions(): CategorySuggestion[] {
   } catch (e) {
     console.error('Failed to load category suggestions', e);
   }
-  return [
-    {
-      id: 'sug-1',
-      categoryName: 'Renewable Energy & Solar Installations',
-      suggestedBy: 'Kojo Antwi',
-      userEmail: 'kojo.solar@gmail.com',
-      userPhone: '+233 24 555 9012',
-      industry: 'Energy & Power',
-      description: 'Solar panel installers, inverter technicians, and lithium battery storage providers in Ghana.',
-      exampleBusinesses: 'SunPower Ghana, West Coast Solar, Volta Inverters',
-      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-      status: 'pending',
-    },
-    {
-      id: 'sug-2',
-      categoryName: 'Agro-Processing & Cold Chain Logistics',
-      suggestedBy: 'Esi Frimpong',
-      userEmail: 'esi.agro@yahoo.com',
-      userPhone: '+233 20 444 8811',
-      industry: 'Agriculture',
-      description: 'Cassava flour mills, cashew processors, mango dehydrators, and refrigerated transport.',
-      exampleBusinesses: 'FarmFresh Logistics, GoldCoast Agro Processors',
-      createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-      status: 'approved',
-      adminNotes: 'Great sector expansion, scheduled for upcoming release.',
-    }
-  ];
+  return [];
 }
 
 export function saveCategorySuggestions(suggestions: CategorySuggestion[]): void {
@@ -301,19 +270,7 @@ export function getStoredFeedback(): PlatformFeedback[] {
   } catch (e) {
     console.error('Failed to load platform feedback', e);
   }
-  return [
-    {
-      id: 'fb-1',
-      type: 'business_review',
-      name: 'Abena Darko',
-      email: 'abena.darko@gmail.com',
-      rating: 5,
-      subject: 'Exceptional Directory Experience',
-      message: 'Found a certified IT hardware specialist in East Legon within 5 minutes. The WhatsApp integration worked seamlessly.',
-      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      status: 'reviewed',
-    }
-  ];
+  return [];
 }
 
 export function saveFeedback(feedbackList: PlatformFeedback[]): void {
@@ -343,4 +300,3 @@ export function saveBlogPosts(posts: BlogPost[]): void {
     console.error('Failed to save blog posts', e);
   }
 }
-

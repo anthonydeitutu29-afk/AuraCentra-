@@ -2,14 +2,14 @@ import React from 'react';
 import { 
   X, 
   CheckCircle2, 
-  Star, 
   MapPin, 
   Phone, 
   MessageSquare, 
   Trash2, 
   ShieldCheck, 
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 import { Business } from '../types';
 
@@ -43,14 +43,14 @@ export const BusinessComparisonModal: React.FC<BusinessComparisonModalProps> = (
               </span>
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Evaluate credentials, ratings, services, and location before making your decision.
+              Evaluate verified credentials, location, offered services, and direct contact options side-by-side.
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -72,11 +72,11 @@ export const BusinessComparisonModal: React.FC<BusinessComparisonModalProps> = (
                   <div>
                     {/* Top image & remove */}
                     <div className="relative aspect-video rounded-xl overflow-hidden mb-3">
-                      <img src={b.coverImage || b.gallery[0]} alt={b.name} className="w-full h-full object-cover" />
+                      <img src={b.coverImage || (b.gallery && b.gallery[0]) || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80'} alt={b.name} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => onRemove(b.id)}
-                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-rose-600 text-white transition-colors"
+                        className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 hover:bg-rose-600 text-white transition-colors cursor-pointer"
                         title="Remove from comparison"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -85,7 +85,7 @@ export const BusinessComparisonModal: React.FC<BusinessComparisonModalProps> = (
 
                     {/* Logo & Name */}
                     <div className="flex items-center gap-2.5 mb-2">
-                      <img src={b.logo} alt="" className="w-8 h-8 rounded-lg object-cover border" />
+                      <img src={b.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80'} alt="" className="w-8 h-8 rounded-lg object-cover border" />
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{b.name}</h3>
                         <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{b.category}</p>
@@ -98,27 +98,11 @@ export const BusinessComparisonModal: React.FC<BusinessComparisonModalProps> = (
                       {b.verificationStatus === 'verified' ? (
                         <span className="inline-flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Verified ({b.verificationDetails?.badgeType || 'Gold'})</span>
+                          <span>Verified ({b.verificationDetails?.badgeType || 'Official'})</span>
                         </span>
                       ) : (
                         <span className="text-amber-500 font-medium">Pending Review</span>
                       )}
-                    </div>
-
-                    {/* Rating & Reviews */}
-                    <div className="py-2 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Rating & Reviews</span>
-                      <div className="flex items-center gap-1 font-bold text-amber-500">
-                        <Star className="w-3.5 h-3.5 fill-amber-400" />
-                        <span>{b.rating.toFixed(1)}</span>
-                        <span className="text-slate-400 font-normal">({b.reviewCount})</span>
-                      </div>
-                    </div>
-
-                    {/* Price Level */}
-                    <div className="py-2 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs">
-                      <span className="text-slate-500">Price Tier</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{b.priceLevel}</span>
                     </div>
 
                     {/* City & Address */}
@@ -134,17 +118,19 @@ export const BusinessComparisonModal: React.FC<BusinessComparisonModalProps> = (
                     </div>
 
                     {/* Top Services */}
-                    <div className="py-2 border-t border-slate-200 dark:border-slate-700/60 text-xs space-y-1.5">
-                      <div className="text-slate-500">Services Offered</div>
-                      <div className="space-y-1">
-                        {b.services.slice(0, 4).map((s, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-                            <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-                            <span className="truncate">{s}</span>
-                          </div>
-                        ))}
+                    {b.services && b.services.length > 0 && (
+                      <div className="py-2 border-t border-slate-200 dark:border-slate-700/60 text-xs space-y-1.5">
+                        <div className="text-slate-500">Services Offered</div>
+                        <div className="space-y-1">
+                          {b.services.slice(0, 4).map((s, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                              <span className="truncate">{s}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -155,7 +141,7 @@ export const BusinessComparisonModal: React.FC<BusinessComparisonModalProps> = (
                         onClose();
                         onSelect(b);
                       }}
-                      className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                      className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer"
                     >
                       View Full Profile
                     </button>

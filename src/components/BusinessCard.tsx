@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   CheckCircle2, 
-  Star, 
   MapPin, 
   Phone, 
   MessageSquare, 
@@ -15,7 +14,8 @@ import {
   Share2,
   Check,
   Globe,
-  ExternalLink
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import { Business } from '../types';
 
@@ -46,7 +46,6 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
   onOpenQuote,
   onOpenQR,
   onShare,
-  onRate,
 }) => {
   const [justShared, setJustShared] = useState(false);
 
@@ -89,7 +88,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         onClick={() => onSelect(business)}
       >
         <img
-          src={business.coverImage || business.gallery[0] || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80'}
+          src={business.coverImage || (business.gallery && business.gallery[0]) || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80'}
           alt={business.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
@@ -189,12 +188,12 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             {business.verificationStatus === 'verified' ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-600/95 backdrop-blur-sm font-bold text-[11px] shadow-xs">
                 <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                <span>Verified</span>
+                <span>Verified Enterprise</span>
               </span>
             ) : business.verificationStatus === 'pending' ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/95 backdrop-blur-sm font-bold text-[11px]">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Pending</span>
+                <span>Pending Review</span>
               </span>
             ) : null}
           </div>
@@ -213,7 +212,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           {/* Business Title & Logo */}
           <div className="flex items-start gap-3 mb-2.5">
             <img
-              src={business.logo}
+              src={business.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80'}
               alt={`${business.name} logo`}
               className="w-11 h-11 rounded-xl object-cover border border-blue-100 dark:border-slate-700 shrink-0 bg-white p-0.5 shadow-xs"
               loading="lazy"
@@ -227,34 +226,22 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 {business.name}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate font-semibold">
-                {business.subCategory || business.category} • {business.priceLevel}
+                {business.subCategory || business.category}
               </p>
             </div>
           </div>
 
-          {/* Rating, Reviews & Location */}
-          <div className="flex items-center gap-2.5 text-xs mb-2.5">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onRate) onRate(business);
-                else onSelect(business);
-              }}
-              className="flex items-center gap-1 text-amber-500 font-bold hover:underline cursor-pointer group/rate"
-              title="Rate this business"
-            >
-              <Star className="w-3.5 h-3.5 fill-amber-400 group-hover/rate:scale-110 transition-transform" />
-              <span>{business.rating.toFixed(1)}</span>
-              <span className="text-slate-400 font-normal">({business.reviewCount})</span>
-            </button>
-
-            <span className="text-slate-300 dark:text-slate-700">•</span>
-
+          {/* Location & GPS Info */}
+          <div className="flex items-center gap-2 text-xs mb-2.5">
             <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300 truncate font-medium">
               <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
               <span className="truncate">{business.city}, {business.region}</span>
             </div>
+            {business.digitalAddress && (
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {business.digitalAddress}
+              </span>
+            )}
           </div>
 
           {/* Tagline / Brief Description */}
@@ -263,21 +250,23 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           </p>
 
           {/* Highlighted Services Tags */}
-          <div className="flex flex-wrap gap-1.5 mb-3.5">
-            {business.services.slice(0, 3).map((service, idx) => (
-              <span
-                key={idx}
-                className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50/70 dark:bg-slate-800 text-blue-800 dark:text-slate-300 border border-blue-100 dark:border-slate-700/60"
-              >
-                {service}
-              </span>
-            ))}
-            {business.services.length > 3 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                +{business.services.length - 3} more
-              </span>
-            )}
-          </div>
+          {business.services && business.services.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3.5">
+              {business.services.slice(0, 3).map((service, idx) => (
+                <span
+                  key={idx}
+                  className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50/70 dark:bg-slate-800 text-blue-800 dark:text-slate-300 border border-blue-100 dark:border-slate-700/60"
+                >
+                  {service}
+                </span>
+              ))}
+              {business.services.length > 3 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                  +{business.services.length - 3} more
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons: One-Tap Contact & Engagement */}

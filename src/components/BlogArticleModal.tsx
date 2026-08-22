@@ -211,7 +211,7 @@ export const BlogArticleModal: React.FC<BlogArticleModalProps> = ({
           {/* Tags */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-slate-400" />
-            {post.tags.map((tag) => (
+            {(post.tags || []).map((tag) => (
               <span
                 key={tag}
                 className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"

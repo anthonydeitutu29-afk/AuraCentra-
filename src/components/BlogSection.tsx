@@ -14,14 +14,14 @@ import {
 import { BlogPost } from '../types';
 
 interface BlogSectionProps {
-  posts: BlogPost[];
+  posts?: BlogPost[];
   onSelectPost: (post: BlogPost) => void;
   onLikePost: (postId: string) => void;
   likedPostIds?: string[];
 }
 
 export const BlogSection: React.FC<BlogSectionProps> = ({
-  posts,
+  posts = [],
   onSelectPost,
   onLikePost,
   likedPostIds = [],
@@ -32,23 +32,25 @@ export const BlogSection: React.FC<BlogSectionProps> = ({
   // Extract all unique tags
   const allTags = React.useMemo(() => {
     const set = new Set<string>();
-    posts.forEach((p) => p.tags.forEach((t) => set.add(t)));
+    (posts || []).forEach((p) => (p?.tags || []).forEach((t) => set.add(t)));
     return ['all', ...Array.from(set)];
   }, [posts]);
 
   // Filter posts
   const filteredPosts = React.useMemo(() => {
-    return posts.filter((post) => {
-      if (selectedTag !== 'all' && !post.tags.includes(selectedTag)) {
+    return (posts || []).filter((post) => {
+      if (!post) return false;
+      const tags = post.tags || [];
+      if (selectedTag !== 'all' && !tags.includes(selectedTag)) {
         return false;
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
-          post.title.toLowerCase().includes(q) ||
-          post.excerpt.toLowerCase().includes(q) ||
-          post.category.toLowerCase().includes(q) ||
-          post.tags.some((t) => t.toLowerCase().includes(q))
+          (post.title || '').toLowerCase().includes(q) ||
+          (post.excerpt || '').toLowerCase().includes(q) ||
+          (post.category || '').toLowerCase().includes(q) ||
+          tags.some((t) => t.toLowerCase().includes(q))
         );
       }
       return true;
