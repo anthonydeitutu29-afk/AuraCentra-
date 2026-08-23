@@ -80,6 +80,7 @@ export interface Business {
   rating: number;
   reviewCount: number;
   verificationStatus: VerificationStatus;
+  listingStatus?: 'active' | 'pending_approval' | 'rejected';
   verificationDetails?: {
     verifiedAt: string;
     badgeType: 'Gold Enterprise' | 'Standard Verified' | 'Community Partner';
@@ -122,6 +123,18 @@ export interface UserProfile {
   ownedBusinessIds?: string[];
   twoFactorEnabled?: boolean;
   createdAt: string;
+}
+
+export interface UserAccountRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: UserRole;
+  passwordHash?: string;
+  password?: string;
+  createdAt: string;
+  lastLoginAt?: string;
 }
 
 export interface BusinessInquiry {
@@ -231,35 +244,60 @@ export interface PlatformFeedback {
   adminReply?: string;
 }
 
-export interface BlogPost {
+export type GhanaNewsCategory = 
+  | 'all'
+  | 'forex_fx'
+  | 'banking_economy'
+  | 'smes_startups'
+  | 'trade_afcfta'
+  | 'tech_telecoms'
+  | 'energy_commodities';
+
+export interface ForexRate {
+  currencyCode: string; // e.g. USD, GBP, EUR, NGN, CNY, CAD
+  currencyName: string;
+  flag: string; // emoji flag or symbol
+  interbankBuy: number; // in GHS
+  interbankSell: number; // in GHS
+  bureauBuy: number; // in GHS
+  bureauSell: number; // in GHS
+  change24h: number; // percentage e.g. -0.12 or +0.05
+  trend: 'up' | 'down' | 'stable';
+  lastUpdated: string;
+}
+
+export interface GhanaNewsArticle {
   id: string;
   title: string;
   slug: string;
   excerpt: string;
   content: string;
-  coverImage: string;
-  category: string;
-  author: {
-    name: string;
-    role: string;
-    avatar: string;
-  };
-  readTime: string;
+  keyTakeaways?: string[];
+  category: GhanaNewsCategory;
+  categoryLabel: string;
+  source: 'Bank of Ghana' | 'Joy Business' | 'Citi Business News' | 'B&FT' | 'Graphic Business' | 'GhanaWeb Business' | 'Ministry of Finance';
+  sourceUrl: string;
+  author: string;
   publishedAt: string;
-  tags: string[];
+  readTime: string;
+  coverImage: string;
+  isBreaking?: boolean;
+  isTrending?: boolean;
+  fxHighlight?: string;
   views: number;
   likes: number;
+  tags: string[];
 }
 
-export interface PopularityTrendData {
-  day: string;
-  date: string;
-  technology: number;
-  digitalMarketing: number;
-  hospitality: number;
-  healthcare: number;
-  fashion: number;
-  realEstate: number;
-  agriTech: number;
+export interface GhanaMarketSummary {
+  bogPolicyRate: number; // e.g. 27.0%
+  headlineInflation: number; // e.g. 20.4%
+  gseCompositeIndex: number; // e.g. 4,320.15
+  gseChange: number; // e.g. +1.4%
+  crudeOilBrent: number; // in USD
+  cocoaPerTonne: number; // in USD
+  goldPerOunce: number; // in USD
+  lastRefreshed: string;
 }
+
 

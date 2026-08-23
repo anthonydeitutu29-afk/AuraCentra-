@@ -27,7 +27,7 @@ import {
   BusinessReport,
   CategorySuggestion,
   PlatformFeedback,
-  BlogPost
+  GhanaNewsArticle
 } from './types';
 import { 
   getStoredBusinesses, 
@@ -43,7 +43,6 @@ import {
   clearStoredSearchHistory,
   getExecutiveSectionVisibility,
   saveExecutiveSectionVisibility,
-  calculateDistanceKm,
   getStoredInquiries,
   saveInquiries,
   getStoredReports,
@@ -52,9 +51,9 @@ import {
   saveCategorySuggestions,
   getStoredFeedback,
   saveFeedback,
-  getStoredBlogPosts,
-  saveBlogPosts
+  validateAndClearSession
 } from './utils/storage';
+import { autoDetectUserLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
 // Subcomponents
 import { Navbar } from './components/Navbar';
@@ -77,11 +76,10 @@ import { InquiriesManagerModal } from './components/InquiriesManagerModal';
 import { PromotionalBanner } from './components/PromotionalBanner';
 import { ScrollProgressBar } from './components/ScrollProgressBar';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { PopularityTrendsChart } from './components/PopularityTrendsChart';
 import { SuggestCategoryModal } from './components/SuggestCategoryModal';
 import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
-import { BlogSection } from './components/BlogSection';
-import { BlogArticleModal } from './components/BlogArticleModal';
+import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection';
+import { NewsArticleModal } from './components/NewsArticleModal';
 
 export default function App() {
   // Theme state
@@ -129,18 +127,13 @@ export default function App() {
   // View state: 'portal' or 'admin'
   const [currentView, setCurrentView] = useState<'portal' | 'admin'>('portal');
 
-  // Suggestions, Feedback & Blog State
+  // Suggestions & Feedback State
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
   const [feedback, setFeedback] = useState<PlatformFeedback[]>(getStoredFeedback);
-  const [blogPosts, setBlogPosts] = useState<BlogPost[]>(getStoredBlogPosts);
-  const [likedBlogPostIds, setLikedBlogPostIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('auracentra_liked_blogs');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [selectedBlogPost, setSelectedBlogPost] = useState<BlogPost | null>(null);
 
   // Modals state
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+  const [selectedNewsArticle, setSelectedNewsArticle] = useState<GhanaNewsArticle | null>(null);
   const [mapBusiness, setMapBusiness] = useState<Business | null>(null);
   const [quoteBusiness, setQuoteBusiness] = useState<Business | null>(null);
   const [qrBusiness, setQrBusiness] = useState<Business | null>(null);
@@ -154,7 +147,7 @@ export default function App() {
   const [isCustomerFeedbackOpen, setIsCustomerFeedbackOpen] = useState(false);
   const [selectedBusinessForReview, setSelectedBusinessForReview] = useState<Business | null>(null);
 
-  // Filters State
+  // Filters & Location Auto-Detection State
   const initialFilters: FilterState = {
     searchQuery: '',
     category: '',
@@ -167,6 +160,47 @@ export default function App() {
     sortBy: 'featured',
   };
   const [filters, setFilters] = useState<FilterState>(initialFilters);
+  const [isAutoDetectedRegion, setIsAutoDetectedRegion] = useState(false);
+  const [userDetectedLocation, setUserDetectedLocation] = useState<{
+    regionName: string;
+    cityName: string;
+    coords: { lat: number; lng: number };
+  } | null>(null);
+
+  // Auto-detect user's region via Browser Geolocation API on load
+  useEffect(() => {
+    autoDetectUserLocation().then((loc) => {
+      setUserDetectedLocation({
+        regionName: loc.regionName,
+        cityName: loc.cityName,
+        coords: loc.coords,
+      });
+      if (loc.isAutomatic) {
+        setIsAutoDetectedRegion(true);
+        setFilters((prev) => {
+          // If no specific region has been selected yet by the user, default to closest region
+          if (!prev.region) {
+            return {
+              ...prev,
+              region: loc.regionName,
+              userLat: loc.coords.lat,
+              userLng: loc.coords.lng,
+            };
+          }
+          return {
+            ...prev,
+            userLat: loc.coords.lat,
+            userLng: loc.coords.lng,
+          };
+        });
+        showToast(
+          'Location Personalized',
+          `Defaulted to closest region: ${loc.regionName} (${loc.cityName}) businesses based on your location.`,
+          'info'
+        );
+      }
+    });
+  }, [showToast]);
 
   // Sync theme with document class
   useEffect(() => {
@@ -208,14 +242,6 @@ export default function App() {
   }, [feedback]);
 
   useEffect(() => {
-    saveBlogPosts(blogPosts);
-  }, [blogPosts]);
-
-  useEffect(() => {
-    localStorage.setItem('auracentra_liked_blogs', JSON.stringify(likedBlogPostIds));
-  }, [likedBlogPostIds]);
-
-  useEffect(() => {
     saveCurrentUser(currentUser);
   }, [currentUser]);
 
@@ -252,7 +278,40 @@ export default function App() {
     clearStoredSearchHistory();
   };
 
+  const handleOpenRegisterModal = useCallback(() => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('Account Required', 'Please sign in or create a verified account to enlist a business on AuraCentra.', 'info');
+      return;
+    }
+    setIsRegisterModalOpen(true);
+  }, [currentUser, showToast]);
+
+  const handleOpenSuggestCategoryModal = useCallback(() => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('Account Required', 'Please sign in or create an account to suggest categories.', 'info');
+      return;
+    }
+    setIsSuggestCategoryOpen(true);
+  }, [currentUser, showToast]);
+
+  const handleOpenCustomerFeedbackModal = useCallback((biz?: Business) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('Account Required', 'Please sign in or create an account to rate businesses or leave platform feedback.', 'info');
+      return;
+    }
+    setSelectedBusinessForReview(biz || null);
+    setIsCustomerFeedbackOpen(true);
+  }, [currentUser, showToast]);
+
   const handleToggleSave = (businessId: string) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('Sign In Required', 'Please sign in or create an account to save businesses to your profile.', 'info');
+      return;
+    }
     setSavedBusinessIds((prev) => {
       if (prev.includes(businessId)) {
         return prev.filter((id) => id !== businessId);
@@ -282,15 +341,8 @@ export default function App() {
   };
 
   const handleRegisterBusiness = (newBusiness: Business) => {
+    // Record business with pending_approval status
     setBusinesses((prev) => [newBusiness, ...prev]);
-    setCategories((prev) =>
-      prev.map((c) => {
-        if (c.id === newBusiness.category) {
-          return { ...c, itemCount: c.itemCount + 1 };
-        }
-        return c;
-      })
-    );
   };
 
   const handleAddReview = (newReview: BusinessReview) => {
@@ -342,6 +394,7 @@ export default function App() {
         if (b.id === businessId) {
           return {
             ...b,
+            listingStatus: 'active', // Enlist officially upon admin approval
             verificationStatus: 'verified',
             verificationBadge: {
               type: 'national_id',
@@ -360,6 +413,7 @@ export default function App() {
         return b;
       })
     );
+    showToast('Business Approved & Enlisted', 'The business is now officially published on AuraCentra Ghana.', 'success');
   };
 
   const handleRejectVerification = (businessId: string, reason: string) => {
@@ -368,6 +422,7 @@ export default function App() {
         if (b.id === businessId) {
           return {
             ...b,
+            listingStatus: 'rejected',
             verificationStatus: 'rejected',
             verificationDocuments: b.verificationDocuments?.map((d) => ({
               ...d,
@@ -380,6 +435,7 @@ export default function App() {
         return b;
       })
     );
+    showToast('Business Rejected', 'The listing has been marked as rejected.', 'warning');
   };
 
   const handleAddCategory = (newCat: Category) => {
@@ -395,10 +451,15 @@ export default function App() {
     saveExecutiveSectionVisibility(visible);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await validateAndClearSession();
+    } catch {
+      // Ignore
+    }
     setCurrentUser(null);
     setCurrentView('portal');
-    showToast('Signed Out', 'You have been signed out successfully.', 'info');
+    showToast('Signed Out Safely', 'Your local session was invalidated and state flushed.', 'info');
   };
 
   // Feature Handlers
@@ -433,8 +494,13 @@ export default function App() {
   }, [showToast]);
 
   const handleOpenQuote = useCallback((business: Business) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      showToast('Sign In Required', 'Please sign in or create an account to request quotes from businesses.', 'info');
+      return;
+    }
     setQuoteBusiness(business);
-  }, []);
+  }, [currentUser, showToast]);
 
   const handleSubmitInquiry = useCallback((newInquiry: BusinessInquiry) => {
     setInquiries((prev) => [newInquiry, ...prev]);
@@ -553,24 +619,6 @@ export default function App() {
     showToast('Feedback Received!', 'Thank you! Your review has been recorded to help the Ghanaian community.', 'success');
   }, [showToast]);
 
-  const handleLikeBlogPost = useCallback((postId: string) => {
-    setLikedBlogPostIds((prev) => {
-      const isLiked = prev.includes(postId);
-      const updated = isLiked ? prev.filter((id) => id !== postId) : [...prev, postId];
-      
-      setBlogPosts((posts) =>
-        posts.map((p) =>
-          p.id === postId
-            ? { ...p, likes: Math.max(0, (p.likes || 0) + (isLiked ? -1 : 1)) }
-            : p
-        )
-      );
-      
-      showToast(isLiked ? 'Article Unliked' : 'Article Liked', isLiked ? 'Removed from saved articles.' : 'Thanks for supporting local business insights!', 'info');
-      return updated;
-    });
-  }, [showToast]);
-
   const handleApproveAndCreateCategory = useCallback((suggestion: CategorySuggestion) => {
     const newCatId = suggestion.categoryName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const newCategory: Category = {
@@ -627,6 +675,11 @@ export default function App() {
   // Compute filtered & sorted businesses
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b) => {
+      // 0. Only show officially enlisted/approved businesses to public users
+      if (b.listingStatus === 'pending_approval' || b.listingStatus === 'rejected') {
+        return false;
+      }
+
       // Keyword search
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase();
@@ -645,8 +698,22 @@ export default function App() {
         return false;
       }
 
+      // Region filter
+      if (filters.region && filters.region !== 'All Regions' && filters.region !== '') {
+        const targetRegion = filters.region.toLowerCase();
+        const matchesRegionField = b.region && b.region.toLowerCase().includes(targetRegion);
+        const regInfo = GHANA_REGIONS.find((r) => r.name.toLowerCase() === targetRegion);
+        const matchesCityInRegion = regInfo?.cities.some((c) => 
+          (b.city && b.city.toLowerCase().includes(c.toLowerCase())) || 
+          (b.address && b.address.toLowerCase().includes(c.toLowerCase()))
+        );
+        if (!matchesRegionField && !matchesCityInRegion) {
+          return false;
+        }
+      }
+
       // City filter
-      if (filters.city && filters.city !== 'All Cities' && b.city !== filters.city) {
+      if (filters.city && filters.city !== 'All Cities' && filters.city !== '' && b.city !== filters.city) {
         return false;
       }
 
@@ -740,7 +807,7 @@ export default function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenRegister={() => setIsRegisterModalOpen(true)}
+        onOpenRegister={handleOpenRegisterModal}
         onOpenSavedModal={() => setIsSavedModalOpen(true)}
         onOpenCompareModal={() => setIsCompareModalOpen(true)}
         onOpenInquiriesModal={() => setIsInquiriesModalOpen(true)}
@@ -761,12 +828,13 @@ export default function App() {
         onClearSearchHistory={handleClearSearchHistory}
         onSelectBusiness={(b) => setSelectedBusiness(b)}
         onShowToast={showToast}
+        isAutoDetectedRegion={isAutoDetectedRegion}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-28 sm:pb-12 space-y-6 sm:space-y-12">
         {/* Promotional & Urgent Announcements Ribbon */}
         <PromotionalBanner
-          onOpenRegister={() => setIsRegisterModalOpen(true)}
+          onOpenRegister={handleOpenRegisterModal}
           onSelectCategory={(categoryId) => handleFilterChange({ category: categoryId })}
           onShowToast={showToast}
         />
@@ -832,7 +900,13 @@ export default function App() {
           </section>
         )}
 
-        {/* 4. Browse by Category Grid */}
+        {/* 4. Ghana Business News Updates & Foreign Exchange (FX) Dashboard */}
+        <GhanaBusinessNewsSection
+          onSelectArticle={(article) => setSelectedNewsArticle(article)}
+          onShowToast={showToast}
+        />
+
+        {/* 5. Browse by Category Grid */}
         <section className="space-y-4" id="browse-categories-section">
           <div className="flex items-center justify-between">
             <div>
@@ -846,7 +920,7 @@ export default function App() {
             
             <button
               type="button"
-              onClick={() => setIsSuggestCategoryOpen(true)}
+              onClick={handleOpenSuggestCategoryModal}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-cyan-300 text-xs font-bold transition-all cursor-pointer border border-blue-200/60 dark:border-blue-800/60"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -905,17 +979,17 @@ export default function App() {
             </div>
 
             {/* Sort & Quick Filter Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-slate-500 font-medium hidden sm:inline flex items-center gap-1">
                   <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>Sort By:</span>
+                  <span>Sort:</span>
                 </span>
 
                 <select
                   value={filters.sortBy}
                   onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
-                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                  className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
                   aria-label="Sort businesses"
                 >
                   <option value="featured">Featured & Verified First</option>
@@ -923,23 +997,45 @@ export default function App() {
                   <option value="leads">Most Inquired</option>
                   <option value="name">Alphabetical (A-Z)</option>
                 </select>
+
+                {/* Region Filter (16 Ghana Regions) */}
+                <div className="flex items-center gap-1">
+                  <select
+                    value={filters.region}
+                    onChange={(e) => handleFilterChange({ region: e.target.value, city: '' })}
+                    className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                    aria-label="Filter by Ghana Region"
+                  >
+                    <option value="">All 16 Ghana Regions</option>
+                    {GHANA_REGIONS.map((reg) => (
+                      <option key={reg.id} value={reg.name}>
+                        {reg.name} ({reg.capital})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* City Quick Filter */}
-              <div className="flex items-center gap-1.5">
+              {/* City Quick Filter & Verified Button */}
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <select
                   value={filters.city}
                   onChange={(e) => handleFilterChange({ city: e.target.value })}
-                  className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                  className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
                   aria-label="Filter by City"
                 >
-                  <option value="">All Ghana Regions</option>
-                  <option value="Accra">Greater Accra</option>
-                  <option value="Kumasi">Kumasi (Ashanti)</option>
+                  <option value="">All Major Cities</option>
+                  <option value="Accra">Accra</option>
+                  <option value="Kumasi">Kumasi</option>
                   <option value="Tema">Tema</option>
                   <option value="Takoradi">Takoradi</option>
                   <option value="Tamale">Tamale</option>
                   <option value="Cape Coast">Cape Coast</option>
+                  <option value="Sunyani">Sunyani</option>
+                  <option value="Koforidua">Koforidua</option>
+                  <option value="Ho">Ho</option>
+                  <option value="Bolgatanga">Bolgatanga</option>
+                  <option value="Wa">Wa</option>
                 </select>
 
                 {/* Verified Filter Button */}
@@ -957,6 +1053,26 @@ export default function App() {
                 </button>
               </div>
             </div>
+
+            {/* Active Region / Geolocation Personalization Banner */}
+            {filters.region && (
+              <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-blue-50/90 dark:bg-slate-700/60 border border-blue-200/60 dark:border-blue-900/60 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                  <span className="text-slate-700 dark:text-slate-200 font-medium">
+                    Showing businesses in <strong className="font-bold text-blue-700 dark:text-cyan-300">{filters.region}</strong>
+                    {isAutoDetectedRegion && ' (Auto-detected based on your GPS location)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleFilterChange({ region: '', city: '' })}
+                  className="text-blue-600 dark:text-cyan-400 hover:underline font-bold text-[11px] cursor-pointer shrink-0"
+                >
+                  Show All Ghana
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Business Cards Grid with Framer Motion Layout Animation */}
@@ -1022,7 +1138,7 @@ export default function App() {
                 <button
                   type="button"
                   id="empty-state-register-btn"
-                  onClick={() => setIsRegisterModalOpen(true)}
+                  onClick={handleOpenRegisterModal}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
                 >
                   <PlusCircle className="w-4 h-4" />
@@ -1031,7 +1147,7 @@ export default function App() {
                 <button
                   type="button"
                   id="empty-state-suggest-btn"
-                  onClick={() => setIsSuggestCategoryOpen(true)}
+                  onClick={handleOpenSuggestCategoryModal}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs sm:text-sm font-bold border border-cyan-200 dark:border-cyan-800/60 transition-all cursor-pointer"
                 >
                   <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
@@ -1066,7 +1182,7 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => setIsSuggestCategoryOpen(true)}
+                  onClick={handleOpenSuggestCategoryModal}
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs font-bold border border-cyan-200 dark:border-cyan-800/60 transition-all cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -1075,7 +1191,7 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => setIsCustomerFeedbackOpen(true)}
+                  onClick={() => handleOpenCustomerFeedbackModal()}
                   className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-600 transition-all cursor-pointer"
                 >
                   <Star className="w-3.5 h-3.5 text-amber-500" />
@@ -1085,30 +1201,6 @@ export default function App() {
             </div>
           )}
         </section>
-
-        {/* 6. Popularity Trends Analytics Line Chart (Recharts) */}
-        <PopularityTrendsChart
-          onSelectCategory={(categoryName) => {
-            const matched = categories.find((c) => c.name.toLowerCase() === categoryName.toLowerCase());
-            if (matched) {
-              handleFilterChange({ category: matched.id });
-              const el = document.getElementById('main-directory-section');
-              el?.scrollIntoView({ behavior: 'smooth' });
-            } else {
-              handleFilterChange({ searchQuery: categoryName });
-              const el = document.getElementById('main-directory-section');
-              el?.scrollIntoView({ behavior: 'smooth' });
-            }
-          }}
-        />
-
-        {/* 7. Ghana Business Growth & Insights Blog Section */}
-        <BlogSection
-          posts={blogPosts}
-          onSelectPost={(post) => setSelectedBlogPost(post)}
-          onLikePost={handleLikeBlogPost}
-          likedPostIds={likedBlogPostIds}
-        />
       </main>
 
       {/* 8. Modals Ecosystem */}
@@ -1145,14 +1237,6 @@ export default function App() {
         businesses={businesses}
         preSelectedBusiness={selectedBusinessForReview}
         onSubmitFeedback={handleSubmitCustomerFeedback}
-      />
-
-      <BlogArticleModal
-        post={selectedBlogPost}
-        isOpen={!!selectedBlogPost}
-        onClose={() => setSelectedBlogPost(null)}
-        onLikePost={handleLikeBlogPost}
-        hasLiked={selectedBlogPost ? likedBlogPostIds.includes(selectedBlogPost.id) : false}
       />
 
       <QuoteInquiryModal
@@ -1213,6 +1297,8 @@ export default function App() {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         categories={categories}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
         onRegisterBusiness={(newBiz) => {
           handleRegisterBusiness(newBiz);
           showToast('Business Registered Successfully!', `${newBiz.name} is now listed on AuraCentra Ghana.`, 'success');
@@ -1225,6 +1311,13 @@ export default function App() {
         onClose={() => setIsSavedModalOpen(false)}
         onRemoveSaved={handleToggleSave}
         onSelectBusiness={(b) => setSelectedBusiness(b)}
+      />
+
+      <NewsArticleModal
+        article={selectedNewsArticle}
+        isOpen={!!selectedNewsArticle}
+        onClose={() => setSelectedNewsArticle(null)}
+        onShowToast={showToast}
       />
 
       {/* 7. Toast Notification Portal */}
@@ -1240,7 +1333,7 @@ export default function App() {
           handleFilterChange({ category: catId });
           window.scrollTo({ top: 400, behavior: 'smooth' });
         }}
-        onOpenRegister={() => setIsRegisterModalOpen(true)}
+        onOpenRegister={handleOpenRegisterModal}
       />
 
       {/* 10. Smartphone Bottom Navigation Bar */}
@@ -1260,7 +1353,7 @@ export default function App() {
           const el = document.getElementById('main-directory-section');
           el?.scrollIntoView({ behavior: 'smooth' });
         }}
-        onOpenRegister={() => setIsRegisterModalOpen(true)}
+        onOpenRegister={handleOpenRegisterModal}
         onOpenSaved={() => setIsSavedModalOpen(true)}
         onOpenInquiries={() => setIsInquiriesModalOpen(true)}
         onOpenCompare={() => setIsCompareModalOpen(true)}

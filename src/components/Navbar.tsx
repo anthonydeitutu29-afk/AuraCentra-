@@ -16,7 +16,8 @@ import {
   Share2,
   Check,
   Sun,
-  Moon
+  Moon,
+  Newspaper
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { Logo } from './Logo';

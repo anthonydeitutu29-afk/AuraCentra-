@@ -1,12 +1,14 @@
-import { Business, Category, BusinessReview, UserProfile, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, BlogPost } from '../types';
+import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback } from '../types';
 import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
-import { INITIAL_BLOG_POSTS } from '../data/blogData';
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 
 const STORAGE_KEYS = {
   BUSINESSES: 'auracentra_businesses_clean_v6',
   CATEGORIES: 'auracentra_categories_clean_v6',
   REVIEWS: 'auracentra_reviews_clean_v6',
   CURRENT_USER: 'auracentra_user_clean_v6',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v6',
   SAVED_BUSINESSES: 'auracentra_saved_clean_v6',
   SEARCH_HISTORY: 'auracentra_search_history_clean_v6',
   THEME: 'auracentra_theme_clean_v6',
@@ -16,7 +18,7 @@ const STORAGE_KEYS = {
   REPORTS: 'auracentra_reports_clean_v6',
   SUGGESTIONS: 'auracentra_suggestions_clean_v6',
   FEEDBACK: 'auracentra_feedback_clean_v6',
-  BLOG_POSTS: 'auracentra_blog_posts_clean_v6',
+  NEWS_LIKES: 'auracentra_news_likes_v1',
 };
 
 // Initial state getters and setters
@@ -111,6 +113,158 @@ export function saveCurrentUser(user: UserProfile | null): void {
   } catch (e) {
     console.error('Failed to save current user', e);
   }
+}
+
+/**
+ * Explicit Account Validation Check
+ * Validates if the given user profile is active, well-formed, and exists in registered records.
+ */
+export function validateCurrentSession(user: UserProfile | null): { isValid: boolean; reason?: string } {
+  if (!user) {
+    return { isValid: false, reason: 'No active session token found.' };
+  }
+  if (!user.id || !user.email) {
+    return { isValid: false, reason: 'Session token is corrupted or missing essential credentials.' };
+  }
+  
+  try {
+    const accounts = getRegisteredAccounts();
+    const accountExists = accounts.some(
+      (a) => a.email.toLowerCase() === user.email.toLowerCase() || a.id === user.id
+    );
+    if (!accountExists && user.role !== 'visitor') {
+      return { isValid: false, reason: 'Account record not recognized or has been invalidated.' };
+    }
+  } catch (e) {
+    console.error('Session validation error:', e);
+  }
+  
+  return { isValid: true };
+}
+
+/**
+ * Clears all local application state, invalidates persistent session tokens,
+ * flushes sensitive caches and signs out of Firebase Auth.
+ */
+export async function validateAndClearSession(): Promise<{ success: boolean; message: string }> {
+  try {
+    // 1. Invalidate Firebase Auth session
+    try {
+      if (auth) {
+        await signOut(auth);
+      }
+    } catch (firebaseErr) {
+      console.warn('Firebase sign-out notification:', firebaseErr);
+    }
+
+    // 2. Remove primary user session token
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+
+    // 3. Clear sensitive or user-specific transient caches
+    localStorage.removeItem(STORAGE_KEYS.SAVED_BUSINESSES);
+    localStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY);
+
+    // 4. Invalidate any lingering firebase token keys in local/session storage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('firebase:') || key.startsWith('authUser:') || key.includes('auth_token'))) {
+        localStorage.removeItem(key);
+      }
+    }
+    
+    // Also check sessionStorage
+    try {
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
+
+    return { success: true, message: 'All local session tokens and application state cleared securely.' };
+  } catch (err: any) {
+    console.error('Error clearing session:', err);
+    return { success: false, message: err?.message || 'Error occurred while clearing session.' };
+  }
+}
+
+export function getStoredNewsLikes(): string[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.NEWS_LIKES);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load news likes', e);
+  }
+  return [];
+}
+
+export function toggleStoredNewsLike(articleId: string): string[] {
+  try {
+    const current = getStoredNewsLikes();
+    const updated = current.includes(articleId)
+      ? current.filter((id) => id !== articleId)
+      : [...current, articleId];
+    localStorage.setItem(STORAGE_KEYS.NEWS_LIKES, JSON.stringify(updated));
+    return updated;
+  } catch (e) {
+    console.error('Failed to toggle news like', e);
+    return [];
+  }
+}
+
+// Built-in executive system administrator credentials
+export const DEFAULT_ADMIN_ACCOUNT: UserAccountRecord = {
+  id: 'admin-super-01',
+  name: 'AuraCentra Executive Admin',
+  email: 'admindashboard@gmail.com',
+  phone: '+233 50 820 3673',
+  role: 'admin',
+  password: 'Admin12$',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+
+export function getRegisteredAccounts(): UserAccountRecord[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_ACCOUNTS);
+    if (data) {
+      const parsed: UserAccountRecord[] = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        // Ensure admin account is present
+        if (!parsed.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
+          return [DEFAULT_ADMIN_ACCOUNT, ...parsed];
+        }
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load registered accounts from storage', e);
+  }
+  return [DEFAULT_ADMIN_ACCOUNT];
+}
+
+export function saveRegisteredAccount(account: UserAccountRecord): void {
+  try {
+    const accounts = getRegisteredAccounts();
+    const existingIndex = accounts.findIndex(
+      (a) => a.email.toLowerCase() === account.email.toLowerCase() || a.id === account.id
+    );
+    let updated: UserAccountRecord[];
+    if (existingIndex >= 0) {
+      updated = [...accounts];
+      updated[existingIndex] = { ...updated[existingIndex], ...account, lastLoginAt: new Date().toISOString() };
+    } else {
+      updated = [...accounts, { ...account, lastLoginAt: new Date().toISOString() }];
+    }
+    localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to save registered account to storage', e);
+  }
+}
+
+export function findRegisteredAccountByEmail(email: string): UserAccountRecord | null {
+  const cleanEmail = email.trim().toLowerCase();
+  const accounts = getRegisteredAccounts();
+  return accounts.find((a) => a.email.toLowerCase() === cleanEmail) || null;
 }
 
 export function getStoredSearchHistory(): string[] {
@@ -281,22 +435,3 @@ export function saveFeedback(feedbackList: PlatformFeedback[]): void {
   }
 }
 
-export function getStoredBlogPosts(): BlogPost[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.BLOG_POSTS);
-    if (data) {
-      return JSON.parse(data);
-    }
-  } catch (e) {
-    console.error('Failed to load blog posts', e);
-  }
-  return INITIAL_BLOG_POSTS;
-}
-
-export function saveBlogPosts(posts: BlogPost[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.BLOG_POSTS, JSON.stringify(posts));
-  } catch (e) {
-    console.error('Failed to save blog posts', e);
-  }
-}

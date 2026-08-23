@@ -14,9 +14,14 @@ import {
   Trash2,
   AlertCircle,
   Camera,
-  Layers
+  Layers,
+  PhoneCall,
+  MessageCircle,
+  Clock,
+  Sparkles,
+  Send
 } from 'lucide-react';
-import { Business, Category, DocumentType, VerificationDocument } from '../types';
+import { Business, Category, DocumentType, VerificationDocument, UserProfile } from '../types';
 import confetti from 'canvas-confetti';
 
 interface BusinessRegistrationModalProps {
@@ -24,6 +29,8 @@ interface BusinessRegistrationModalProps {
   onClose: () => void;
   categories: Category[];
   onRegisterBusiness: (newBusiness: Business) => void;
+  currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
 export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps> = ({
@@ -31,17 +38,22 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
   onClose,
   categories,
   onRegisterBusiness,
+  currentUser,
+  onOpenAuth,
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedBusiness, setSubmittedBusiness] = useState<Business | null>(null);
+  const [whatsappSent, setWhatsappSent] = useState(false);
 
   // Form Fields
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
   const [category, setCategory] = useState(categories[0]?.id || 'restaurants');
   const [description, setDescription] = useState('');
-  const [phone, setPhone] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState(currentUser?.phone || '');
+  const [whatsapp, setWhatsapp] = useState(currentUser?.phone?.replace(/\D/g, '') || '');
+  const [email, setEmail] = useState(currentUser?.email || '');
   const [website, setWebsite] = useState('');
 
   // Location
@@ -148,6 +160,53 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
     setServices(services.filter((s) => s !== serviceToRemove));
   };
 
+  const formatWhatsAppSubmission = (biz: Business) => {
+    const categoryName = categories.find((c) => c.id === biz.category)?.name || biz.category;
+    const lines = [
+      '🇬🇭 *NEW BUSINESS ENLISTMENT SUBMISSION*',
+      '*AuraCentra Ghana Business Directory*',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      `🏢 *Business Name:* ${biz.name}`,
+      `🏷️ *Tagline:* ${biz.tagline || 'N/A'}`,
+      `📁 *Category:* ${categoryName}`,
+      `📝 *Description:* ${biz.description}`,
+      '',
+      '📞 *Contact Information:*',
+      `• Phone Number: ${biz.phone}`,
+      `• WhatsApp Number: ${biz.whatsapp}`,
+      `• Email Address: ${biz.email}`,
+      `• Official Website: ${biz.website || 'N/A'}`,
+      '',
+      '📍 *Location & Address:*',
+      `• City & Region: ${biz.city}, ${biz.region}`,
+      `• Physical Address: ${biz.address}`,
+      `• GhanaPost GPS Digital Address: ${biz.digitalAddress || 'N/A'}`,
+      '',
+      '💼 *Services & Products:*',
+      biz.services.map((s) => `• ${s}`).join('\n'),
+      '',
+      '🛡️ *Ghana Identity & Verification:*',
+      `• Document Type: ${docType === 'ghana_card' ? 'Ghana Card (National ID)' : docType.toUpperCase()}`,
+      `• ID / Document Number: ${docNumber || 'Photo Attached via Portal'}`,
+      `• ID Holder Name: ${holderName || biz.name}`,
+      `• Ghana Card Photo Uploaded: ${frontImagePreview ? 'Yes (Attached)' : 'No'}`,
+      '',
+      `⏰ *Submission Timestamp:* ${new Date().toLocaleString()}`,
+      '📌 *Direct Destination:* Tony\'s Digital Marketing and Business Hub (0508203673)',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '_Status: Awaiting 24-Hour Administrative Verification Call & Final Approval._',
+    ];
+    return lines.join('\n');
+  };
+
+  const handleOpenWhatsAppDirect = () => {
+    if (!submittedBusiness) return;
+    const msg = formatWhatsAppSubmission(submittedBusiness);
+    const url = `https://wa.me/233508203673?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+    setWhatsappSent(true);
+  };
+
   const handleSubmitRegistration = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -162,7 +221,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       verificationDocs.push({
         id: `doc-${Date.now()}`,
         type: docType,
-        documentNumber: docNumber || 'PENDING-ID-992',
+        documentNumber: docNumber || 'GH-CARD-9921',
         holderName: holderName || name,
         expiryDate: '2032-12-31',
         frontImageUrl: frontImagePreview,
@@ -188,7 +247,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       coverImage: finalCover,
       gallery: finalGallery,
       phone: phone.trim() || '0508203673',
-      whatsapp: whatsapp.trim() || phone.trim() || '233508203673',
+      whatsapp: whatsapp.trim() || phone.trim() || '0508203673',
       email: email.trim() || 'tonysdigitalmarketing@gmail.com',
       website: website.trim() || undefined,
       city,
@@ -202,7 +261,8 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       priceLevel: '$$',
       rating: 5.0,
       reviewCount: 0,
-      verificationStatus: frontImagePreview ? 'pending' : 'unverified',
+      verificationStatus: 'pending',
+      listingStatus: 'pending_approval', // Requires Admin Approval
       verificationDocuments: verificationDocs,
       openingHours: {
         monday: '08:00 - 18:00',
@@ -221,14 +281,112 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       updatedAt: new Date().toISOString(),
     };
 
+    // 1. Pass to parent so it is recorded in storage as pending approval
     onRegisterBusiness(newBiz);
+    setSubmittedBusiness(newBiz);
+    setIsSubmitted(true);
+
+    // 2. Open WhatsApp dispatch directly to 0508203673
+    const waText = formatWhatsAppSubmission(newBiz);
+    const waUrl = `https://wa.me/233508203673?text=${encodeURIComponent(waText)}`;
+    window.open(waUrl, '_blank');
+
+    // 3. Trigger celebration confetti
     confetti({
       particleCount: 90,
       spread: 70,
       origin: { y: 0.6 },
     });
+  };
+
+  const handleCloseSubmitted = () => {
+    setIsSubmitted(false);
+    setSubmittedBusiness(null);
+    setStep(1);
     onClose();
   };
+
+  // If business was submitted, display prominent verification confirmation dialog
+  if (isSubmitted && submittedBusiness) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
+        <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col my-auto p-6 sm:p-8 space-y-6 text-center">
+          
+          <div className="mx-auto w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Awaiting Administrative Approval</span>
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+              Business Registration Submitted!
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+              Your business profile for <span className="font-semibold text-slate-900 dark:text-white">{submittedBusiness.name}</span> has been securely transmitted for administrative review.
+            </p>
+          </div>
+
+          {/* Prominent 24-Hour Call Verification Notice */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-800 text-left space-y-3 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-600 text-white shrink-0 shadow">
+                <PhoneCall className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200">
+                  Verification Call Within 24 Hours
+                </h3>
+                <p className="text-xs text-amber-900 dark:text-amber-300 leading-relaxed font-medium">
+                  Please expect a call within <span className="font-bold underline">24 hours</span> from <strong className="font-extrabold text-amber-950 dark:text-amber-100">Tony's Digital Marketing and Business Hub</strong> for verification before your business will be enlisted on the website.
+                </p>
+              </div>
+            </div>
+            <div className="text-[11px] text-amber-800/80 dark:text-amber-400/80 pt-2 border-t border-amber-200/60 dark:border-amber-800/60 flex items-center justify-between">
+              <span>Official Verification Number: <strong>0508203673</strong></span>
+              <span className="font-semibold text-amber-700 dark:text-amber-300">Tony's Hub Verification Desk</span>
+            </div>
+          </div>
+
+          {/* WhatsApp Direct Dispatch Notice */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
+                <span>WhatsApp Transmission Status</span>
+              </span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">0508203673</span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              All information you provided has been formatted and directed to WhatsApp number <strong>0508203673</strong>. You can reopen WhatsApp at any time to share more photos or ask questions.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleOpenWhatsAppDirect}
+              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>Open in WhatsApp (0508203673)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCloseSubmitted}
+              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+            >
+              <span>Done / Back to Directory</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200">
