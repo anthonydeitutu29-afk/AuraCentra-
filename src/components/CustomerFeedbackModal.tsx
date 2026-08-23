@@ -299,23 +299,42 @@ export const CustomerFeedbackModal: React.FC<CustomerFeedbackModalProps> = ({
               </div>
 
               {/* Actions */}
-              <div className="pt-3 flex items-center justify-end gap-2.5">
+              <div className="pt-3 flex flex-wrap items-center justify-between gap-2.5">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  onClick={() => {
+                    if (!name.trim() || !message.trim()) {
+                      alert('Please provide your name and feedback message first.');
+                      return;
+                    }
+                    const text = `🌟 *Customer Feedback for AuraCentra Ghana:*\n\n👤 *From:* ${name.trim()}\n📧 *Email:* ${email.trim() || 'N/A'}\n📋 *Category:* ${feedbackType.replace('_', ' ')}\n${feedbackType === 'business_review' ? `🏢 *Business:* ${targetBiz?.name || 'Selected Business'}\n⭐ *Rating:* ${rating}/5\n` : ''}💬 *Message:* ${message.trim()}\n\n_Sent to Executive Support (0508203673)_`;
+                    window.open(`https://wa.me/233508203673?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 text-xs font-bold transition-all cursor-pointer"
+                  title="Send directly to Tony on WhatsApp (0508203673)"
                 >
-                  Cancel
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Send to WhatsApp (0508203673)</span>
                 </button>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-600/25 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{isSubmitting ? 'Submitting...' : 'Submit Feedback'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold shadow-md shadow-blue-600/25 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSubmitting ? 'Submitting...' : 'Submit Feedback'}</span>
+                  </button>
+                </div>
               </div>
             </form>
           )}

@@ -119,6 +119,7 @@ export interface UserProfile {
   phone?: string;
   role: UserRole;
   avatar?: string;
+  authProvider?: 'google' | 'apple' | 'email';
   savedBusinessIds: string[];
   ownedBusinessIds?: string[];
   twoFactorEnabled?: boolean;
@@ -131,6 +132,8 @@ export interface UserAccountRecord {
   email: string;
   phone?: string;
   role: UserRole;
+  avatar?: string;
+  authProvider?: 'google' | 'apple' | 'email';
   passwordHash?: string;
   password?: string;
   createdAt: string;

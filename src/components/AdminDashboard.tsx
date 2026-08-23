@@ -30,9 +30,17 @@ import {
   Flag,
   ShieldAlert,
   AlertCircle,
-  Info
+  Info,
+  UserCheck,
+  Smartphone,
+  Phone,
+  Mail,
+  MessageSquare,
+  Send,
+  User as UserIcon
 } from 'lucide-react';
-import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback } from '../types';
+import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
+import { getRegisteredAccounts } from '../utils/storage';
 import { Logo } from './Logo';
 import confetti from 'canvas-confetti';
 
@@ -89,10 +97,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSignOut,
   onBackToPortal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'suggestions' | 'feedback' | 'businesses' | 'categories' | 'settings'>('verification');
+  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'suggestions' | 'feedback' | 'users' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
+  const [userFilterProvider, setUserFilterProvider] = useState<string>('all');
+  const [registeredUsers, setRegisteredUsers] = useState<UserAccountRecord[]>(() => getRegisteredAccounts());
   
+  // Refresh accounts when opening users tab
+  const refreshUsers = () => {
+    setRegisteredUsers(getRegisteredAccounts());
+  };
+
   // Verification Document Preview Modal State
   const [previewDoc, setPreviewDoc] = useState<{
     business: Business;
@@ -331,6 +346,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Users className="w-4 h-4 text-amber-400" />
             <span>Customer Feedback & Ratings ({feedback.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              refreshUsers();
+              setActiveTab('users');
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'users'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <UserCheck className="w-4 h-4 text-emerald-400" />
+            <span>Registered Users & Inquiries ({registeredUsers.length})</span>
           </button>
 
           <button
@@ -876,6 +907,205 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB: Registered Users & Inquiries */}
+        {activeTab === 'users' && (
+          <div className="space-y-4 animate-in fade-in duration-150">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-emerald-400" />
+                  <span>Registered Users & Direct Customer Communication</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Real-time list of members signed in via Google, Apple iCloud, and email accounts. Talk to them directly on WhatsApp at 0508203673 for feedback.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://wa.me/233508203673?text=${encodeURIComponent('Hello Tony, checking user feedback and inquiry logs on AuraCentra Ghana.')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Open WhatsApp Hub (0508203673)</span>
+                </a>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+                <div className="text-xs text-slate-400">Total Registered</div>
+                <div className="text-xl font-black text-white">{registeredUsers.length}</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+                <div className="text-xs text-slate-400">Google OAuth</div>
+                <div className="text-xl font-black text-blue-400">
+                  {registeredUsers.filter((u) => u.authProvider === 'google').length}
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+                <div className="text-xs text-slate-400">Apple / iCloud</div>
+                <div className="text-xl font-black text-slate-200">
+                  {registeredUsers.filter((u) => u.authProvider === 'apple').length}
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80">
+                <div className="text-xs text-slate-400">Direct Email Accounts</div>
+                <div className="text-xl font-black text-amber-400">
+                  {registeredUsers.filter((u) => !u.authProvider || u.authProvider === 'email').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-800/60 p-3 rounded-2xl border border-slate-700/80">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search users by name, email, or phone..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">Provider:</span>
+                <select
+                  value={userFilterProvider}
+                  onChange={(e) => setUserFilterProvider(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none"
+                >
+                  <option value="all">All Providers</option>
+                  <option value="google">Google</option>
+                  <option value="apple">Apple / iCloud</option>
+                  <option value="email">Email & Password</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Users List */}
+            {registeredUsers.length === 0 ? (
+              <div className="p-12 text-center rounded-2xl bg-slate-800/40 border border-slate-700/60 text-slate-400 space-y-2">
+                <UserIcon className="w-8 h-8 mx-auto text-slate-500" />
+                <div className="font-bold text-white">No Registered Users Yet</div>
+                <div className="text-xs">User sign-ups and logins will appear here automatically.</div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {registeredUsers
+                  .filter((u) => {
+                    if (userFilterProvider !== 'all' && (u.authProvider || 'email') !== userFilterProvider) return false;
+                    if (searchQuery) {
+                      const q = searchQuery.toLowerCase();
+                      return (
+                        u.name.toLowerCase().includes(q) ||
+                        u.email.toLowerCase().includes(q) ||
+                        (u.phone && u.phone.toLowerCase().includes(q))
+                      );
+                    }
+                    return true;
+                  })
+                  .map((u) => {
+                    const cleanUserPhone = u.phone ? u.phone.replace(/\D/g, '') : '';
+                    const waTarget = cleanUserPhone ? (cleanUserPhone.startsWith('233') ? cleanUserPhone : '233' + cleanUserPhone.replace(/^0/, '')) : '233508203673';
+                    const directWhatsAppUrl = `https://wa.me/${waTarget}?text=${encodeURIComponent(
+                      `Hello ${u.name}! This is Tony from AuraCentra Ghana. Reaching out regarding your account (${u.email}) for feedback and support.`
+                    )}`;
+                    const adminWhatsAppLogUrl = `https://wa.me/233508203673?text=${encodeURIComponent(
+                      `👤 *User Record from AuraCentra Ghana:*\n\n• Name: ${u.name}\n• Email: ${u.email}\n• Phone: ${u.phone || 'N/A'}\n• Provider: ${u.authProvider || 'email'}\n• Role: ${u.role}\n• Joined: ${new Date(u.createdAt).toLocaleString()}`
+                    )}`;
+
+                    return (
+                      <div
+                        key={u.id}
+                        className="p-5 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3.5 shadow-md flex flex-col justify-between"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-600 text-white font-bold text-sm flex items-center justify-center shadow-md shrink-0">
+                              {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-white">{u.name}</h4>
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-700 text-slate-300">
+                                  {u.role}
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-300 flex items-center gap-1.5 mt-0.5">
+                                <Mail className="w-3 h-3 text-slate-400" />
+                                <span>{u.email}</span>
+                              </div>
+                              {u.phone && (
+                                <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span>{u.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Provider Badge */}
+                          <div>
+                            {u.authProvider === 'google' ? (
+                              <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-blue-950/80 text-blue-300 border border-blue-800 flex items-center gap-1">
+                                Google
+                              </span>
+                            ) : u.authProvider === 'apple' ? (
+                              <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-950 text-slate-200 border border-slate-700 flex items-center gap-1">
+                                Apple / iCloud
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800 flex items-center gap-1">
+                                Email
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Joined & Activity */}
+                        <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                          <div>Joined: {new Date(u.createdAt).toLocaleDateString()}</div>
+                          <div>ID: <span className="font-mono text-slate-500">{u.id.substring(0, 10)}...</span></div>
+                        </div>
+
+                        {/* Communication Action Bar */}
+                        <div className="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2">
+                          <a
+                            href={directWhatsAppUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-bold transition-all"
+                            title="Direct WhatsApp Chat"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>WhatsApp User</span>
+                          </a>
+
+                          <a
+                            href={adminWhatsAppLogUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-600"
+                            title="Send user details to Tony's WhatsApp (0508203673)"
+                          >
+                            <Send className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Save to 0508203673</span>
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
