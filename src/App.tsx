@@ -58,6 +58,10 @@ import { autoDetectUserLocation, GHANA_REGIONS, calculateDistanceKm } from './ut
 // Subcomponents
 import { Navbar } from './components/Navbar';
 import { HeroSearch } from './components/HeroSearch';
+import { CategoryExploreRow } from './components/CategoryExploreRow';
+import { DiscoverBusinessesSection } from './components/DiscoverBusinessesSection';
+import { DualCtaBanner } from './components/DualCtaBanner';
+import { AboutUsModal } from './components/AboutUsModal';
 import { BusinessCard } from './components/BusinessCard';
 import { BusinessDetailsModal } from './components/BusinessDetailsModal';
 import { BusinessComparisonModal } from './components/BusinessComparisonModal';
@@ -80,6 +84,7 @@ import { SuggestCategoryModal } from './components/SuggestCategoryModal';
 import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
 import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection';
 import { NewsArticleModal } from './components/NewsArticleModal';
+import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 
 export default function App() {
   // Theme state
@@ -131,9 +136,14 @@ export default function App() {
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
   const [feedback, setFeedback] = useState<PlatformFeedback[]>(getStoredFeedback);
 
+  // Navigation section state: 'home' | 'news'
+  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news'>('home');
+
   // Modals state
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [selectedNewsArticle, setSelectedNewsArticle] = useState<GhanaNewsArticle | null>(null);
+  const [isAboutUsModalOpen, setIsAboutUsModalOpen] = useState(false);
+  const [aboutUsInitialTab, setAboutUsInitialTab] = useState<'about' | 'pricing' | 'verification'>('about');
   const [mapBusiness, setMapBusiness] = useState<Business | null>(null);
   const [quoteBusiness, setQuoteBusiness] = useState<Business | null>(null);
   const [qrBusiness, setQrBusiness] = useState<Business | null>(null);
@@ -388,20 +398,25 @@ export default function App() {
     }
   };
 
-  const handleApproveVerification = (businessId: string) => {
+  const handleApproveVerification = (businessId: string, badgeType: string = 'Gold Enterprise', verifiedCoords?: { lat: number; lng: number }) => {
+    let approvedBiz: Business | undefined;
     setBusinesses((prev) =>
       prev.map((b) => {
         if (b.id === businessId) {
-          return {
+          approvedBiz = {
             ...b,
             listingStatus: 'active', // Enlist officially upon admin approval
             verificationStatus: 'verified',
-            verificationBadge: {
-              type: 'national_id',
-              verifiedAt: new Date().toISOString(),
-              expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-              docNumberHash: 'VERIFIED-GH',
-              level: 'gold',
+            coordinates: verifiedCoords || b.coordinates,
+            verificationDetails: {
+              ...(b.verificationDetails || {
+                verifiedAt: new Date().toISOString(),
+                tinNumber: 'TIN-GH-882194',
+                businessRegNumber: 'BN-GH-2024-9128',
+                verifiedByAdmin: 'Executive Desk',
+              }),
+              badgeType: (badgeType as any) || 'Gold Enterprise',
+              gpsVerified: true,
             },
             verificationDocuments: b.verificationDocuments?.map((d) => ({
               ...d,
@@ -409,18 +424,34 @@ export default function App() {
               reviewedAt: new Date().toISOString(),
             })),
           };
+          return approvedBiz;
         }
         return b;
       })
     );
-    showToast('Business Approved & Enlisted', 'The business is now officially published on AuraCentra Ghana.', 'success');
+
+    if (approvedBiz) {
+      dispatchApprovalNotification(approvedBiz, badgeType);
+    }
+
+    showToast(
+      'Business Approved & Enlisted',
+      `The business has been verified with ${badgeType} badge and published on AuraCentra Ghana. Automated notification dispatched.`,
+      'success'
+    );
   };
 
-  const handleRejectVerification = (businessId: string, reason: string) => {
+  const handleRejectVerification = (
+    businessId: string,
+    reason: string,
+    resolutionGuide?: string,
+    adminNotes?: string
+  ) => {
+    let rejectedBiz: Business | undefined;
     setBusinesses((prev) =>
       prev.map((b) => {
         if (b.id === businessId) {
-          return {
+          rejectedBiz = {
             ...b,
             listingStatus: 'rejected',
             verificationStatus: 'rejected',
@@ -431,11 +462,21 @@ export default function App() {
               reviewedAt: new Date().toISOString(),
             })),
           };
+          return rejectedBiz;
         }
         return b;
       })
     );
-    showToast('Business Rejected', 'The listing has been marked as rejected.', 'warning');
+
+    if (rejectedBiz) {
+      dispatchRejectionNotification(rejectedBiz, reason, resolutionGuide, adminNotes);
+    }
+
+    showToast(
+      'Business Rejected & User Notified',
+      'The listing was rejected and automated corrective feedback was sent to the owner.',
+      'warning'
+    );
   };
 
   const handleAddCategory = (newCat: Category) => {
@@ -798,8 +839,18 @@ export default function App() {
       {/* 0. Subtle Exploration Progress Bar at the Very Top of Screen */}
       <ScrollProgressBar />
 
-      {/* 1. Global Navigation Bar */}
+      {/* 1. Global Navigation Bar matching Image 1 */}
       <Navbar
+        currentSection={currentNavTab}
+        onNavigateSection={(sec) => setCurrentNavTab(sec)}
+        onOpenAboutUs={() => {
+          setAboutUsInitialTab('about');
+          setIsAboutUsModalOpen(true);
+        }}
+        onOpenPricing={() => {
+          setAboutUsInitialTab('pricing');
+          setIsAboutUsModalOpen(true);
+        }}
         currentUser={currentUser}
         savedCount={savedBusinessIds.length}
         comparedCount={comparedBusinessIds.length}
@@ -816,394 +867,261 @@ export default function App() {
         onSharePlatform={handleSharePlatform}
       />
 
-      {/* 2. Hero & Focused Search Component */}
-      <HeroSearch
-        categories={categories}
-        businesses={businesses}
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        onResetFilters={handleResetFilters}
-        searchHistory={searchHistory}
-        onAddSearchHistory={handleAddSearchHistory}
-        onClearSearchHistory={handleClearSearchHistory}
-        onSelectBusiness={(b) => setSelectedBusiness(b)}
-        onShowToast={showToast}
-        isAutoDetectedRegion={isAutoDetectedRegion}
-      />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-28 sm:pb-12 space-y-6 sm:space-y-12">
-        {/* Promotional & Urgent Announcements Ribbon */}
-        <PromotionalBanner
-          onOpenRegister={handleOpenRegisterModal}
-          onSelectCategory={(categoryId) => handleFilterChange({ category: categoryId })}
-          onShowToast={showToast}
-        />
-
-        {/* 3. Executive Featured Spotlight Section (if any featured businesses exist) */}
-        {showExecutiveSection && executiveBusinesses.length > 0 && (
-          <section className="space-y-4" id="executive-spotlight-section">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
-                  <Sparkles className="w-4 h-4" />
-                  <span>AuraCentra Featured Showcase</span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Verified Industry Leaders & Highlights
-                </h2>
-              </div>
-            </div>
-
-            <motion.div 
-              layout 
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <AnimatePresence mode="popLayout">
-                {executiveBusinesses.slice(0, 3).map((biz) => (
-                  <motion.div
-                    key={biz.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                    transition={{
-                      layout: { type: "spring", stiffness: 350, damping: 30 },
-                      opacity: { duration: 0.25 },
-                      scale: { duration: 0.25 }
-                    }}
-                    className="flex flex-col h-full"
-                  >
-                    <BusinessCard
-                      business={biz}
-                      distanceKm={getBusinessDistance(biz)}
-                      isSaved={savedBusinessIds.includes(biz.id)}
-                      isCompared={comparedBusinessIds.includes(biz.id)}
-                      onToggleSave={handleToggleSave}
-                      onToggleCompare={handleToggleCompare}
-                      onSelect={(b) => setSelectedBusiness(b)}
-                      onOpenQuote={handleOpenQuote}
-                      onOpenQR={handleOpenQR}
-                      onShare={handleShareBusiness}
-                      onRate={(b) => {
-                        setSelectedBusinessForReview(b);
-                        setIsCustomerFeedbackOpen(true);
-                      }}
-                      onQuickContactWhatsApp={(b) => {
-                        window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
-                      }}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          </section>
-        )}
-
-        {/* 4. Ghana Business News Updates & Foreign Exchange (FX) Dashboard */}
-        <GhanaBusinessNewsSection
-          onSelectArticle={(article) => setSelectedNewsArticle(article)}
-          onShowToast={showToast}
-        />
-
-        {/* 5. Browse by Category Grid */}
-        <section className="space-y-4" id="browse-categories-section">
-          <div className="flex items-center justify-between">
+      {/* Conditional Rendering: Dedicated Business News View OR Home Discovery Flow */}
+      {currentNavTab === 'news' ? (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Explore Ghanaian Business Categories
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Discover verified professionals, artisans, tech hubs, and healthcare providers in Ghana.
+              <div className="flex items-center gap-2 text-blue-600 dark:text-cyan-400 text-xs font-bold uppercase tracking-wider">
+                <span>Ghana Economic & Business Desk</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                Ghana Business News & Live Forex Hub
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Real-time Cedi (GHS) exchange rates, BoG monetary policy updates, trade tenders, and market reports.
               </p>
             </div>
-            
+
             <button
               type="button"
-              onClick={handleOpenSuggestCategoryModal}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-cyan-300 text-xs font-bold transition-all cursor-pointer border border-blue-200/60 dark:border-blue-800/60"
+              onClick={() => setCurrentNavTab('home')}
+              className="px-4 py-2 rounded-xl bg-blue-50 dark:bg-slate-850 text-blue-600 dark:text-cyan-400 text-xs font-bold hover:bg-blue-100 transition-colors cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Suggest Category</span>
+              ← Back to Discovery
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
-            {categories.map((cat) => {
-              const isSelected = filters.category === cat.id;
-              const count = businesses.filter((b) => b.category === cat.id).length;
+          <GhanaBusinessNewsSection
+            onSelectArticle={(article) => setSelectedNewsArticle(article)}
+            onShowToast={showToast}
+          />
+        </main>
+      ) : (
+        <>
+          {/* 2. Hero & Unified Search Section matching Image 1 & Image 2 */}
+          <HeroSearch
+            categories={categories}
+            businesses={businesses}
+            filters={filters}
+            onFilterChange={handleFilterChange}
+            onResetFilters={handleResetFilters}
+            searchHistory={searchHistory}
+            onAddSearchHistory={handleAddSearchHistory}
+            onClearSearchHistory={handleClearSearchHistory}
+            onSelectBusiness={(b) => setSelectedBusiness(b)}
+            onShowToast={showToast}
+            isAutoDetectedRegion={isAutoDetectedRegion}
+          />
 
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => {
-                    handleFilterChange({ category: isSelected ? '' : cat.id });
-                  }}
-                  className={`group p-3.5 sm:p-4 rounded-2xl border text-left transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-600/20 scale-[1.02]'
-                      : 'bg-white dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/70 text-slate-800 dark:text-slate-200 hover:border-blue-500 hover:shadow-md'
-                  }`}
-                >
-                  <div className="w-10 h-10 rounded-xl mb-3 flex items-center justify-center bg-blue-50 dark:bg-slate-700 group-hover:scale-110 transition-transform">
-                    <Building2 className={`w-5 h-5 ${isSelected ? 'text-blue-600' : 'text-blue-600 dark:text-blue-400'}`} />
-                  </div>
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-12 sm:space-y-16">
+            
+            {/* 1. TOP: Explore by Category (Technology, Restaurants, Healthcare, Real Estate, Education, etc.) */}
+            <CategoryExploreRow
+              categories={categories}
+              selectedCategory={filters.category}
+              onSelectCategory={(categoryId) => {
+                handleFilterChange({ category: categoryId });
+                const el = document.getElementById('main-directory-section');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              onViewAllCategories={handleOpenSuggestCategoryModal}
+            />
+
+            {/* 2. Dual Action Growth Banner (Discover more. Get discovered.) */}
+            <DualCtaBanner
+              onExploreBusinesses={() => {
+                const el = document.getElementById('main-directory-section') || document.getElementById('discover-businesses-section');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              onListBusiness={handleOpenRegisterModal}
+            />
+
+            {/* 3. Full Business Directory Listings & Search Results / Filters */}
+            <section className="space-y-6 pt-2" id="main-directory-section">
+              <div className="flex flex-col gap-3 p-4 rounded-2xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <h3 className={`text-xs sm:text-sm font-bold truncate ${isSelected ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
-                      {cat.name}
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                      {filteredBusinesses.length} {filteredBusinesses.length === 1 ? 'Business Matching Query' : 'Businesses Matching Query'}
                     </h3>
-                    <p className={`text-[11px] mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>
-                      {count} {count === 1 ? 'business' : 'businesses'}
-                    </p>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Verified enterprises, verified suppliers, and local service providers across Ghana
+                    </span>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
 
-        {/* 5. Main Directory Listings Grid & Controls */}
-        <section className="space-y-6 pt-4" id="main-directory-section">
-          {/* Controls Bar: Sort, Price, Rating, Count */}
-          <div className="flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
-                {filteredBusinesses.length} {filteredBusinesses.length === 1 ? 'Business Listed' : 'Businesses Listed'}
-              </span>
-              {filters.category && (
-                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold truncate max-w-[200px]">
-                  {categories.find((c) => c.id === filters.category)?.name || filters.category}
-                </span>
-              )}
-            </div>
+                  {(filters.searchQuery || filters.category || filters.city || filters.region || filters.verificationOnly) && (
+                    <button
+                      type="button"
+                      onClick={handleResetFilters}
+                      className="text-xs font-bold text-blue-600 dark:text-cyan-400 hover:underline cursor-pointer"
+                    >
+                      Clear Search & Filters
+                    </button>
+                  )}
+                </div>
 
-            {/* Sort & Quick Filter Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-slate-500 font-medium hidden sm:inline flex items-center gap-1">
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>Sort:</span>
-                </span>
+                <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-slate-500 font-medium hidden sm:inline flex items-center gap-1">
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      <span>Sort:</span>
+                    </span>
 
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
-                  className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
-                  aria-label="Sort businesses"
-                >
-                  <option value="featured">Featured & Verified First</option>
-                  <option value="nearest">📍 Nearest to Me (GPS)</option>
-                  <option value="leads">Most Inquired</option>
-                  <option value="name">Alphabetical (A-Z)</option>
-                </select>
+                    <select
+                      value={filters.sortBy}
+                      onChange={(e) => handleFilterChange({ sortBy: e.target.value as any })}
+                      className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                      aria-label="Sort businesses"
+                    >
+                      <option value="featured">Featured & Verified First</option>
+                      <option value="nearest">📍 Nearest to Me (GPS)</option>
+                      <option value="leads">Most Inquired</option>
+                      <option value="name">Alphabetical (A-Z)</option>
+                    </select>
 
-                {/* Region Filter (16 Ghana Regions) */}
-                <div className="flex items-center gap-1">
-                  <select
-                    value={filters.region}
-                    onChange={(e) => handleFilterChange({ region: e.target.value, city: '' })}
-                    className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
-                    aria-label="Filter by Ghana Region"
+                    <select
+                      value={filters.region}
+                      onChange={(e) => handleFilterChange({ region: e.target.value, city: '' })}
+                      className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                      aria-label="Filter by Ghana Region"
+                    >
+                      <option value="">All 16 Ghana Regions</option>
+                      {GHANA_REGIONS.map((reg) => (
+                        <option key={reg.id} value={reg.name}>
+                          {reg.name} ({reg.capital})
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={filters.city}
+                      onChange={(e) => handleFilterChange({ city: e.target.value })}
+                      className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
+                      aria-label="Filter by City"
+                    >
+                      <option value="">All Major Cities</option>
+                      <option value="Accra">Accra</option>
+                      <option value="Kumasi">Kumasi</option>
+                      <option value="Tema">Tema</option>
+                      <option value="Takoradi">Takoradi</option>
+                      <option value="Tamale">Tamale</option>
+                      <option value="Cape Coast">Cape Coast</option>
+                      <option value="Sunyani">Sunyani</option>
+                      <option value="Koforidua">Koforidua</option>
+                      <option value="Ho">Ho</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleFilterChange({ verificationOnly: !filters.verificationOnly })}
+                    className={`px-3 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 border ${
+                      filters.verificationOnly
+                        ? 'bg-emerald-600 text-white border-emerald-600'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-200'
+                    }`}
                   >
-                    <option value="">All 16 Ghana Regions</option>
-                    {GHANA_REGIONS.map((reg) => (
-                      <option key={reg.id} value={reg.name}>
-                        {reg.name} ({reg.capital})
-                      </option>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Verified Only</span>
+                  </button>
+                </div>
+              </div>
+
+              {filteredBusinesses.length > 0 ? (
+                <motion.div 
+                  layout 
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <AnimatePresence mode="popLayout">
+                    {filteredBusinesses.map((biz) => (
+                      <motion.div
+                        key={biz.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.94, y: 15 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                        transition={{
+                          layout: { type: "spring", stiffness: 350, damping: 30 },
+                          opacity: { duration: 0.25 },
+                          scale: { duration: 0.25 }
+                        }}
+                        className="flex flex-col h-full"
+                      >
+                        <BusinessCard
+                          business={biz}
+                          distanceKm={getBusinessDistance(biz)}
+                          isSaved={savedBusinessIds.includes(biz.id)}
+                          isCompared={comparedBusinessIds.includes(biz.id)}
+                          onToggleSave={handleToggleSave}
+                          onToggleCompare={handleToggleCompare}
+                          onSelect={(b) => setSelectedBusiness(b)}
+                          onOpenQuote={handleOpenQuote}
+                          onOpenQR={handleOpenQR}
+                          onShare={handleShareBusiness}
+                          onRate={(b) => {
+                            setSelectedBusinessForReview(b);
+                            setIsCustomerFeedbackOpen(true);
+                          }}
+                          onQuickContactWhatsApp={(b) => {
+                            window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
+                          }}
+                        />
+                      </motion.div>
                     ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* City Quick Filter & Verified Button */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <select
-                  value={filters.city}
-                  onChange={(e) => handleFilterChange({ city: e.target.value })}
-                  className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200 border-0 focus:ring-2 focus:ring-blue-500 cursor-pointer text-xs"
-                  aria-label="Filter by City"
-                >
-                  <option value="">All Major Cities</option>
-                  <option value="Accra">Accra</option>
-                  <option value="Kumasi">Kumasi</option>
-                  <option value="Tema">Tema</option>
-                  <option value="Takoradi">Takoradi</option>
-                  <option value="Tamale">Tamale</option>
-                  <option value="Cape Coast">Cape Coast</option>
-                  <option value="Sunyani">Sunyani</option>
-                  <option value="Koforidua">Koforidua</option>
-                  <option value="Ho">Ho</option>
-                  <option value="Bolgatanga">Bolgatanga</option>
-                  <option value="Wa">Wa</option>
-                </select>
-
-                {/* Verified Filter Button */}
-                <button
-                  type="button"
-                  onClick={() => handleFilterChange({ verificationOnly: !filters.verificationOnly })}
-                  className={`px-3 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center gap-1.5 border ${
-                    filters.verificationOnly
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-200'
-                  }`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Verified Only</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Active Region / Geolocation Personalization Banner */}
-            {filters.region && (
-              <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-blue-50/90 dark:bg-slate-700/60 border border-blue-200/60 dark:border-blue-900/60 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
-                  <span className="text-slate-700 dark:text-slate-200 font-medium">
-                    Showing businesses in <strong className="font-bold text-blue-700 dark:text-cyan-300">{filters.region}</strong>
-                    {isAutoDetectedRegion && ' (Auto-detected based on your GPS location)'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleFilterChange({ region: '', city: '' })}
-                  className="text-blue-600 dark:text-cyan-400 hover:underline font-bold text-[11px] cursor-pointer shrink-0"
-                >
-                  Show All Ghana
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Business Cards Grid with Framer Motion Layout Animation */}
-          {filteredBusinesses.length > 0 ? (
-            <motion.div 
-              layout 
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <AnimatePresence mode="popLayout">
-                {filteredBusinesses.map((biz) => (
-                  <motion.div
-                    key={biz.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.94, y: 15 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                    transition={{
-                      layout: { type: "spring", stiffness: 350, damping: 30 },
-                      opacity: { duration: 0.25 },
-                      scale: { duration: 0.25 }
-                    }}
-                    className="flex flex-col h-full"
+                  </AnimatePresence>
+                </motion.div>
+              ) : (
+                <div className="p-8 text-center rounded-3xl bg-white dark:bg-slate-850 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    No listed businesses match "{filters.searchQuery || filters.category || filters.region}"
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors cursor-pointer"
                   >
-                    <BusinessCard
-                      business={biz}
-                      distanceKm={getBusinessDistance(biz)}
-                      isSaved={savedBusinessIds.includes(biz.id)}
-                      isCompared={comparedBusinessIds.includes(biz.id)}
-                      onToggleSave={handleToggleSave}
-                      onToggleCompare={handleToggleCompare}
-                      onSelect={(b) => setSelectedBusiness(b)}
-                      onOpenQuote={handleOpenQuote}
-                      onOpenQR={handleOpenQR}
-                      onShare={handleShareBusiness}
-                      onRate={(b) => {
-                        setSelectedBusinessForReview(b);
-                        setIsCustomerFeedbackOpen(true);
-                      }}
-                      onQuickContactWhatsApp={(b) => {
-                        window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
-                      }}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          ) : businesses.length === 0 ? (
-            /* Clean Empty State when No Demo Businesses Exist */
-            <div className="p-8 sm:p-12 text-center rounded-3xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 shadow-sm space-y-4 max-w-2xl mx-auto">
-              <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 flex items-center justify-center mx-auto shadow-inner">
-                <Building2 className="w-8 h-8" />
-              </div>
-              <div className="space-y-1.5">
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Welcome to AuraCentra Ghana
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-md mx-auto leading-relaxed">
-                  No businesses have been enlisted yet. Enlist your business now, or suggest a new category to get started!
-                </p>
-              </div>
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button
-                  type="button"
-                  id="empty-state-register-btn"
-                  onClick={handleOpenRegisterModal}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs sm:text-sm font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>Enlist Your Business</span>
-                </button>
-                <button
-                  type="button"
-                  id="empty-state-suggest-btn"
-                  onClick={handleOpenSuggestCategoryModal}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs sm:text-sm font-bold border border-cyan-200 dark:border-cyan-800/60 transition-all cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                  <span>Suggest a Category</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            /* Empty State when filters yield no result */
-            <div className="p-10 sm:p-14 text-center rounded-3xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 space-y-4 max-w-2xl mx-auto shadow-sm">
-              <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400 flex items-center justify-center mx-auto">
-                <Search className="w-7 h-7" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  No businesses matched "{filters.searchQuery || filters.category || filters.city}"
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  Can't find the trade or business you're looking for? Suggest a category or send direct feedback so our admin team can enlist local providers in your region.
-                </p>
-              </div>
+                    Reset Filters
+                  </button>
+                </div>
+              )}
+            </section>
 
-              <div className="pt-3 flex flex-wrap items-center justify-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Reset All Filters</span>
-                </button>
+            {/* 4. Curated & Verified Business Discovery Grid */}
+            <DiscoverBusinessesSection
+              businesses={businesses}
+              onSelectBusiness={(b) => setSelectedBusiness(b)}
+              onViewAllBusinesses={() => {
+                const el = document.getElementById('main-directory-section');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              onOpenQuote={handleOpenQuote}
+              onQuickContactWhatsApp={(b) => {
+                window.open(`https://wa.me/${b.whatsapp || b.phone}`, '_blank');
+              }}
+            />
 
-                <button
-                  type="button"
-                  onClick={handleOpenSuggestCategoryModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-800 dark:text-cyan-300 text-xs font-bold border border-cyan-200 dark:border-cyan-800/60 transition-all cursor-pointer"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  <span>Suggest a Category</span>
-                </button>
+            {/* 5. Ghana Business News & Live Forex Updates */}
+            <section className="space-y-6 pt-6 border-t border-slate-200 dark:border-slate-800" id="ghana-news-updates-section">
+              <GhanaBusinessNewsSection
+                onSelectArticle={(article) => setSelectedNewsArticle(article)}
+                onShowToast={showToast}
+              />
+            </section>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenCustomerFeedbackModal()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-300 dark:border-slate-600 transition-all cursor-pointer"
-                >
-                  <Star className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Leave Site Feedback</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-      </main>
+          </main>
+        </>
+      )}
 
       {/* 8. Modals Ecosystem */}
+      <AboutUsModal
+        isOpen={isAboutUsModalOpen}
+        onClose={() => setIsAboutUsModalOpen(false)}
+        initialTab={aboutUsInitialTab}
+        onOpenRegister={handleOpenRegisterModal}
+      />
+
       <BusinessDetailsModal
         business={selectedBusiness}
         isOpen={!!selectedBusiness}
@@ -1320,23 +1238,31 @@ export default function App() {
         onShowToast={showToast}
       />
 
-      {/* 7. Toast Notification Portal */}
+      {/* 9. Toast Notification Portal */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* 8. Floating Contact Hub */}
+      {/* 10. Floating Contact Hub */}
       <FloatingContactHub />
 
-      {/* 9. Global Platform Footer */}
+      {/* 11. Global Platform Footer */}
       <Footer
-        categories={categories}
-        onSelectCategory={(catId) => {
-          handleFilterChange({ category: catId });
-          window.scrollTo({ top: 400, behavior: 'smooth' });
-        }}
         onOpenRegister={handleOpenRegisterModal}
+        onOpenNews={() => {
+          setCurrentNavTab('news');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenAboutUs={() => {
+          setAboutUsInitialTab('about');
+          setIsAboutUsModalOpen(true);
+        }}
+        onOpenPricing={() => {
+          setAboutUsInitialTab('pricing');
+          setIsAboutUsModalOpen(true);
+        }}
+        onShowToast={showToast}
       />
 
-      {/* 10. Smartphone Bottom Navigation Bar */}
+      {/* 12. Smartphone Bottom Navigation Bar */}
       <MobileBottomNav
         currentUser={currentUser}
         savedCount={savedBusinessIds.length}
@@ -1344,13 +1270,18 @@ export default function App() {
         comparedCount={comparedBusinessIds.length}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        onScrollToTop={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onScrollToTop={() => {
+          setCurrentNavTab('home');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onScrollToCategories={() => {
-          const el = document.getElementById('browse-categories-section');
+          setCurrentNavTab('home');
+          const el = document.getElementById('category-explore-row');
           el?.scrollIntoView({ behavior: 'smooth' });
         }}
         onScrollToDirectory={() => {
-          const el = document.getElementById('main-directory-section');
+          setCurrentNavTab('home');
+          const el = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
           el?.scrollIntoView({ behavior: 'smooth' });
         }}
         onOpenRegister={handleOpenRegisterModal}

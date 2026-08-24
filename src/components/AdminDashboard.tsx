@@ -37,11 +37,19 @@ import {
   Mail,
   MessageSquare,
   Send,
-  User as UserIcon
+  User as UserIcon,
+  Navigation,
+  Check,
+  Compass,
+  MapPin
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
 import { getRegisteredAccounts } from '../utils/storage';
+import { verifyGhanaPostGPS } from '../utils/gpsVerification';
 import { Logo } from './Logo';
+import { AdminVerificationModal } from './AdminVerificationModal';
+import { BusinessRejectionModal } from './BusinessRejectionModal';
+import { dispatchApprovalNotification } from '../utils/notificationService';
 import confetti from 'canvas-confetti';
 
 interface AdminDashboardProps {
@@ -56,8 +64,8 @@ interface AdminDashboardProps {
   onUpdateBusiness: (business: Business) => void;
   onAddBusiness: (business: Business) => void;
   onDeleteBusiness: (businessId: string) => void;
-  onApproveVerification: (businessId: string, badgeType: 'Gold Enterprise' | 'Standard Verified') => void;
-  onRejectVerification: (businessId: string, reason: string) => void;
+  onApproveVerification: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }) => void;
+  onRejectVerification: (businessId: string, reason: string, resolutionGuide?: string, adminNotes?: string) => void;
   onAddCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
   onUpdateReportStatus?: (reportId: string, status: BusinessReport['status'], adminNotes?: string) => void;
@@ -100,6 +108,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'suggestions' | 'feedback' | 'users' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
+  const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'pending' | 'verified' | 'unverified'>('all');
   const [userFilterProvider, setUserFilterProvider] = useState<string>('all');
   const [registeredUsers, setRegisteredUsers] = useState<UserAccountRecord[]>(() => getRegisteredAccounts());
   
@@ -114,6 +123,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     doc: VerificationDocument;
   } | null>(null);
 
+  // Real-time Google Maps Geocoding & GPS Verification Modal State
+  const [verifyingBusiness, setVerifyingBusiness] = useState<Business | null>(null);
+
+  // Business Rejection Modal State with Automated Notification
+  const [rejectingBusiness, setRejectingBusiness] = useState<Business | null>(null);
+
+  // Pending Queue Sub-Filter State
+  const [pendingSubFilter, setPendingSubFilter] = useState<'all' | 'with_docs' | 'gps_valid'>('all');
+
   // Business Edit / Create Modal State
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
   const [isCreatingBusiness, setIsCreatingBusiness] = useState(false);
@@ -125,17 +143,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Stats Calculations
   const verifiedCount = businesses.filter((b) => b.verificationStatus === 'verified').length;
-  const pendingCount = businesses.filter((b) => b.verificationStatus === 'pending').length;
+  const pendingCount = businesses.filter((b) => b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval').length;
   const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
   const totalViews = businesses.reduce((acc, b) => acc + (b.views || 0), 0);
   const totalLeads = businesses.reduce((acc, b) => acc + (b.leadsCount || 0), 0);
 
-  const filteredBusinesses = businesses.filter(
-    (b) =>
+  const filteredBusinesses = businesses.filter((b) => {
+    if (bizStatusFilter === 'pending' && b.verificationStatus !== 'pending' && b.listingStatus !== 'pending_approval') return false;
+    if (bizStatusFilter === 'verified' && b.verificationStatus !== 'verified') return false;
+    if (bizStatusFilter === 'unverified' && (b.verificationStatus === 'verified' || b.verificationStatus === 'pending')) return false;
+
+    if (!searchQuery) return true;
+    return (
       b.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
       b.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    );
+  });
 
   const filteredReports = reports.filter((r) => {
     if (reportFilterStatus !== 'all' && r.status !== reportFilterStatus) return false;
@@ -151,7 +175,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return true;
   });
 
-  const pendingBusinesses = businesses.filter((b) => b.verificationStatus === 'pending');
+  const pendingBusinesses = businesses.filter((b) => {
+    const isPending = b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval';
+    if (!isPending) return false;
+
+    if (pendingSubFilter === 'with_docs') {
+      return (b.verificationDocuments && b.verificationDocuments.length > 0 && b.verificationDocuments[0].frontImageUrl);
+    }
+    if (pendingSubFilter === 'gps_valid') {
+      const check = verifyGhanaPostGPS(b.digitalAddress || '');
+      return check.isValid;
+    }
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        b.name.toLowerCase().includes(q) ||
+        b.city.toLowerCase().includes(q) ||
+        b.region.toLowerCase().includes(q) ||
+        b.category.toLowerCase().includes(q) ||
+        b.phone.toLowerCase().includes(q) ||
+        (b.digitalAddress && b.digitalAddress.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
 
   const handleCreateNewBusiness = (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,10 +339,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>ID Verification Submissions</span>
+            <span>Pending Businesses Queue</span>
             {pendingCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-black">
-                {pendingCount}
+              <span className="px-2 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-black animate-pulse">
+                {pendingCount} Pending
               </span>
             )}
           </button>
@@ -406,28 +454,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {/* TAB 1: ID Verification Submissions & Approvals */}
         {activeTab === 'verification' && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>Ghana ID Document Verification Review</span>
-                  <span className="text-xs font-normal text-slate-400">
-                    (Ghana Card, Voter's ID, Driver's License, Passport)
+          <div className="space-y-5 animate-in fade-in duration-150">
+            {/* Header & Sub-filters */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800/90 to-slate-900 border border-slate-700/80 shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400">
+                    <ShieldCheck className="w-5 h-5" />
                   </span>
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Inspect submitted identity documents and official registration records before granting verified badges.
+                  <h3 className="text-base font-bold text-white">
+                    Pending Businesses Moderation & Verification Queue
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-black">
+                    {pendingBusinesses.length} in Queue
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 max-w-2xl">
+                  Review submitted business identity records, geocoding coordinates, and official documents. Approving or rejecting instantly triggers automated user notifications and directory updates.
                 </p>
+              </div>
+
+              {/* Sub-filters */}
+              <div className="flex items-center gap-1.5 bg-slate-900/90 p-1.5 rounded-xl border border-slate-700/80 self-start md:self-auto overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setPendingSubFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    pendingSubFilter === 'all'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  All Submissions ({businesses.filter((b) => b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingSubFilter('with_docs')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    pendingSubFilter === 'with_docs'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  With Uploaded ID
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingSubFilter('gps_valid')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    pendingSubFilter === 'gps_valid'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  GPS Validated
+                </button>
               </div>
             </div>
 
             {pendingBusinesses.length === 0 ? (
-              <div className="p-8 rounded-2xl bg-slate-800/40 border border-slate-800 text-center text-slate-400 text-xs">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <span>All business verification queues are cleared! No pending submissions.</span>
+              <div className="p-12 rounded-3xl bg-slate-900/40 border border-slate-800 text-center space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <h4 className="text-base font-bold text-white">Pending Queue is Completely Cleared!</h4>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  All submitted business listings and verification applications have been reviewed. New user submissions will appear here automatically.
+                </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {pendingBusinesses.map((biz) => {
                   const doc = biz.verificationDocuments?.[0] || {
                     id: 'doc-auto',
@@ -440,81 +536,159 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     status: 'pending' as const,
                   };
 
+                  const gpsAnalysis = verifyGhanaPostGPS(biz.digitalAddress || 'GA-019-4821');
+
                   return (
                     <div
                       key={biz.id}
-                      className="p-5 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-4 flex flex-col justify-between"
+                      className="p-5 sm:p-6 rounded-3xl bg-slate-800/95 border border-slate-700/90 shadow-xl space-y-4 flex flex-col justify-between hover:border-slate-600 transition-all"
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <img src={biz.logo} alt="" className="w-10 h-10 rounded-xl object-cover border border-slate-700" />
+                      <div className="space-y-4">
+                        {/* Business Info Header */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3.5">
+                            <img 
+                              src={biz.logo || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=150&q=80'} 
+                              alt={biz.name} 
+                              className="w-12 h-12 rounded-2xl object-cover border border-slate-700 shadow-sm bg-slate-900" 
+                            />
                             <div>
-                              <h4 className="text-sm font-bold text-white">{biz.name}</h4>
-                              <p className="text-xs text-slate-400">{biz.city} • {biz.category}</p>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-base font-bold text-white leading-tight">{biz.name}</h4>
+                              </div>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {biz.city}, {biz.region} • <span className="text-blue-400 font-semibold">{biz.category}</span>
+                              </p>
+                              <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate">{biz.address}</span>
+                              </p>
                             </div>
                           </div>
-                          <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500 text-amber-400 text-[10px] font-bold uppercase">
-                            Pending Review
+                          <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-300 text-[10px] font-extrabold uppercase shrink-0">
+                            Awaiting Review
                           </span>
                         </div>
 
+                        {/* GhanaPost GPS Verification Box */}
+                        <div className={`p-3.5 rounded-2xl border text-xs space-y-1.5 ${
+                          gpsAnalysis.isValid 
+                            ? 'bg-emerald-950/40 border-emerald-800/80 text-emerald-200' 
+                            : 'bg-amber-950/40 border-amber-800/80 text-amber-200'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold flex items-center gap-1.5">
+                              <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>GhanaPost Digital Address</span>
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              gpsAnalysis.isValid ? 'bg-emerald-500 text-slate-950' : 'bg-amber-500 text-slate-950'
+                            }`}>
+                              {gpsAnalysis.isValid ? 'GPS Valid' : 'Check Required'}
+                            </span>
+                          </div>
+                          <div className="font-mono text-white text-xs font-bold">
+                            {biz.digitalAddress || 'GA-019-4821'}
+                          </div>
+                          <div className="text-[11px] text-slate-300">
+                            {gpsAnalysis.isValid ? (
+                              <span>Region: <strong>{gpsAnalysis.regionName}</strong> ({gpsAnalysis.regionCode}) • Coords: {gpsAnalysis.approxCoordinates?.lat}, {gpsAnalysis.approxCoordinates?.lng}</span>
+                            ) : (
+                              <span>{gpsAnalysis.validationMessage}</span>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Document details box with preview button */}
-                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700/60 space-y-2">
+                        <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/60 space-y-2.5">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">Document Type:</span>
+                            <span className="text-slate-400">Identity Document:</span>
                             <span className="font-semibold text-blue-400 capitalize">
                               {doc.type.replace('_', ' ')}
                             </span>
                           </div>
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">ID Number:</span>
-                            <span className="font-mono text-slate-200">{doc.documentNumber}</span>
+                            <span className="text-slate-400">ID / TIN Number:</span>
+                            <span className="font-mono text-slate-200 font-bold">{doc.documentNumber}</span>
                           </div>
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">Holder Name:</span>
+                            <span className="text-slate-400">Registered Holder:</span>
                             <span className="font-semibold text-slate-200">{doc.holderName}</span>
                           </div>
 
-                          {/* Image preview capability */}
-                          <div className="pt-2 flex items-center gap-2">
+                          {/* Image preview capability & GPS Audit */}
+                          <div className="pt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <button
                               type="button"
                               onClick={() => setPreviewDoc({ business: biz, doc })}
-                              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-semibold border border-blue-500/40 transition-colors"
+                              className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-600 transition-colors"
                             >
-                              <ImageIcon className="w-3.5 h-3.5" />
-                              <span>View Document Photo Preview</span>
+                              <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+                              <span>View ID Photo</span>
                             </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setVerifyingBusiness(biz)}
+                              className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-bold border border-blue-500/40 transition-colors"
+                            >
+                              <Compass className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>GPS & Maps Audit</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Owner Contact Details & Quick Call/Text Desk */}
+                        <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-700/60 flex items-center justify-between text-xs">
+                          <div className="space-y-0.5">
+                            <div className="text-slate-400 text-[10px]">Owner Phone & WhatsApp</div>
+                            <div className="font-semibold text-white font-mono">{biz.phone || '0508203673'}</div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={`tel:${biz.phone || '0508203673'}`}
+                              className="px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>Call</span>
+                            </a>
+                            <a
+                              href={`https://wa.me/${(biz.whatsapp || biz.phone || '233508203673').replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${biz.name}, this is AuraCentra Ghana verification desk following up on your business registration.`)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>WhatsApp</span>
+                            </a>
                           </div>
                         </div>
                       </div>
 
-                      {/* Approval Actions */}
-                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onApproveVerification(biz.id, 'Gold Enterprise');
-                            confetti({ particleCount: 70, spread: 60 });
-                          }}
-                          className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Approve (Gold Badge)</span>
-                        </button>
+                      {/* Prominent Approval & Rejection Actions */}
+                      <div className="pt-3 border-t border-slate-700/80 space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onApproveVerification(biz.id, 'Gold Enterprise');
+                              confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 } });
+                            }}
+                            className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Approve & Enlist</span>
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const reason = prompt('Enter rejection reason:') || 'Incomplete document information';
-                            onRejectVerification(biz.id, reason);
-                          }}
-                          className="inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-950/80 border border-rose-800 hover:bg-rose-900 text-rose-300 text-xs font-bold transition-colors"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Reject Submission</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setRejectingBusiness(biz)}
+                            className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-rose-950/80 border border-rose-800/90 hover:bg-rose-900 text-rose-200 text-xs font-bold transition-colors shadow-xs"
+                          >
+                            <XCircle className="w-4 h-4 text-rose-400" />
+                            <span>Reject Submission</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1114,6 +1288,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* TAB 2: Manage All Businesses */}
         {activeTab === 'businesses' && (
           <div className="space-y-4 animate-in fade-in duration-150">
+            {/* Status Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-800">
+              <button
+                type="button"
+                onClick={() => setBizStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  bizStatusFilter === 'all'
+                    ? 'bg-blue-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                All Enterprises ({businesses.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBizStatusFilter('pending')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  bizStatusFilter === 'pending'
+                    ? 'bg-amber-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Pending Approval ({pendingCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBizStatusFilter('verified')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  bizStatusFilter === 'verified'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Verified ({verifiedCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBizStatusFilter('unverified')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  bizStatusFilter === 'unverified'
+                    ? 'bg-slate-700 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                Unverified ({businesses.length - verifiedCount - pendingCount})
+              </button>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -1185,71 +1412,110 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <th className="p-3.5">Business</th>
                       <th className="p-3.5">Category</th>
                       <th className="p-3.5">City & Region</th>
+                      <th className="p-3.5">GPS Address</th>
                       <th className="p-3.5">Status</th>
                       <th className="p-3.5">Rating</th>
                       <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {filteredBusinesses.map((b) => (
-                      <tr key={b.id} className="hover:bg-slate-800/80 transition-colors">
-                        <td className="p-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <img src={b.logo} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0" />
-                            <div className="min-w-0">
-                              <div className="font-bold text-white truncate">{b.name}</div>
-                              <div className="text-[11px] text-slate-400">{b.phone}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3.5 text-slate-300">{b.category}</td>
-                        <td className="p-3.5 text-slate-300">{b.city}, {b.region}</td>
-                        <td className="p-3.5">
-                          {b.verificationStatus === 'verified' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 font-semibold text-[10px]">
-                              Verified ({b.verificationDetails?.badgeType || 'Gold'})
-                            </span>
-                          ) : b.verificationStatus === 'pending' ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-400 font-semibold text-[10px]">
-                              Pending Review
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px]">
-                              Unverified
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3.5 text-amber-400 font-bold">★ {b.rating.toFixed(1)}</td>
-                        <td className="p-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingBusiness(b);
-                                setIsCreatingBusiness(false);
-                              }}
-                              className="p-1.5 rounded-lg bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white transition-colors"
-                              title="Edit business"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                            </button>
+                    {filteredBusinesses.map((b) => {
+                      const isPending = b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval';
+                      const gpsInfo = verifyGhanaPostGPS(b.digitalAddress || '');
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to remove "${b.name}" from AuraCentra?`)) {
-                                  onDeleteBusiness(b.id);
-                                }
-                              }}
-                              className="p-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors"
-                              title="Delete business"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                      return (
+                        <tr key={b.id} className="hover:bg-slate-800/80 transition-colors">
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <img src={b.logo} alt="" className="w-8 h-8 rounded-lg object-cover border border-slate-700 shrink-0" />
+                              <div className="min-w-0">
+                                <div className="font-bold text-white truncate">{b.name}</div>
+                                <div className="text-[11px] text-slate-400">{b.phone}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-slate-300">{b.category}</td>
+                          <td className="p-3.5 text-slate-300">{b.city}, {b.region}</td>
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-slate-200 text-[11px]">{b.digitalAddress || 'GA-019-4821'}</span>
+                              {gpsInfo.isValid && (
+                                <span title="Valid GhanaPost GPS">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            {b.verificationStatus === 'verified' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 font-semibold text-[10px]">
+                                Verified ({b.verificationDetails?.badgeType || 'Gold'})
+                              </span>
+                            ) : isPending ? (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-400 font-semibold text-[10px] animate-pulse">
+                                Pending Approval
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px]">
+                                Unverified
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3.5 text-amber-400 font-bold">★ {b.rating.toFixed(1)}</td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* GPS Geocoding & Location Audit */}
+                              <button
+                                type="button"
+                                onClick={() => setVerifyingBusiness(b)}
+                                className="p-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-600 border border-emerald-800/80 text-emerald-300 hover:text-white transition-colors"
+                                title="Run Google Maps GPS Geocoding Audit"
+                              >
+                                <Compass className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Direct Approve Action for Pending Business */}
+                              {isPending && (
+                                <button
+                                  type="button"
+                                  onClick={() => setVerifyingBusiness(b)}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors inline-flex items-center gap-1"
+                                  title="Verify GPS & Approve business"
+                                >
+                                  <ShieldCheck className="w-3 h-3" />
+                                  <span>Verify GPS</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingBusiness(b);
+                                  setIsCreatingBusiness(false);
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white transition-colors"
+                                title="Edit business"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to remove "${b.name}" from AuraCentra?`)) {
+                                    onDeleteBusiness(b.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors"
+                                title="Delete business"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1574,6 +1840,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </form>
           </div>
         </div>
+      )}
+      {/* Real-Time Google Maps Geocoding & GPS Verification Modal */}
+      {verifyingBusiness && (
+        <AdminVerificationModal
+          business={verifyingBusiness}
+          isOpen={!!verifyingBusiness}
+          onClose={() => setVerifyingBusiness(null)}
+          onApprove={(bizId, badge, coords) => {
+            onApproveVerification(bizId, badge, coords);
+            confetti({ particleCount: 80, spread: 70 });
+            setVerifyingBusiness(null);
+          }}
+          onReject={(bizId, reason) => {
+            onRejectVerification(bizId, reason);
+            setVerifyingBusiness(null);
+          }}
+        />
+      )}
+
+      {/* Rejection Feedback & Automated Notification Modal */}
+      {rejectingBusiness && (
+        <BusinessRejectionModal
+          business={rejectingBusiness}
+          isOpen={!!rejectingBusiness}
+          onClose={() => setRejectingBusiness(null)}
+          onConfirmReject={(bizId, reason, resolutionGuide, adminNotes) => {
+            onRejectVerification(bizId, reason, resolutionGuide, adminNotes);
+            setRejectingBusiness(null);
+          }}
+        />
       )}
     </div>
   );

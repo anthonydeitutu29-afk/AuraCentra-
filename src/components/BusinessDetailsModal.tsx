@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Business, BusinessReview, UserProfile, BusinessReport } from '../types';
 import confetti from 'canvas-confetti';
+import { useWhatsAppContact } from '../hooks/useWhatsAppContact';
 
 interface BusinessDetailsModalProps {
   business: Business | null;
@@ -95,6 +96,10 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
   // Touch Swipe for Gallery
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+
+  // WhatsApp Contact Hook
+  const { contactBusinessOnWhatsApp, getPreFilledMessage, copyPreFilledMessage } = useWhatsAppContact();
+  const [copiedTemplate, setCopiedTemplate] = useState(false);
 
   if (!isOpen || !business) return null;
 
@@ -581,16 +586,69 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
                   </button>
                 )}
 
-                {/* WhatsApp Direct */}
-                <a
-                  href={`https://wa.me/${business.whatsapp || business.phone}?text=Hello%20${encodeURIComponent(business.name)},%20I%20found%20your%20business%20on%20AuraCentra%20and%20would%20like%20to%20inquire.`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-3 px-4 rounded-xl shadow-md transition-all active:scale-[0.98]"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Chat on WhatsApp</span>
-                </a>
+                {/* WhatsApp Direct with Pre-filled Template Hook */}
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      contactBusinessOnWhatsApp(business, {
+                        senderName: currentUser?.name,
+                        inquiryType: 'general',
+                      })
+                    }
+                    className="w-full inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                    id={`whatsapp-contact-btn-${business.id}`}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Chat on WhatsApp (Pre-filled Inquiry)</span>
+                  </button>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        contactBusinessOnWhatsApp(business, {
+                          senderName: currentUser?.name,
+                          inquiryType: 'quote',
+                        })
+                      }
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-[11px] font-semibold text-center border border-emerald-200/60 dark:border-emerald-800/60 transition-colors cursor-pointer"
+                      title="Send price quote inquiry template on WhatsApp"
+                    >
+                      💬 Quote Template
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        contactBusinessOnWhatsApp(business, {
+                          senderName: currentUser?.name,
+                          inquiryType: 'availability',
+                        })
+                      }
+                      className="flex-1 py-1.5 px-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-[11px] font-semibold text-center border border-emerald-200/60 dark:border-emerald-800/60 transition-colors cursor-pointer"
+                      title="Send availability inquiry template on WhatsApp"
+                    >
+                      🕒 Availability
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const success = await copyPreFilledMessage(business, { senderName: currentUser?.name });
+                        if (success) {
+                          setCopiedTemplate(true);
+                          setTimeout(() => setCopiedTemplate(false), 2000);
+                          if (onShowToast) {
+                            onShowToast('WhatsApp Template Copied', 'Paste it directly into any chat.', 'success');
+                          }
+                        }
+                      }}
+                      className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-[11px] font-semibold border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shrink-0"
+                      title="Copy inquiry template text"
+                    >
+                      {copiedTemplate ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
 
                 {/* Direct Phone Call */}
                 <a

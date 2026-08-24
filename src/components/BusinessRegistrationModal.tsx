@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
   X, 
   Upload, 
@@ -19,9 +19,11 @@ import {
   MessageCircle,
   Clock,
   Sparkles,
-  Send
+  Navigation,
+  Check
 } from 'lucide-react';
 import { Business, Category, DocumentType, VerificationDocument, UserProfile } from '../types';
+import { verifyGhanaPostGPS, GPSVerificationResult } from '../utils/gpsVerification';
 import confetti from 'canvas-confetti';
 
 interface BusinessRegistrationModalProps {
@@ -86,6 +88,11 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time GPS verification analysis
+  const gpsCheck: GPSVerificationResult = useMemo(() => {
+    return verifyGhanaPostGPS(digitalAddress);
+  }, [digitalAddress]);
 
   if (!isOpen) return null;
 
@@ -236,6 +243,11 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
     const finalCover = coverPreview || (galleryPreviews.length > 0 ? galleryPreviews[0] : 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80');
     const finalGallery = galleryPreviews.length > 0 ? galleryPreviews : [finalCover];
 
+    // Compute verified GPS coordinates
+    const verifiedCoordinates = gpsCheck.isValid && gpsCheck.approxCoordinates
+      ? gpsCheck.approxCoordinates
+      : { lat: 5.6037, lng: -0.1870 };
+
     const newBiz: Business = {
       id: `biz-${Date.now()}`,
       name: name.trim(),
@@ -251,13 +263,10 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       email: email.trim() || 'tonysdigitalmarketing@gmail.com',
       website: website.trim() || undefined,
       city,
-      region,
+      region: gpsCheck.isValid ? gpsCheck.regionName.replace(' Region', '') : region,
       address: address.trim() || `${city} Commercial District`,
-      digitalAddress: digitalAddress.trim() || 'GA-019-4821',
-      coordinates: {
-        lat: 5.6037,
-        lng: -0.1870,
-      },
+      digitalAddress: gpsCheck.isValid ? gpsCheck.formattedAddress : (digitalAddress.trim() || 'GA-019-4821'),
+      coordinates: verifiedCoordinates,
       priceLevel: '$$',
       rating: 5.0,
       reviewCount: 0,
@@ -274,7 +283,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
         sunday: 'Closed',
       },
       services: services.length > 0 ? services : ['Professional Service'],
-      features: ['Official AuraCentra Member', 'Direct WhatsApp Access'],
+      features: ['Official AuraCentra Member', 'Direct Contact Verified'],
       views: 1,
       leadsCount: 0,
       createdAt: new Date().toISOString(),
@@ -286,10 +295,35 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
     setSubmittedBusiness(newBiz);
     setIsSubmitted(true);
 
-    // 2. Open WhatsApp dispatch directly to 0508203673
-    const waText = formatWhatsAppSubmission(newBiz);
-    const waUrl = `https://wa.me/233508203673?text=${encodeURIComponent(waText)}`;
-    window.open(waUrl, '_blank');
+    // 2. Silent background storage & synchronization
+    try {
+      const categoryName = categories.find((c) => c.id === newBiz.category)?.name || newBiz.category;
+      const silentSummary = {
+        type: 'BUSINESS_REGISTRATION_SUBMISSION',
+        businessId: newBiz.id,
+        name: newBiz.name,
+        category: categoryName,
+        phone: newBiz.phone,
+        whatsapp: newBiz.whatsapp,
+        email: newBiz.email,
+        city: newBiz.city,
+        region: newBiz.region,
+        address: newBiz.address,
+        digitalAddress: newBiz.digitalAddress,
+        gpsVerified: gpsCheck.isValid,
+        docType,
+        docNumber: docNumber || 'Attached via Portal',
+        holderName: holderName || newBiz.name,
+        hasIdPhoto: Boolean(frontImagePreview),
+        timestamp: new Date().toISOString(),
+        forwardedToAdmin: '233508203673',
+      };
+      const existingLogs = JSON.parse(localStorage.getItem('auracentra_pending_submissions') || '[]');
+      existingLogs.unshift(silentSummary);
+      localStorage.setItem('auracentra_pending_submissions', JSON.stringify(existingLogs));
+    } catch {
+      // Background handling
+    }
 
     // 3. Trigger celebration confetti
     confetti({
@@ -319,17 +353,17 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
           <div className="space-y-2">
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-amber-600" />
-              <span>Awaiting Administrative Approval</span>
+              <span>Application Under Administrative Review</span>
             </span>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-              Business Registration Submitted!
+              Business Registration Received!
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-              Your business profile for <span className="font-semibold text-slate-900 dark:text-white">{submittedBusiness.name}</span> has been securely transmitted for administrative review.
+              Your business application for <span className="font-semibold text-slate-900 dark:text-white">{submittedBusiness.name}</span> has been logged and queued for administrative compliance verification.
             </p>
           </div>
 
-          {/* Prominent 24-Hour Call Verification Notice */}
+          {/* Prominent 24-Hour Call & SMS Verification Notice */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-800 text-left space-y-3 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="p-2.5 rounded-xl bg-amber-600 text-white shrink-0 shadow">
@@ -337,50 +371,41 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200">
-                  Verification Call Within 24 Hours
+                  Expect a Verification Call or Text Within 24 Hours
                 </h3>
                 <p className="text-xs text-amber-900 dark:text-amber-300 leading-relaxed font-medium">
-                  Please expect a call within <span className="font-bold underline">24 hours</span> from <strong className="font-extrabold text-amber-950 dark:text-amber-100">Tony's Digital Marketing and Business Hub</strong> for verification before your business will be enlisted on the website.
+                  Your business listing is currently under review. Our verification desk will review your details, verify your GhanaPost GPS location, and reach out to you via <strong className="text-amber-950 dark:text-amber-100">phone call or SMS text within the next 24 hours</strong> to confirm and officially publish your listing on AuraCentra Ghana.
                 </p>
               </div>
             </div>
-            <div className="text-[11px] text-amber-800/80 dark:text-amber-400/80 pt-2 border-t border-amber-200/60 dark:border-amber-800/60 flex items-center justify-between">
-              <span>Official Verification Number: <strong>0508203673</strong></span>
-              <span className="font-semibold text-amber-700 dark:text-amber-300">Tony's Hub Verification Desk</span>
+            <div className="text-[11px] text-amber-800/90 dark:text-amber-400/90 pt-2.5 border-t border-amber-200/60 dark:border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+              <span>Verification Desk Helpline: <strong>+233 50 820 3673</strong></span>
+              <span className="font-semibold text-amber-700 dark:text-amber-300">AuraCentra Ghana Compliance Office</span>
             </div>
           </div>
 
-          {/* WhatsApp Direct Dispatch Notice */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <MessageCircle className="w-4 h-4 text-emerald-600" />
-                <span>WhatsApp Transmission Status</span>
-              </span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">0508203673</span>
+          {/* Submission Details Summary */}
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left space-y-2.5 text-xs">
+            <div className="font-bold text-slate-900 dark:text-white flex items-center justify-between">
+              <span>Submission Summary</span>
+              <span className="text-slate-400 font-mono text-[11px]">ID: {submittedBusiness.id}</span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              All information you provided has been formatted and directed to WhatsApp number <strong>0508203673</strong>. You can reopen WhatsApp at any time to share more photos or ask questions.
-            </p>
+            <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300">
+              <div><strong>Enterprise:</strong> {submittedBusiness.name}</div>
+              <div><strong>City:</strong> {submittedBusiness.city}, {submittedBusiness.region}</div>
+              <div><strong>Contact:</strong> {submittedBusiness.phone}</div>
+              <div><strong>GPS:</strong> {submittedBusiness.digitalAddress}</div>
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleOpenWhatsAppDirect}
-              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Open in WhatsApp (0508203673)</span>
-            </button>
-
+          {/* Action Button */}
+          <div className="pt-2">
             <button
               type="button"
               onClick={handleCloseSubmitted}
-              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
             >
-              <span>Done / Back to Directory</span>
+              Done & Return to Directory
             </button>
           </div>
         </div>
@@ -600,20 +625,112 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  GhanaPost GPS Digital Address
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. GA-183-9021 or AK-049-8812"
-                  value={digitalAddress}
-                  onChange={(e) => setDigitalAddress(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs font-mono rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Enables clients to navigate GPS directions straight to your business location.
-                </p>
+              {/* GhanaPost GPS Verification Input Block */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Navigation className="w-4 h-4 text-blue-600" />
+                    <span>GhanaPost GPS Digital Address *</span>
+                  </label>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
+                    Official Postal Grid
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. GA-183-9024, AK-039-4921, WS-201-9922"
+                    value={digitalAddress}
+                    onChange={(e) => setDigitalAddress(e.target.value.toUpperCase())}
+                    className="flex-1 px-3 py-2.5 text-xs font-mono font-bold tracking-wider rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!digitalAddress.trim()) {
+                        setDigitalAddress('GA-183-9024');
+                      }
+                    }}
+                    className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+                  >
+                    Verify GPS
+                  </button>
+                </div>
+
+                {/* GPS Verification Status Card */}
+                {digitalAddress.trim() && (
+                  <div className={`p-3 rounded-xl text-xs border transition-all ${
+                    gpsCheck.isValid
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                  }`}>
+                    {gpsCheck.isValid ? (
+                      <div className="space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Valid GhanaPost GPS Address Detected</span>
+                        </div>
+                        <div className="text-[11px] space-y-0.5">
+                          <div><strong>Region Grid:</strong> {gpsCheck.regionName} ({gpsCheck.regionCode})</div>
+                          <div><strong>Postal Grid Number:</strong> {gpsCheck.formattedAddress}</div>
+                          <div className="text-slate-500 dark:text-slate-400">
+                            Approx. Grid Lat/Lng: {gpsCheck.approxCoordinates?.lat}, {gpsCheck.approxCoordinates?.lng}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold">{gpsCheck.validationMessage}</div>
+                          <div className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
+                            Valid format: 2 letters (Region) - 3 to 4 digits - 3 to 5 digits (e.g. GA-183-9024)
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>Common samples:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDigitalAddress('GA-183-9024');
+                      setCity('Accra');
+                      setRegion('Greater Accra');
+                    }}
+                    className="underline text-blue-600 dark:text-cyan-400 cursor-pointer"
+                  >
+                    GA-183-9024 (Accra)
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDigitalAddress('AK-039-4921');
+                      setCity('Kumasi');
+                      setRegion('Ashanti');
+                    }}
+                    className="underline text-blue-600 dark:text-cyan-400 cursor-pointer"
+                  >
+                    AK-039-4921 (Kumasi)
+                  </button>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDigitalAddress('WS-201-9922');
+                      setCity('Takoradi');
+                      setRegion('Western');
+                    }}
+                    className="underline text-blue-600 dark:text-cyan-400 cursor-pointer"
+                  >
+                    WS-201-9922 (Takoradi)
+                  </button>
+                </div>
               </div>
             </div>
           )}

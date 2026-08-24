@@ -136,6 +136,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  // Automated WhatsApp alert helper to 0508203673
+  const notifyAdminWhatsAppOfNewSignup = (name: string, userEmail: string, userPhone: string, method: string) => {
+    const targetNumber = '233508203673';
+    const timestamp = new Date().toLocaleString('en-GB', { timeZone: 'GMT' });
+    const text = encodeURIComponent(
+      `🇬🇭 *AuraCentra Account Registration*\n` +
+      `----------------------------------------\n` +
+      `👤 *User Name:* ${name}\n` +
+      `📧 *Email:* ${userEmail}\n` +
+      `📱 *Phone:* ${userPhone || 'Not specified'}\n` +
+      `🔑 *Sign-Up Method:* ${method}\n` +
+      `🕒 *Timestamp:* ${timestamp} GMT\n` +
+      `----------------------------------------\n` +
+      `New verified account registered on AuraCentra Ghana.`
+    );
+    console.log(`[AuraCentra Auth] Alerting admin WhatsApp 0508203673 for new signup: ${userEmail} via ${method}`);
+    try {
+      const waUrl = `https://wa.me/${targetNumber}?text=${text}`;
+      // Trigger notification cleanly
+      const link = document.createElement('a');
+      link.href = waUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.warn('WhatsApp alert dispatch:', e);
+    }
+  };
+
   // 1. Secure Email Sign In
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -415,6 +446,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       const existingAccount = findRegisteredAccountByEmail(userEmail);
+      const isNewAccount = !existingAccount;
       const userProfile: UserProfile = {
         id: uid,
         name: existingAccount?.name || userName,
@@ -439,6 +471,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       await syncUserProfileToFirestore(userProfile);
+
+      if (isNewAccount) {
+        notifyAdminWhatsAppOfNewSignup(userProfile.name, userEmail, userProfile.phone || '', 'Google Authentication');
+      }
+
       onLoginSuccess(userProfile);
       onClose();
     } catch (err: any) {
@@ -500,6 +537,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       const existingAccount = findRegisteredAccountByEmail(userEmail);
+      const isNewAccount = !existingAccount;
       const userProfile: UserProfile = {
         id: uid,
         name: existingAccount?.name || userName,
@@ -523,6 +561,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
 
       await syncUserProfileToFirestore(userProfile);
+
+      if (isNewAccount) {
+        notifyAdminWhatsAppOfNewSignup(userProfile.name, userEmail, userProfile.phone || '', 'Apple / iCloud Authentication');
+      }
+
       onLoginSuccess(userProfile);
       onClose();
     } catch (err: any) {

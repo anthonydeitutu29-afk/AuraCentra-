@@ -83,9 +83,13 @@ export interface Business {
   listingStatus?: 'active' | 'pending_approval' | 'rejected';
   verificationDetails?: {
     verifiedAt: string;
-    badgeType: 'Gold Enterprise' | 'Standard Verified' | 'Community Partner';
-    documentType: DocumentType;
+    badgeType: 'Gold Enterprise' | 'Standard Verified' | 'Community Partner' | string;
+    documentType?: DocumentType;
     officialRegistrationNumber?: string;
+    gpsVerified?: boolean;
+    tinNumber?: string;
+    businessRegNumber?: string;
+    verifiedByAdmin?: string;
   };
   verificationDocuments?: VerificationDocument[];
   openingHours: OpeningHours;
@@ -301,6 +305,23 @@ export interface GhanaMarketSummary {
   cocoaPerTonne: number; // in USD
   goldPerOunce: number; // in USD
   lastRefreshed: string;
+}
+
+export interface UserNotification {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  businessId: string;
+  businessName: string;
+  type: 'approval' | 'rejection' | 'update';
+  title: string;
+  message: string;
+  reason?: string;
+  badgeType?: string;
+  createdAt: string;
+  read: boolean;
+  actionUrl?: string;
+  whatsappNoticeText?: string;
 }
 
 

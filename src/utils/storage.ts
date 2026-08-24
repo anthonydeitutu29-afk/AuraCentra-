@@ -1,4 +1,4 @@
-import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback } from '../types';
+import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, UserNotification } from '../types';
 import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
   SUGGESTIONS: 'auracentra_suggestions_clean_v6',
   FEEDBACK: 'auracentra_feedback_clean_v6',
   NEWS_LIKES: 'auracentra_news_likes_v1',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v1',
 };
 
 // Initial state getters and setters
@@ -432,6 +433,38 @@ export function saveFeedback(feedbackList: PlatformFeedback[]): void {
     localStorage.setItem(STORAGE_KEYS.FEEDBACK, JSON.stringify(feedbackList));
   } catch (e) {
     console.error('Failed to save platform feedback', e);
+  }
+}
+
+export function getStoredUserNotifications(): UserNotification[] {
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.USER_NOTIFICATIONS);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('Failed to load user notifications', e);
+  }
+  return [];
+}
+
+export function saveUserNotification(notification: UserNotification): void {
+  try {
+    const current = getStoredUserNotifications();
+    const updated = [notification, ...current.filter((n) => n.id !== notification.id)];
+    localStorage.setItem(STORAGE_KEYS.USER_NOTIFICATIONS, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to save user notification', e);
+  }
+}
+
+export function markNotificationAsRead(notificationId: string): void {
+  try {
+    const current = getStoredUserNotifications();
+    const updated = current.map((n) => (n.id === notificationId ? { ...n, read: true } : n));
+    localStorage.setItem(STORAGE_KEYS.USER_NOTIFICATIONS, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to mark notification as read', e);
   }
 }
 

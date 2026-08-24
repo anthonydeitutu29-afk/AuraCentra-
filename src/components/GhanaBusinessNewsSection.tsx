@@ -14,7 +14,12 @@ import {
   ChevronDown,
   ChevronUp,
   DollarSign,
-  Info
+  Info,
+  Maximize2,
+  X,
+  Sparkles,
+  ExternalLink,
+  Layers
 } from 'lucide-react';
 import { GhanaNewsArticle, ForexRate, GhanaMarketSummary, GhanaNewsCategory } from '../types';
 import { TODAY_FOREX_RATES, TODAY_MARKET_SUMMARY } from '../data/ghanaNewsData';
@@ -31,12 +36,17 @@ import {
 interface GhanaBusinessNewsSectionProps {
   onSelectArticle?: (article: GhanaNewsArticle) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  isOpenAsModalInitially?: boolean;
 }
 
 export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> = ({
   onSelectArticle,
   onShowToast,
+  isOpenAsModalInitially = false,
 }) => {
+  // Pop-up Modal State
+  const [isPopUpOpen, setIsPopUpOpen] = useState(isOpenAsModalInitially);
+
   // Articles & Sync State
   const [articles, setArticles] = useState<GhanaNewsArticle[]>(() => getStoredGhanaNewsArticles());
   const [selectedCategory, setSelectedCategory] = useState<GhanaNewsCategory>('all');
@@ -51,13 +61,13 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
   const [isLiveForex, setIsLiveForex] = useState(false);
   const [showFullFxTable, setShowFullFxTable] = useState(false);
 
-  // Conversion Inputs (Minimized Compact Layout)
+  // Conversion Inputs
   const [converterAmount, setConverterAmount] = useState<number>(100);
   const [fromCurrency, setFromCurrency] = useState<string>('USD');
   const [toCurrency, setToCurrency] = useState<string>('GHS');
   const [rateBenchmark, setRateBenchmark] = useState<'interbank' | 'bureau' | 'commercial'>('interbank');
 
-  // Automatic news and forex synchronization on initial mount & periodic polling
+  // Sync Feeds
   const syncFeeds = useCallback(async (isManual = false) => {
     if (isManual) setIsSyncingNews(true);
     try {
@@ -157,403 +167,511 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
   };
 
   return (
-    <section 
-      id="ghana-business-news-section"
-      className="py-8 sm:py-10 bg-slate-50/60 dark:bg-slate-900/50 border-y border-slate-200/80 dark:border-slate-800 transition-colors"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        
-        {/* HEADER: Title, Live Sync Status, and Manual Refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                LIVE UPDATES & FX
-              </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                Synced: <strong className="text-slate-700 dark:text-slate-300">{lastSyncTime}</strong>
-              </span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Ghana Business News & Live FX Exchange
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => syncFeeds(true)}
-              disabled={isSyncingNews}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNews ? 'animate-spin' : ''}`} />
-              <span>{isSyncingNews ? 'Syncing...' : 'Sync News Now'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowFullFxTable(!showFullFxTable)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-            >
-              <span>{showFullFxTable ? 'Hide Rates Table' : 'View Full FX Table'}</span>
-              {showFullFxTable ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* COMPACT & STREAMLINED CURRENCY CONVERTER WIDGET (Minimal Size) */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 dark:border-slate-700 p-3 sm:p-4 shadow-sm space-y-3">
+    <>
+      {/* 1. GROUPED SECTION IN PAGE: Compact interactive card that pops up on click */}
+      <section 
+        id="ghana-business-news-section"
+        className="py-4"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          {/* 1-Row Compact Responsive Converter Form */}
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-            
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0">
-              <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="hidden sm:inline">Currency Converter:</span>
-            </div>
+          <div 
+            onClick={() => setIsPopUpOpen(true)}
+            className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-6 sm:p-8 shadow-xl hover:shadow-2xl hover:border-indigo-400/50 transition-all duration-300 cursor-pointer"
+          >
+            {/* Ambient Background Glow */}
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+            <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
 
-            {/* Amount input */}
-            <div className="relative w-28 sm:w-32 shrink-0">
-              <input
-                type="number"
-                min={0.01}
-                step="any"
-                value={converterAmount}
-                onChange={(e) => setConverterAmount(Math.max(0.01, Number(e.target.value) || 0))}
-                className="w-full pl-2.5 pr-2 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Amount"
-                aria-label="Amount to convert"
-              />
-            </div>
-
-            {/* From Currency Selector */}
-            <select
-              value={fromCurrency}
-              onChange={(e) => setFromCurrency(e.target.value)}
-              className="px-2 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none cursor-pointer"
-              aria-label="From Currency"
-            >
-              {SUPPORTED_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.flag} {c.code}
-                </option>
-              ))}
-            </select>
-
-            {/* Swap Button */}
-            <button
-              type="button"
-              onClick={handleSwapCurrencies}
-              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 transition-transform active:scale-95 cursor-pointer"
-              title="Swap Currencies"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5" />
-            </button>
-
-            {/* To Currency Selector */}
-            <select
-              value={toCurrency}
-              onChange={(e) => setToCurrency(e.target.value)}
-              className="px-2 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none cursor-pointer"
-              aria-label="To Currency"
-            >
-              {SUPPORTED_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.flag} {c.code}
-                </option>
-              ))}
-            </select>
-
-            {/* Benchmark Micro-Toggle */}
-            <div className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold">
-              <button
-                type="button"
-                onClick={() => setRateBenchmark('interbank')}
-                className={`px-2 py-0.5 rounded-md transition-colors ${
-                  rateBenchmark === 'interbank' 
-                    ? 'bg-blue-600 text-white font-bold' 
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                BoG Interbank
-              </button>
-              <button
-                type="button"
-                onClick={() => setRateBenchmark('bureau')}
-                className={`px-2 py-0.5 rounded-md transition-colors ${
-                  rateBenchmark === 'bureau' 
-                    ? 'bg-blue-600 text-white font-bold' 
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                }`}
-              >
-                Bureau
-              </button>
-            </div>
-
-            {/* Computed Converted Badge */}
-            <div className="ml-auto flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-3 py-1 rounded-xl">
-              <span className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-                =
-              </span>
-              <strong className="text-sm sm:text-base font-black text-emerald-700 dark:text-emerald-300 tracking-tight">
-                {conversionData.toSymbol} {conversionData.resultAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </strong>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono hidden sm:inline">
-                (1 {fromCurrency} = {conversionData.exchangeRate} {toCurrency})
-              </span>
-            </div>
-          </div>
-
-          {/* Mini Popular FX Rate Strip with Instant Quick-Fill */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 text-[11px]">
-            <span className="text-slate-400 font-medium shrink-0">Popular Pairs:</span>
-            {forexRates.slice(0, 5).map((fx) => (
-              <button
-                key={fx.currencyCode}
-                type="button"
-                onClick={() => {
-                  setFromCurrency(fx.currencyCode);
-                  setToCurrency('GHS');
-                }}
-                className={`shrink-0 px-2 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
-                  fromCurrency === fx.currencyCode && toCurrency === 'GHS'
-                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300 font-bold'
-                    : 'bg-slate-50 dark:bg-slate-900/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-300'
-                }`}
-                title={`Convert ${fx.currencyCode} to GHS`}
-              >
-                <span>{fx.flag}</span>
-                <span>{fx.currencyCode}/GHS</span>
-                <strong className="font-mono">GH₵ {fx.interbankBuy.toFixed(2)}</strong>
-                <span className={`text-[10px] ${fx.change24h >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                  {fx.change24h >= 0 ? `+${fx.change24h}%` : `${fx.change24h}%`}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Expandable Comprehensive FX & Macro Indicators Panel */}
-          {showFullFxTable && (
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-700 grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               
-              {/* Detailed FX Table (8 cols) */}
-              <div className="lg:col-span-8 overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-700 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="pb-2">Currency</th>
-                      <th className="pb-2">BoG Interbank</th>
-                      <th className="pb-2">Forex Bureau</th>
-                      <th className="pb-2 text-right">24h Movement</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {forexRates.map((fx) => (
-                      <tr 
+              {/* Left Column: Title & Market Context */}
+              <div className="space-y-3 max-w-2xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    LIVE BOG FX & BUSINESS NEWS
+                  </span>
+
+                  <span className="text-xs text-indigo-200/70">
+                    Synced: <strong className="text-white">{lastSyncTime}</strong>
+                  </span>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                  <span>Ghana Business News & Live FX Exchange</span>
+                  <Sparkles className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                </h2>
+
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Real-time Bank of Ghana interbank exchange rates, forex bureau benchmarks, currency calculator, and curated business intelligence across all 16 regions.
+                </p>
+
+                {/* Quick FX Rates Ticker Snippet */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {forexRates.slice(0, 3).map((fx) => {
+                    const midRate = ((fx.interbankBuy + fx.interbankSell) / 2);
+                    return (
+                      <div 
                         key={fx.currencyCode} 
-                        onClick={() => {
-                          setFromCurrency(fx.currencyCode);
-                          setToCurrency('GHS');
-                        }}
-                        className="hover:bg-blue-50/60 dark:hover:bg-slate-700/50 transition-colors cursor-pointer"
+                        className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center gap-2 text-xs"
                       >
-                        <td className="py-2 font-medium text-slate-900 dark:text-white flex items-center gap-2">
-                          <span>{fx.flag}</span>
-                          <span className="font-bold">{fx.currencyCode}</span>
-                          <span className="text-[11px] text-slate-400 hidden sm:inline">({fx.currencyName})</span>
-                        </td>
-                        <td className="py-2 font-semibold text-slate-800 dark:text-slate-200">
-                          GHS {fx.interbankBuy.toFixed(2)} / {fx.interbankSell.toFixed(2)}
-                        </td>
-                        <td className="py-2 font-semibold text-slate-800 dark:text-slate-200">
-                          GHS {fx.bureauBuy.toFixed(2)} / {fx.bureauSell.toFixed(2)}
-                        </td>
-                        <td className="py-2 text-right">
-                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            fx.change24h > 0 
-                              ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400' 
-                              : fx.change24h < 0 
-                              ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-700'
-                          }`}>
-                            {fx.change24h > 0 ? <TrendingUp className="w-3 h-3" /> : fx.change24h < 0 ? <TrendingDown className="w-3 h-3" /> : null}
-                            {fx.change24h > 0 ? `+${fx.change24h}%` : `${fx.change24h}%`}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        <span className="font-bold text-white">{fx.currencyCode}/GHS</span>
+                        <span className="font-mono text-cyan-300 font-bold">{midRate.toFixed(2)}</span>
+                        <span className={`text-[10px] font-bold ${fx.change24h >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                          {fx.change24h >= 0 ? '+' : ''}{fx.change24h.toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              {/* Macro Indicators (4 cols) */}
-              <div className="lg:col-span-4 grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80">
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">BoG Policy Rate</span>
-                  <span className="font-black text-slate-900 dark:text-white text-sm">{marketSummary.bogPolicyRate}%</span>
+              {/* Right Column: Pop Up Action Trigger */}
+              <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-3 shrink-0">
+                <div className="p-4 rounded-2xl bg-slate-800/60 border border-indigo-500/20 text-xs text-slate-300 space-y-1 sm:text-right">
+                  <div className="text-indigo-300 font-bold flex items-center sm:justify-end gap-1">
+                    <Newspaper className="w-4 h-4 text-cyan-400" />
+                    <span>{articles.length} Verified Articles Ready</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Click anywhere on this section to open full hub
+                  </div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80">
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Headline Inflation</span>
-                  <span className="font-black text-slate-900 dark:text-white text-sm">{marketSummary.headlineInflation}%</span>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPopUpOpen(true);
+                  }}
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 group-hover:scale-105 transition-all cursor-pointer"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                  <span>Open News & Live FX Hub</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* 2. THE POP-UP MODAL: Opens when clicked */}
+      {isPopUpOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setIsPopUpOpen(false)}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100 animate-in zoom-in-95 duration-200"
+          >
+            
+            {/* MODAL HEADER */}
+            <div className="p-4 sm:p-6 border-b border-slate-800 bg-slate-850 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                  <Newspaper className="w-6 h-6" />
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80">
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">GSE Composite</span>
-                  <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">{marketSummary.gseCompositeIndex.toLocaleString()}</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      Ghana Business News & Live FX Exchange
+                    </h2>
+                    <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-bold">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Bank of Ghana interbank rates, bureau benchmark comparison, and verified enterprise stories.
+                  </p>
                 </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80">
-                  <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Gold Spot (oz)</span>
-                  <span className="font-black text-amber-600 dark:text-amber-400 text-sm">${marketSummary.goldPerOunce}</span>
-                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => syncFeeds(true)}
+                  disabled={isSyncingNews}
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 text-blue-200 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNews ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingNews ? 'Syncing...' : 'Sync Feeds'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPopUpOpen(false)}
+                  className="p-2 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* CATEGORY TABS & REAL-TIME SEARCH */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 no-scrollbar">
-            {[
-              { id: 'all', label: 'All Updates' },
-              { id: 'forex_fx', label: 'Forex & FX' },
-              { id: 'banking_economy', label: 'Banking & GSE' },
-              { id: 'trade_afcfta', label: 'AfCFTA Trade' },
-              { id: 'tech_telecoms', label: 'Fintech & MoMo' },
-              { id: 'smes_startups', label: 'SME Incentives' },
-              { id: 'energy_commodities', label: 'Agri & Cocoa' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setSelectedCategory(tab.id as GhanaNewsCategory)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedCategory === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            {/* MODAL BODY (SCROLLABLE) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+              
+              {/* LIVE CURRENCY CONVERTER & MARKET SUMMARY WIDGET */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                {/* 1. Fast Currency Calculator */}
+                <div className="lg:col-span-2 p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-emerald-400" />
+                      <span className="font-bold text-sm text-white">Live Ghana Cedi Currency Converter</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Rate Type: <strong className="text-cyan-400 uppercase">{rateBenchmark}</strong>
+                    </span>
+                  </div>
 
-          <div className="relative w-full md:w-72">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search news topics..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {/* NEWS ARTICLES GRID */}
-        {filteredArticles.length === 0 ? (
-          <div className="text-center py-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-            <Newspaper className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">No Matching News Found</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Try adjusting your search query or sync the latest updates.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredArticles.map((article) => {
-              const isLiked = likedArticles.includes(article.id);
-              return (
-                <article
-                  key={article.id}
-                  id={`news-card-${article.id}`}
-                  onClick={() => onSelectArticle?.(article)}
-                  className="group bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-700/80 hover:border-blue-500 dark:hover:border-blue-500 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer"
-                >
-                  <div>
-                    <div className="relative aspect-video overflow-hidden bg-slate-100 dark:bg-slate-900">
-                      <img 
-                        src={article.coverImage} 
-                        alt={article.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        referrerPolicy="no-referrer"
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                    {/* Amount Input */}
+                    <div className="sm:col-span-4 space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-400">Amount</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={converterAmount}
+                        onChange={(e) => setConverterAmount(Math.max(1, parseFloat(e.target.value) || 0))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono font-bold text-sm focus:outline-hidden focus:border-blue-500"
                       />
-                      
-                      <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1">
-                        {article.isBreaking && (
-                          <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white text-[10px] font-extrabold uppercase shadow">
-                            BREAKING
-                          </span>
-                        )}
-                        <span className="px-2 py-0.5 rounded-md bg-black/75 backdrop-blur text-white text-[10px] font-semibold">
-                          {article.source}
-                        </span>
-                      </div>
-
-                      <div className="absolute bottom-2.5 left-2.5">
-                        <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-medium shadow">
-                          {article.categoryLabel}
-                        </span>
-                      </div>
                     </div>
 
-                    <div className="p-4 space-y-2">
-                      {article.fxHighlight && (
-                        <div className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[10px] font-semibold flex items-center gap-1 border border-amber-200/60 dark:border-amber-800/60">
-                          <Zap className="w-3 h-3 text-amber-500 shrink-0" />
-                          <span className="truncate">{article.fxHighlight}</span>
-                        </div>
-                      )}
+                    {/* From Currency */}
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-400">From</label>
+                      <select
+                        value={fromCurrency}
+                        onChange={(e) => setFromCurrency(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-hidden focus:border-blue-500 cursor-pointer"
+                      >
+                        {SUPPORTED_CURRENCIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug">
-                        {article.title}
-                      </h3>
+                    {/* Swap Button */}
+                    <div className="sm:col-span-2 flex justify-center sm:pt-4">
+                      <button
+                        type="button"
+                        onClick={handleSwapCurrencies}
+                        className="p-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white transition-colors cursor-pointer"
+                        title="Swap currencies"
+                      >
+                        <ArrowUpDown className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
-                        {article.excerpt}
-                      </p>
+                    {/* To Currency */}
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-400">To</label>
+                      <select
+                        value={toCurrency}
+                        onChange={(e) => setToCurrency(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-hidden focus:border-blue-500 cursor-pointer"
+                      >
+                        {SUPPORTED_CURRENCIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.code}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
-                  <div className="px-4 pb-3 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>{article.publishedAt}</span>
+                  {/* Calculated Result Display */}
+                  <div className="p-4 rounded-xl bg-slate-900/90 border border-emerald-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="text-[11px] text-slate-400">
+                        {converterAmount.toLocaleString()} {fromCurrency} =
+                      </div>
+                      <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">
+                        {conversionData.resultAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {toCurrency}
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-400 sm:text-right">
+                      <div>1 {fromCurrency} = {conversionData.exchangeRate.toFixed(4)} {toCurrency}</div>
+                      <div className="text-[10px] text-slate-500">Source: Bank of Ghana Daily Feed</div>
+                    </div>
+                  </div>
+                </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleLike(e, article.id)}
-                        className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                          isLiked 
-                            ? 'bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/40' 
-                            : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-500 hover:text-rose-500'
-                        }`}
-                        title={isLiked ? 'Saved' : 'Save article'}
-                      >
-                        <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleShareArticle(e, article)}
-                        className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-500 hover:text-blue-500 transition-colors cursor-pointer"
-                        title="Share story"
-                      >
-                        <Share2 className="w-3 h-3" />
-                      </button>
-
-                      <span className="ml-1 inline-flex items-center text-blue-600 dark:text-blue-400 font-bold group-hover:translate-x-0.5 transition-transform">
-                        Read <ArrowRight className="w-3 h-3 ml-0.5" />
+                {/* 2. Bank of Ghana FX Quick Summary */}
+                <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-700/80">
+                      <span className="font-bold text-xs text-white uppercase tracking-wider">Interbank FX Snapshot</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300 font-bold">
+                        BOG Daily
                       </span>
                     </div>
+
+                    <div className="divide-y divide-slate-700/50 mt-2">
+                      {forexRates.slice(0, 4).map((rate) => {
+                        const mid = ((rate.interbankBuy + rate.interbankSell) / 2);
+                        return (
+                          <div key={rate.currencyCode} className="py-2 flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{rate.flag}</span>
+                              <div>
+                                <span className="font-bold text-white">{rate.currencyCode}</span>
+                                <span className="text-[10px] text-slate-400 block">{rate.currencyName}</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-mono font-bold text-cyan-300">{mid.toFixed(2)} GHS</div>
+                              <div className={`text-[10px] font-bold ${rate.change24h >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {rate.change24h >= 0 ? '+' : ''}{rate.change24h.toFixed(1)}%
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </article>
-              );
-            })}
+
+                  <button
+                    type="button"
+                    onClick={() => setShowFullFxTable(!showFullFxTable)}
+                    className="w-full py-2 rounded-xl bg-slate-700/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>{showFullFxTable ? 'Hide Complete FX Table' : 'View Full FX Table'}</span>
+                    {showFullFxTable ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+              </div>
+
+              {/* EXPANDABLE COMPLETE FX TABLE */}
+              {showFullFxTable && (
+                <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Complete Foreign Currency vs. Ghana Cedi (GHS) Rates
+                    </h3>
+                    <span className="text-[11px] text-slate-400">Values updated continuously</span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-700">
+                        <tr>
+                          <th className="p-2.5">Currency</th>
+                          <th className="p-2.5">Interbank Buy</th>
+                          <th className="p-2.5">Interbank Sell</th>
+                          <th className="p-2.5">Bureau Benchmark</th>
+                          <th className="p-2.5">24h Change</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-700/60 font-mono">
+                        {forexRates.map((fx) => (
+                          <tr key={fx.currencyCode} className="hover:bg-slate-750">
+                            <td className="p-2.5 font-sans font-semibold text-white flex items-center gap-2">
+                              <span>{fx.flag}</span>
+                              <span>{fx.currencyCode} ({fx.currencyName})</span>
+                            </td>
+                            <td className="p-2.5 text-slate-300">{fx.interbankBuy.toFixed(4)}</td>
+                            <td className="p-2.5 text-slate-300">{fx.interbankSell.toFixed(4)}</td>
+                            <td className="p-2.5 text-cyan-300 font-bold">{fx.bureauSell.toFixed(4)}</td>
+                            <td className={`p-2.5 font-bold ${fx.change24h >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                              {fx.change24h >= 0 ? '+' : ''}{fx.change24h.toFixed(2)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* SEARCH & CATEGORY FILTER BAR */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                
+                {/* Search Input */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search Ghana business news, keywords, FX..."
+                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-hidden focus:border-blue-500"
+                  />
+                </div>
+
+                {/* Category Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {(['all', 'forex_fx', 'banking_economy', 'smes_startups', 'trade_afcfta', 'tech_telecoms', 'energy_commodities'] as const).map((cat) => {
+                    const labelMap: Record<string, string> = {
+                      all: 'All News',
+                      forex_fx: 'Forex & FX',
+                      banking_economy: 'Economy & Banking',
+                      smes_startups: 'SMEs & Startups',
+                      trade_afcfta: 'Trade & AfCFTA',
+                      tech_telecoms: 'Tech & Telecoms',
+                      energy_commodities: 'Energy & Mining',
+                    };
+
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                          selectedCategory === cat
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-750'
+                        }`}
+                      >
+                        {labelMap[cat] || cat}
+                      </button>
+                    );
+                  })}
+                </div>
+
+              </div>
+
+              {/* NEWS ARTICLES GRID */}
+              {filteredArticles.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 space-y-2">
+                  <Newspaper className="w-8 h-8 mx-auto text-slate-500" />
+                  <p className="text-sm font-semibold">No news articles match your search or filter.</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setSearchQuery('');
+                    }}
+                    className="text-xs text-blue-400 hover:underline cursor-pointer"
+                  >
+                    Clear search and show all articles
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredArticles.map((article) => {
+                    const isLiked = likedArticles.includes(article.id);
+
+                    return (
+                      <article
+                        key={article.id}
+                        onClick={() => {
+                          onSelectArticle?.(article);
+                          setIsPopUpOpen(false);
+                        }}
+                        className="group bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer"
+                      >
+                        <div>
+                          {/* Image Container */}
+                          <div className="relative h-44 w-full overflow-hidden bg-slate-900">
+                            <img
+                              src={article.coverImage}
+                              alt={article.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                            <div className="absolute top-2.5 left-2.5">
+                              <span className="px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur text-white text-[10px] font-bold">
+                                {article.source}
+                              </span>
+                            </div>
+                            <div className="absolute bottom-2.5 left-2.5">
+                              <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-bold">
+                                {article.categoryLabel}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <div className="p-4 space-y-2">
+                            {article.fxHighlight && (
+                              <div className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-800/80 text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                                <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                                <span className="truncate">{article.fxHighlight}</span>
+                              </div>
+                            )}
+
+                            <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-blue-400 transition-colors leading-snug">
+                              {article.title}
+                            </h3>
+
+                            <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                              {article.excerpt}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Card Footer */}
+                        <div className="p-4 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                          <span>{article.publishedAt}</span>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleLike(e, article.id)}
+                              className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                isLiked 
+                                  ? 'bg-rose-950/60 border-rose-800 text-rose-400' 
+                                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:text-rose-400'
+                              }`}
+                              title={isLiked ? 'Saved' : 'Save article'}
+                            >
+                              <Heart className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => handleShareArticle(e, article)}
+                              className="p-1.5 rounded-lg bg-slate-700 border border-slate-600 text-slate-300 hover:text-blue-400 transition-colors cursor-pointer"
+                              title="Share to WhatsApp"
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            <span className="ml-1 font-bold text-blue-400 inline-flex items-center group-hover:translate-x-0.5 transition-transform">
+                              Read <ArrowRight className="w-3 h-3 ml-0.5" />
+                            </span>
+                          </div>
+                        </div>
+
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+
+            </div>
+
+            {/* MODAL FOOTER */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-850 flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>AuraCentra Ghana Financial Intelligence Feed</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPopUpOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer"
+              >
+                Close Hub
+              </button>
+            </div>
+
           </div>
-        )}
-      </div>
-    </section>
+        </div>
+      )}
+    </>
   );
 };
