@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   X, 
   Upload, 
@@ -20,10 +20,12 @@ import {
   Clock,
   Sparkles,
   Navigation,
-  Check
+  Check,
+  CheckCheck,
+  Globe2
 } from 'lucide-react';
 import { Business, Category, DocumentType, VerificationDocument, UserProfile } from '../types';
-import { verifyGhanaPostGPS, GPSVerificationResult } from '../utils/gpsVerification';
+import { verifyGhanaPostGPS, verifyGhanaPostGPSLive, GPSVerificationResult } from '../utils/gpsVerification';
 import confetti from 'canvas-confetti';
 
 interface BusinessRegistrationModalProps {
@@ -248,6 +250,12 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       ? gpsCheck.approxCoordinates
       : { lat: 5.6037, lng: -0.1870 };
 
+    // Clean fallback numbers and email generation
+    const randomSuffix = Math.floor(100000 + Math.random() * 900000);
+    const cleanPhone = phone.trim() || `024${randomSuffix}`;
+    const cleanWhatsapp = whatsapp.trim() || phone.trim() || `23324${randomSuffix}`;
+    const cleanEmail = email.trim() || `${name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'contact'}@auracentra-listed.com`;
+
     const newBiz: Business = {
       id: `biz-${Date.now()}`,
       name: name.trim(),
@@ -258,9 +266,9 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       logo: finalLogo,
       coverImage: finalCover,
       gallery: finalGallery,
-      phone: phone.trim() || '0508203673',
-      whatsapp: whatsapp.trim() || phone.trim() || '0508203673',
-      email: email.trim() || 'tonysdigitalmarketing@gmail.com',
+      phone: cleanPhone,
+      whatsapp: cleanWhatsapp,
+      email: cleanEmail,
       website: website.trim() || undefined,
       city,
       region: gpsCheck.isValid ? gpsCheck.regionName.replace(' Region', '') : region,
@@ -530,7 +538,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                   <input
                     type="tel"
                     required
-                    placeholder="0508203673"
+                    placeholder="e.g. 024 456 7890"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -543,7 +551,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                   </label>
                   <input
                     type="tel"
-                    placeholder="233508203673"
+                    placeholder="e.g. 233 20 123 4567"
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -556,7 +564,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                   </label>
                   <input
                     type="email"
-                    placeholder="tonysdigitalmarketing@gmail.com"
+                    placeholder="e.g. contact@mybusiness.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-3 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -632,15 +640,16 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                     <Navigation className="w-4 h-4 text-blue-600" />
                     <span>GhanaPost GPS Digital Address *</span>
                   </label>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
-                    Official Postal Grid
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                    <Globe2 className="w-3 h-3" />
+                    <span>NDPAS Official Postal Grid (All 16 Regions)</span>
                   </span>
                 </div>
 
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="e.g. GA-183-9024, AK-039-4921, WS-201-9922"
+                    placeholder="e.g. GA-183-9024 (Accra), VH-045-8821 (Volta), AK-039-4921 (Kumasi)"
                     value={digitalAddress}
                     onChange={(e) => setDigitalAddress(e.target.value.toUpperCase())}
                     className="flex-1 px-3 py-2.5 text-xs font-mono font-bold tracking-wider rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500"
@@ -650,11 +659,17 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                     onClick={() => {
                       if (!digitalAddress.trim()) {
                         setDigitalAddress('GA-183-9024');
+                        setCity('Accra');
+                        setRegion('Greater Accra');
+                      } else if (gpsCheck.isValid) {
+                        if (!region) setRegion(gpsCheck.regionName.replace(' Region', ''));
+                        if (!city) setCity(gpsCheck.districtName.split(' ')[0] || 'Accra');
                       }
                     }}
-                    className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0"
+                    className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
                   >
-                    Verify GPS
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span>Verify GPS</span>
                   </button>
                 </div>
 
@@ -666,18 +681,41 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                       : 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
                   }`}>
                     {gpsCheck.isValid ? (
-                      <div className="space-y-1">
-                        <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Valid GhanaPost GPS Address Detected</span>
+                      <div className="space-y-1.5">
+                        <div className="font-bold flex items-center justify-between text-emerald-800 dark:text-emerald-300">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            <span>Verified GhanaPost GPS Digital Address</span>
+                          </div>
+                          <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">
+                            Ghana Post Verified ✓
+                          </span>
                         </div>
-                        <div className="text-[11px] space-y-0.5">
-                          <div><strong>Region Grid:</strong> {gpsCheck.regionName} ({gpsCheck.regionCode})</div>
-                          <div><strong>Postal Grid Number:</strong> {gpsCheck.formattedAddress}</div>
-                          <div className="text-slate-500 dark:text-slate-400">
-                            Approx. Grid Lat/Lng: {gpsCheck.approxCoordinates?.lat}, {gpsCheck.approxCoordinates?.lng}
+                        <div className="text-[11px] space-y-0.5 text-emerald-900 dark:text-emerald-300">
+                          <div><strong>Administrative Region:</strong> {gpsCheck.regionName} ({gpsCheck.regionCode})</div>
+                          <div><strong>Postal District:</strong> {gpsCheck.districtName}</div>
+                          <div><strong>National Grid Number:</strong> <span className="font-mono font-bold">{gpsCheck.formattedAddress}</span></div>
+                          <div className="text-slate-600 dark:text-slate-400 text-[10px]">
+                            Geocoded Grid Coordinates: {gpsCheck.approxCoordinates?.lat}° N, {gpsCheck.approxCoordinates?.lng}° W
                           </div>
                         </div>
+
+                        {/* Quick Auto-Fill Region & City Button */}
+                        {(!region || !city) && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRegion(gpsCheck.regionName.replace(' Region', ''));
+                                setCity(gpsCheck.districtName.split(' ')[0] || 'Accra');
+                              }}
+                              className="text-[11px] font-bold text-blue-700 dark:text-cyan-400 hover:underline cursor-pointer flex items-center gap-1"
+                            >
+                              <span>Auto-fill City & Region from GPS Grid</span>
+                              <span>→</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-start gap-2">
@@ -685,7 +723,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                         <div>
                           <div className="font-bold">{gpsCheck.validationMessage}</div>
                           <div className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5">
-                            Valid format: 2 letters (Region) - 3 to 4 digits - 3 to 5 digits (e.g. GA-183-9024)
+                            Accepted: 2 to 3 letter region prefix (GA, VH, AK, WS, CC, EN, OT, NT, SD, NE, UB, UW, BS, BT, AG) followed by 2-5 digits and 3-6 digits (e.g. GA-183-9024, VH-045-8821, AK-039-4921)
                           </div>
                         </div>
                       </div>
@@ -693,43 +731,88 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-1.5 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <span>Common samples:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDigitalAddress('GA-183-9024');
-                      setCity('Accra');
-                      setRegion('Greater Accra');
-                    }}
-                    className="underline text-blue-600 dark:text-cyan-400 cursor-pointer"
-                  >
-                    GA-183-9024 (Accra)
-                  </button>
-                  <span>•</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDigitalAddress('AK-039-4921');
-                      setCity('Kumasi');
-                      setRegion('Ashanti');
-                    }}
-                    className="underline text-blue-600 dark:text-cyan-400 cursor-pointer"
-                  >
-                    AK-039-4921 (Kumasi)
-                  </button>
-                  <span>•</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDigitalAddress('WS-201-9922');
-                      setCity('Takoradi');
-                      setRegion('Western');
-                    }}
-                    className="underline text-blue-600 dark:text-cyan-400 cursor-pointer"
-                  >
-                    WS-201-9922 (Takoradi)
-                  </button>
+                {/* Regional Samples (Covering major Ghanaian regions: GA, VH, AK, WS, CC, EN, NT) */}
+                <div className="space-y-1 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">Quick Regional Grid Samples:</span>
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('GA-183-9024');
+                        setCity('Accra');
+                        setRegion('Greater Accra');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      GA-183-9024 (Accra)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('VH-045-8821');
+                        setCity('Ho');
+                        setRegion('Volta');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      VH-045-8821 (Volta/Ho)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('AK-039-4921');
+                        setCity('Kumasi');
+                        setRegion('Ashanti');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      AK-039-4921 (Kumasi)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('WS-201-9922');
+                        setCity('Takoradi');
+                        setRegion('Western');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      WS-201-9922 (Takoradi)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('CC-102-4019');
+                        setCity('Cape Coast');
+                        setRegion('Central');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      CC-102-4019 (Cape Coast)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('EN-012-7890');
+                        setCity('Koforidua');
+                        setRegion('Eastern');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      EN-012-7890 (Koforidua)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDigitalAddress('NT-023-4567');
+                        setCity('Tamale');
+                        setRegion('Northern');
+                      }}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:border-blue-500 text-blue-600 dark:text-cyan-400 cursor-pointer font-mono font-bold text-[10px]"
+                    >
+                      NT-023-4567 (Tamale)
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

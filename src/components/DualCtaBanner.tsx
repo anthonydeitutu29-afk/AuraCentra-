@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Building2, Search, Sparkles } from 'lucide-react';
+import { ArrowRight, Building2, Search, Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface DualCtaBannerProps {
   onExploreBusinesses: () => void;
@@ -11,77 +11,65 @@ export const DualCtaBanner: React.FC<DualCtaBannerProps> = ({
   onListBusiness,
 }) => {
   return (
-    <section 
-      className="relative rounded-3xl overflow-hidden bg-[#0d1424] text-white border border-slate-800 shadow-xl"
-      id="dual-cta-banner-section"
-    >
-      {/* Background with warm entrepreneur photography */}
-      <div 
-        className="absolute inset-0 bg-cover bg-right-center opacity-30 mix-blend-luminosity scale-105 pointer-events-none"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1600&q=80')`
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#0d1424] via-[#0d1424]/90 to-[#0d1424]/40 pointer-events-none" />
-
-      <div className="relative p-6 sm:p-10 lg:p-12 space-y-8">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" id="dual-cta-banner-section">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         
-        {/* Title */}
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-900/60 border border-blue-700/60 text-blue-400 text-xs font-bold uppercase tracking-wider">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Ghana's Business Growth Network</span>
-          </div>
-          <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Discover more. Get discovered.
-          </h2>
-        </div>
-
-        {/* 2 Action Columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl">
-          
-          {/* Card 1: Looking for a business? */}
-          <div className="p-6 rounded-2xl bg-slate-900/80 backdrop-blur-sm border border-slate-800 space-y-4 flex flex-col justify-between">
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Search className="w-5 h-5 text-blue-400" />
-                <span>Looking for a business?</span>
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Find verified businesses, vetted service providers, and authentic suppliers across all 16 regions of Ghana.
-              </p>
+        {/* Card 1: Looking for a business? */}
+        <div className="p-6 sm:p-7 rounded-3xl bg-[#0f172a] border border-slate-800 text-white shadow-xl flex flex-col justify-between space-y-4 hover:border-slate-700 transition-colors group relative overflow-hidden">
+          <div className="space-y-2.5 relative z-10">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold uppercase tracking-wider">
+              <span>EXPLORE DIRECTORY</span>
             </div>
+            <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
+              <span className="p-2 rounded-2xl bg-blue-500/10 text-blue-400">
+                <Search className="w-5 h-5" />
+              </span>
+              <span>Looking for a business?</span>
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
+              Discover vetted suppliers, certified service professionals, and authentic shops across Ghana with verified reviews and direct WhatsApp chats.
+            </p>
+          </div>
+          <div className="pt-2 relative z-10">
             <button
               type="button"
+              id="cta-explore-businesses-btn"
               onClick={onExploreBusinesses}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-bold transition-all border border-slate-700 cursor-pointer shadow-xs"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#155DFC] hover:bg-blue-600 text-white text-xs sm:text-sm font-bold transition-all shadow-md cursor-pointer group-hover:gap-3"
             >
               <span>Explore Businesses</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
+        </div>
 
-          {/* Card 2: Own a business? */}
-          <div className="p-6 rounded-2xl bg-blue-950/70 backdrop-blur-sm border border-blue-800/80 space-y-4 flex flex-col justify-between">
-            <div className="space-y-2">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-cyan-400" />
-                <span>Own a business in Ghana?</span>
-              </h3>
-              <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-                List your enterprise today and connect with thousands of local customers, corporate buyers, and investors.
-              </p>
+        {/* Card 2: Own a business in Ghana? */}
+        <div className="p-6 sm:p-7 rounded-3xl bg-[#0f172a] border border-slate-800 text-white shadow-xl flex flex-col justify-between space-y-4 hover:border-slate-700 transition-colors group relative overflow-hidden">
+          <div className="space-y-2.5 relative z-10">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
+              <span>MERCHANT ONBOARDING</span>
             </div>
+            <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
+              <span className="p-2 rounded-2xl bg-emerald-500/10 text-emerald-400">
+                <Building2 className="w-5 h-5" />
+              </span>
+              <span>Own a business in Ghana?</span>
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-md">
+              Get officially listed, earn a trust badge, and connect directly with thousands of retail customers and corporate buyers looking for suppliers.
+            </p>
+          </div>
+          <div className="pt-2 relative z-10">
             <button
               type="button"
+              id="cta-list-business-btn"
               onClick={onListBusiness}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold transition-all shadow-md shadow-blue-600/30 cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#155DFC] hover:bg-blue-600 text-white text-xs sm:text-sm font-bold transition-all shadow-md cursor-pointer group-hover:gap-3"
             >
               <span>List Your Business</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-
         </div>
 
       </div>

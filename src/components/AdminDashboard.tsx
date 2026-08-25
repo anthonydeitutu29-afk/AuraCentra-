@@ -41,7 +41,10 @@ import {
   Navigation,
   Check,
   Compass,
-  MapPin
+  MapPin,
+  Radio,
+  Crosshair,
+  Globe
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
 import { getRegisteredAccounts } from '../utils/storage';
@@ -49,6 +52,7 @@ import { verifyGhanaPostGPS } from '../utils/gpsVerification';
 import { Logo } from './Logo';
 import { AdminVerificationModal } from './AdminVerificationModal';
 import { BusinessRejectionModal } from './BusinessRejectionModal';
+import { AdminLocationTracker } from './AdminLocationTracker';
 import { dispatchApprovalNotification } from '../utils/notificationService';
 import confetti from 'canvas-confetti';
 
@@ -75,6 +79,7 @@ interface AdminDashboardProps {
   onApproveAndCreateCategory?: (suggestion: CategorySuggestion) => void;
   onUpdateFeedbackStatus?: (feedbackId: string, status: PlatformFeedback['status'], adminReply?: string) => void;
   onDeleteFeedback?: (feedbackId: string) => void;
+  onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
   onSignOut: () => void;
   onBackToPortal: () => void;
 }
@@ -102,10 +107,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onApproveAndCreateCategory,
   onUpdateFeedbackStatus,
   onDeleteFeedback,
+  onShowToast,
   onSignOut,
   onBackToPortal,
 }) => {
-  const [activeTab, setActiveTab] = useState<'verification' | 'reports' | 'suggestions' | 'feedback' | 'users' | 'businesses' | 'categories' | 'settings'>('verification');
+  const [activeTab, setActiveTab] = useState<'verification' | 'location_tracker' | 'reports' | 'suggestions' | 'feedback' | 'users' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
   const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'pending' | 'verified' | 'unverified'>('all');
@@ -349,6 +355,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('location_tracker')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'location_tracker'
+                ? 'bg-cyan-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <span>User Location Tracker</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-[10px] font-black flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              Live GPS
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('reports')}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
               activeTab === 'reports'
@@ -451,6 +474,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span>Platform Controls & Executive Section</span>
           </button>
         </div>
+
+        {/* TAB: User Geolocation & Activity Tracker */}
+        {activeTab === 'location_tracker' && (
+          <AdminLocationTracker 
+            currentUser={currentUser} 
+            onShowToast={onShowToast} 
+          />
+        )}
 
         {/* TAB 1: ID Verification Submissions & Approvals */}
         {activeTab === 'verification' && (

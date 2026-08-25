@@ -4,22 +4,22 @@ import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v6',
-  CATEGORIES: 'auracentra_categories_clean_v6',
-  REVIEWS: 'auracentra_reviews_clean_v6',
-  CURRENT_USER: 'auracentra_user_clean_v6',
-  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v6',
-  SAVED_BUSINESSES: 'auracentra_saved_clean_v6',
-  SEARCH_HISTORY: 'auracentra_search_history_clean_v6',
-  THEME: 'auracentra_theme_clean_v6',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v6',
-  INQUIRIES: 'auracentra_inquiries_clean_v6',
-  PROMOTIONS: 'auracentra_promotions_clean_v6',
-  REPORTS: 'auracentra_reports_clean_v6',
-  SUGGESTIONS: 'auracentra_suggestions_clean_v6',
-  FEEDBACK: 'auracentra_feedback_clean_v6',
-  NEWS_LIKES: 'auracentra_news_likes_v1',
-  USER_NOTIFICATIONS: 'auracentra_user_notifications_v1',
+  BUSINESSES: 'auracentra_businesses_clean_v7',
+  CATEGORIES: 'auracentra_categories_clean_v7',
+  REVIEWS: 'auracentra_reviews_clean_v7',
+  CURRENT_USER: 'auracentra_user_clean_v7',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v7',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v7',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v7',
+  THEME: 'auracentra_theme_clean_v7',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v7',
+  INQUIRIES: 'auracentra_inquiries_clean_v7',
+  PROMOTIONS: 'auracentra_promotions_clean_v7',
+  REPORTS: 'auracentra_reports_clean_v7',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v7',
+  FEEDBACK: 'auracentra_feedback_clean_v7',
+  NEWS_LIKES: 'auracentra_news_likes_v2',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v2',
 };
 
 // Initial state getters and setters
@@ -28,7 +28,7 @@ export function getStoredBusinesses(): Business[] {
     const data = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;
       }
     }

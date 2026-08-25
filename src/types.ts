@@ -1,6 +1,6 @@
 export type VerificationStatus = 'verified' | 'pending' | 'rejected' | 'unverified';
 
-export type DocumentType = 'ghana_card' | 'voters_id' | 'drivers_license' | 'passport';
+export type DocumentType = 'ghana_card' | 'voters_id' | 'drivers_license' | 'passport' | 'business_registration' | 'tin_certificate';
 
 export interface VerificationDocument {
   id: string;
@@ -323,5 +323,42 @@ export interface UserNotification {
   actionUrl?: string;
   whatsappNoticeText?: string;
 }
+
+export interface UserLocationRecord {
+  id: string;
+  sessionId: string;
+  userId?: string;
+  userEmail?: string;
+  userName?: string;
+  userRole?: string;
+  userAvatar?: string;
+  ipAddress: string;
+  country: string;
+  countryCode: string;
+  region: string;
+  city: string;
+  district?: string;
+  digitalAddressGrid?: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+    accuracyMeters?: number;
+  };
+  deviceInfo: {
+    browser: string;
+    os: string;
+    platform: 'mobile' | 'desktop' | 'tablet';
+    userAgent: string;
+    screenResolution?: string;
+  };
+  verificationMethod: 'gps_high_precision' | 'gps_standard' | 'network_triangulated' | 'ip_lookup';
+  isGhanaLocation: boolean;
+  firstSeenAt: string;
+  lastActiveAt: string;
+  status: 'online' | 'active' | 'idle' | 'offline';
+  pagePath?: string;
+  networkCarrier?: string;
+}
+
 
 

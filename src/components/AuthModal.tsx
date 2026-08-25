@@ -299,7 +299,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
     const cleanName = name.trim();
-    const cleanPhone = phone.trim() || '+233 24 000 0000';
+    const randomSuffix = Math.floor(1000000 + Math.random() * 9000000);
+    const cleanPhone = phone.trim() || `+233 24 ${randomSuffix}`;
 
     if (!cleanName) {
       setErrorMsg('Please enter your full name.');
