@@ -336,6 +336,27 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </button>
               )}
 
+              {/* Theme Toggle Action */}
+              {onToggleTheme && (
+                <button
+                  type="button"
+                  onClick={onToggleTheme}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    {theme === 'dark' ? (
+                      <Sun className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <Moon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                    )}
+                    <span>Switch Theme</span>
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-600/10 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[11px] font-bold border border-blue-200 dark:border-blue-800">
+                    {theme === 'dark' ? 'Dark Active' : 'Light Active'}
+                  </span>
+                </button>
+              )}
+
               {/* Share Platform Link */}
               <button
                 type="button"

@@ -143,5 +143,18 @@ export const ApiClient = {
       console.error('[ApiClient] Error moderating business:', err);
       throw err;
     }
+  },
+
+  // Delete Business
+  async deleteBusiness(businessId: string) {
+    try {
+      const res = await fetch(`/api/businesses/${businessId}`, {
+        method: 'DELETE'
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('[ApiClient] Error deleting business:', err);
+      return { status: 'fallback', businessId };
+    }
   }
 };

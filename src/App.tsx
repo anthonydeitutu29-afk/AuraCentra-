@@ -435,6 +435,24 @@ export default function App() {
     if (selectedBusiness && selectedBusiness.id === businessId) {
       setSelectedBusiness(null);
     }
+    // Delete from Firestore & Backend API
+    FirestoreSync.deleteBusiness(businessId);
+    // Cleanup localStorage cache if present
+    try {
+      const stored = localStorage.getItem('auracentra_businesses');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const updated = parsed.filter((b: any) => b.id !== businessId);
+          localStorage.setItem('auracentra_businesses', JSON.stringify(updated));
+        }
+      }
+    } catch {}
+    showToast(
+      'Business Permanently Deleted',
+      'The business listing has been permanently removed from AuraCentra.',
+      'info'
+    );
   };
 
   const handleApproveVerification = (businessId: string, badgeType: string = 'Gold Enterprise', verifiedCoords?: { lat: number; lng: number }) => {
@@ -760,7 +778,7 @@ export default function App() {
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b) => {
       // 0. Only show officially enlisted/approved businesses to public users
-      if (b.listingStatus === 'pending_approval' || b.listingStatus === 'rejected') {
+      if (b.listingStatus === 'pending_approval' || b.listingStatus === 'rejected' || b.verificationStatus === 'rejected') {
         return false;
       }
 
@@ -831,16 +849,16 @@ export default function App() {
   }, [businesses, filters]);
 
   const comparedBusinesses = useMemo(() => {
-    return businesses.filter((b) => comparedBusinessIds.includes(b.id));
+    return businesses.filter((b) => comparedBusinessIds.includes(b.id) && b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
   }, [businesses, comparedBusinessIds]);
 
   const savedBusinesses = useMemo(() => {
-    return businesses.filter((b) => savedBusinessIds.includes(b.id));
+    return businesses.filter((b) => savedBusinessIds.includes(b.id) && b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
   }, [businesses, savedBusinessIds]);
 
   // Executive Spotlight businesses
   const executiveBusinesses = useMemo(() => {
-    return businesses.filter((b) => b.isFeatured);
+    return businesses.filter((b) => b.isFeatured && b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
   }, [businesses]);
 
   // If in Admin Dashboard view

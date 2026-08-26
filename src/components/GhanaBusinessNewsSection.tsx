@@ -168,7 +168,7 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
 
   return (
     <>
-      {/* 1. GROUPED SECTION IN PAGE: Compact interactive card that pops up on click */}
+      {/* 1. GROUPED SECTION IN PAGE: Compact interactive card in Royal Blue & White brand colors */}
       <section 
         id="ghana-business-news-section"
         className="py-4"
@@ -177,54 +177,54 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
           
           <div 
             onClick={() => setIsPopUpOpen(true)}
-            className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-6 sm:p-8 shadow-xl hover:shadow-2xl hover:border-indigo-400/50 transition-all duration-300 cursor-pointer"
+            className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1c47] via-[#103b9b] to-[#0c2461] border-2 border-blue-300/40 dark:border-blue-500/40 p-6 sm:p-8 shadow-2xl hover:shadow-blue-600/30 hover:border-white/70 transition-all duration-300 cursor-pointer text-white"
           >
-            {/* Ambient Background Glow */}
-            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
-            <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
+            {/* Ambient Background Glows */}
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 bg-white/15 rounded-full blur-3xl group-hover:bg-white/25 transition-all pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl group-hover:bg-blue-300/30 transition-all pointer-events-none"></div>
 
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               
               {/* Left Column: Title & Market Context */}
               <div className="space-y-3 max-w-2xl">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#155DFC] text-white text-xs font-black shadow-md tracking-wider">
-                    {/* Live Broadcast Signal Wave Icon matching Image 1 */}
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="12" cy="12" r="2.5" fill="white" />
-                      <path d="M7.8 7.8C5.5 10.1 5.5 13.9 7.8 16.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M16.2 7.8C18.5 10.1 18.5 13.9 16.2 16.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                      <path d="M4.9 4.9C1.1 8.8 1.1 15.2 4.9 19.1" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
-                      <path d="M19.1 4.9C22.9 8.8 22.9 15.2 19.1 19.1" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white text-[#0c2461] text-xs font-black shadow-md tracking-wider">
+                    {/* Live Broadcast Signal Wave Icon */}
+                    <svg className="w-4 h-4 shrink-0 text-[#155DFC]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                      <path d="M7.8 7.8C5.5 10.1 5.5 13.9 7.8 16.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M16.2 7.8C18.5 10.1 18.5 13.9 16.2 16.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M4.9 4.9C1.1 8.8 1.1 15.2 4.9 19.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+                      <path d="M19.1 4.9C22.9 8.8 22.9 15.2 19.1 19.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
                     </svg>
                     <span>LIVE BoG FX & BUSINESS NEWS</span>
                   </div>
 
-                  <span className="text-xs text-indigo-200/70">
-                    Synced: <strong className="text-white">{lastSyncTime}</strong>
+                  <span className="text-xs text-blue-100/90 font-medium">
+                    Synced: <strong className="text-white font-bold">{lastSyncTime}</strong>
                   </span>
                 </div>
 
-                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
                   Ghana Business News & Live FX Exchange
                 </h2>
 
-                <p className="text-sm text-slate-300 leading-relaxed">
+                <p className="text-sm text-blue-50/95 leading-relaxed">
                   Real-time Bank of Ghana interbank exchange rates, forex bureau benchmarks, currency calculator, and curated business intelligence across all 16 regions.
                 </p>
 
-                {/* Quick FX Rates Ticker Snippet */}
+                {/* Quick FX Rates Ticker Snippet in Blue & White styling */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {forexRates.slice(0, 3).map((fx) => {
                     const midRate = ((fx.interbankBuy + fx.interbankSell) / 2);
                     return (
                       <div 
                         key={fx.currencyCode} 
-                        className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 flex items-center gap-2 text-xs"
+                        className="px-3 py-1.5 rounded-xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center gap-2 text-xs"
                       >
                         <span className="font-bold text-white">{fx.currencyCode}/GHS</span>
-                        <span className="font-mono text-cyan-300 font-bold">{midRate.toFixed(2)}</span>
-                        <span className={`text-[10px] font-bold ${fx.change24h >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                        <span className="font-mono text-white font-black">{midRate.toFixed(2)}</span>
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${fx.change24h >= 0 ? 'bg-rose-500/80 text-white' : 'bg-emerald-500/80 text-white'}`}>
                           {fx.change24h >= 0 ? '+' : ''}{fx.change24h.toFixed(1)}%
                         </span>
                       </div>
@@ -235,12 +235,12 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
 
               {/* Right Column: Pop Up Action Trigger */}
               <div className="flex flex-col sm:flex-row lg:flex-col items-start sm:items-center lg:items-end justify-between gap-3 shrink-0">
-                <div className="p-4 rounded-2xl bg-slate-800/60 border border-indigo-500/20 text-xs text-slate-300 space-y-1 sm:text-right">
-                  <div className="text-indigo-300 font-bold flex items-center sm:justify-end gap-1">
-                    <Newspaper className="w-4 h-4 text-cyan-400" />
+                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs text-white space-y-1 sm:text-right">
+                  <div className="text-white font-bold flex items-center sm:justify-end gap-1.5">
+                    <Newspaper className="w-4 h-4 text-white" />
                     <span>{articles.length} Verified Articles Ready</span>
                   </div>
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-[11px] text-blue-100">
                     Click anywhere on this section to open full hub
                   </div>
                 </div>
@@ -251,11 +251,11 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                     e.stopPropagation();
                     setIsPopUpOpen(true);
                   }}
-                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-black shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 group-hover:scale-105 transition-all cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white hover:bg-blue-50 text-[#0c2461] text-sm font-black shadow-xl hover:shadow-2xl flex items-center justify-center gap-2 group-hover:scale-105 transition-all cursor-pointer"
                 >
-                  <Maximize2 className="w-4 h-4" />
+                  <Maximize2 className="w-4 h-4 text-[#155DFC]" />
                   <span>Open News & Live FX Hub</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="w-4 h-4 text-[#155DFC] group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
 
@@ -265,21 +265,21 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
         </div>
       </section>
 
-      {/* 2. THE POP-UP MODAL: Opens when clicked */}
+      {/* 2. THE POP-UP MODAL: Branded in Pure Royal Blue & White */}
       {isPopUpOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setIsPopUpOpen(false)}
         >
           <div 
             onClick={(e) => e.stopPropagation()}
-            className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100 animate-in zoom-in-95 duration-200"
+            className="bg-white dark:bg-[#0a193d] border-2 border-blue-200 dark:border-blue-800 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-200"
           >
             
-            {/* MODAL HEADER */}
-            <div className="p-4 sm:p-6 border-b border-slate-800 bg-slate-850 flex items-center justify-between gap-4">
+            {/* MODAL HEADER: Royal Blue Brand Header */}
+            <div className="p-4 sm:p-6 bg-gradient-to-r from-[#0a1c47] via-[#103b9b] to-[#155DFC] text-white flex items-center justify-between gap-4 border-b border-blue-900">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-white text-[#155DFC] flex items-center justify-center shadow-md shrink-0">
                   <Newspaper className="w-6 h-6" />
                 </div>
                 <div>
@@ -287,11 +287,11 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                     <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
                       Ghana Business News & Live FX Exchange
                     </h2>
-                    <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 text-[10px] font-bold">
-                      Active
+                    <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-white text-[10px] font-bold">
+                      Live BoG Feed
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-blue-100">
                     Bank of Ghana interbank rates, bureau benchmark comparison, and verified enterprise stories.
                   </p>
                 </div>
@@ -302,16 +302,17 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                   type="button"
                   onClick={() => syncFeeds(true)}
                   disabled={isSyncingNews}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/30 hover:bg-blue-600 border border-blue-500/40 text-blue-200 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-blue-50 text-[#0c2461] text-xs font-bold transition-all shadow-md cursor-pointer"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNews ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 text-[#155DFC] ${isSyncingNews ? 'animate-spin' : ''}`} />
                   <span>{isSyncingNews ? 'Syncing...' : 'Sync Feeds'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsPopUpOpen(false)}
-                  className="p-2 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-2 rounded-2xl text-white hover:bg-white/20 transition-colors cursor-pointer"
+                  aria-label="Close modal"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -319,46 +320,48 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
             </div>
 
             {/* MODAL BODY (SCROLLABLE) */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 bg-slate-50/50 dark:bg-[#071430]/70">
               
               {/* LIVE CURRENCY CONVERTER & MARKET SUMMARY WIDGET */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 
                 {/* 1. Fast Currency Calculator */}
-                <div className="lg:col-span-2 p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <div className="lg:col-span-2 p-5 rounded-2xl bg-white dark:bg-[#0c2252] border border-blue-200 dark:border-blue-800/80 shadow-md space-y-4">
+                  <div className="flex items-center justify-between border-b border-blue-100 dark:border-blue-800/60 pb-3">
                     <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-emerald-400" />
-                      <span className="font-bold text-sm text-white">Live Ghana Cedi Currency Converter</span>
+                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-[#155DFC] dark:text-blue-300 flex items-center justify-center">
+                        <DollarSign className="w-4 h-4" />
+                      </div>
+                      <span className="font-bold text-sm text-[#0c2461] dark:text-white">Live Ghana Cedi Currency Converter</span>
                     </div>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Rate Type: <strong className="text-cyan-400 uppercase">{rateBenchmark}</strong>
+                    <span className="text-[11px] text-blue-700 dark:text-blue-300 font-mono font-bold">
+                      Rate Type: <strong className="text-[#155DFC] dark:text-blue-400 uppercase">{rateBenchmark}</strong>
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                     {/* Amount Input */}
                     <div className="sm:col-span-4 space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">Amount</label>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-blue-200">Amount</label>
                       <input
                         type="number"
                         min="1"
                         value={converterAmount}
                         onChange={(e) => setConverterAmount(Math.max(1, parseFloat(e.target.value) || 0))}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono font-bold text-sm focus:outline-hidden focus:border-blue-500"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#081738] border-2 border-blue-200 dark:border-blue-700 text-slate-900 dark:text-white font-mono font-bold text-sm focus:outline-hidden focus:border-[#155DFC]"
                       />
                     </div>
 
                     {/* From Currency */}
                     <div className="sm:col-span-3 space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">From</label>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-blue-200">From</label>
                       <select
                         value={fromCurrency}
                         onChange={(e) => setFromCurrency(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-hidden focus:border-blue-500 cursor-pointer"
+                        className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-[#081738] border-2 border-blue-200 dark:border-blue-700 text-slate-900 dark:text-white text-xs font-bold focus:outline-hidden focus:border-[#155DFC] cursor-pointer"
                       >
                         {SUPPORTED_CURRENCIES.map((c) => (
-                          <option key={c.code} value={c.code}>
+                          <option key={c.code} value={c.code} className="text-slate-900 dark:text-white dark:bg-slate-900">
                             {c.flag} {c.code}
                           </option>
                         ))}
@@ -370,7 +373,7 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                       <button
                         type="button"
                         onClick={handleSwapCurrencies}
-                        className="p-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white transition-colors cursor-pointer"
+                        className="p-2.5 rounded-xl bg-blue-100 hover:bg-[#155DFC] text-[#0c2461] hover:text-white dark:bg-blue-900/60 dark:text-blue-200 dark:hover:bg-[#155DFC] dark:hover:text-white transition-colors cursor-pointer shadow-xs"
                         title="Swap currencies"
                       >
                         <ArrowUpDown className="w-4 h-4" />
@@ -379,14 +382,14 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
 
                     {/* To Currency */}
                     <div className="sm:col-span-3 space-y-1">
-                      <label className="text-[11px] font-semibold text-slate-400">To</label>
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-blue-200">To</label>
                       <select
                         value={toCurrency}
                         onChange={(e) => setToCurrency(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-hidden focus:border-blue-500 cursor-pointer"
+                        className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-[#081738] border-2 border-blue-200 dark:border-blue-700 text-slate-900 dark:text-white text-xs font-bold focus:outline-hidden focus:border-[#155DFC] cursor-pointer"
                       >
                         {SUPPORTED_CURRENCIES.map((c) => (
-                          <option key={c.code} value={c.code}>
+                          <option key={c.code} value={c.code} className="text-slate-900 dark:text-white dark:bg-slate-900">
                             {c.flag} {c.code}
                           </option>
                         ))}
@@ -394,34 +397,34 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                     </div>
                   </div>
 
-                  {/* Calculated Result Display */}
-                  <div className="p-4 rounded-xl bg-slate-900/90 border border-emerald-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  {/* Calculated Result Display in Crisp Blue & White */}
+                  <div className="p-4 rounded-xl bg-blue-50 dark:bg-[#081738] border-2 border-[#155DFC]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-xs font-semibold text-slate-600 dark:text-blue-300">
                         {converterAmount.toLocaleString()} {fromCurrency} =
                       </div>
-                      <div className="text-xl sm:text-2xl font-black text-emerald-400 font-mono">
+                      <div className="text-xl sm:text-2xl font-black text-[#155DFC] dark:text-[#38bdf8] font-mono">
                         {conversionData.resultAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {toCurrency}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-400 sm:text-right">
-                      <div>1 {fromCurrency} = {conversionData.exchangeRate.toFixed(4)} {toCurrency}</div>
-                      <div className="text-[10px] text-slate-500">Source: Bank of Ghana Daily Feed</div>
+                    <div className="text-xs text-slate-600 dark:text-blue-300 sm:text-right font-medium">
+                      <div>1 {fromCurrency} = <strong className="text-[#0c2461] dark:text-white">{conversionData.exchangeRate.toFixed(4)}</strong> {toCurrency}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-blue-400">Source: Bank of Ghana Daily Feed</div>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Bank of Ghana FX Quick Summary */}
-                <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3 flex flex-col justify-between">
+                <div className="p-5 rounded-2xl bg-white dark:bg-[#0c2252] border border-blue-200 dark:border-blue-800/80 shadow-md space-y-3 flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-700/80">
-                      <span className="font-bold text-xs text-white uppercase tracking-wider">Interbank FX Snapshot</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300 font-bold">
+                    <div className="flex items-center justify-between pb-2 border-b border-blue-100 dark:border-blue-800/60">
+                      <span className="font-bold text-xs text-[#0c2461] dark:text-white uppercase tracking-wider">Interbank FX Snapshot</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-[#155DFC] dark:bg-blue-900 dark:text-blue-200 font-extrabold">
                         BOG Daily
                       </span>
                     </div>
 
-                    <div className="divide-y divide-slate-700/50 mt-2">
+                    <div className="divide-y divide-blue-50 dark:divide-blue-800/50 mt-2">
                       {forexRates.slice(0, 4).map((rate) => {
                         const mid = ((rate.interbankBuy + rate.interbankSell) / 2);
                         return (
@@ -429,13 +432,13 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                             <div className="flex items-center gap-2">
                               <span className="text-base">{rate.flag}</span>
                               <div>
-                                <span className="font-bold text-white">{rate.currencyCode}</span>
-                                <span className="text-[10px] text-slate-400 block">{rate.currencyName}</span>
+                                <span className="font-bold text-slate-900 dark:text-white">{rate.currencyCode}</span>
+                                <span className="text-[10px] text-slate-500 dark:text-blue-300 block">{rate.currencyName}</span>
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-mono font-bold text-cyan-300">{mid.toFixed(2)} GHS</div>
-                              <div className={`text-[10px] font-bold ${rate.change24h >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                              <div className="font-mono font-bold text-[#155DFC] dark:text-[#38bdf8]">{mid.toFixed(2)} GHS</div>
+                              <div className={`text-[10px] font-bold ${rate.change24h >= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                 {rate.change24h >= 0 ? '+' : ''}{rate.change24h.toFixed(1)}%
                               </div>
                             </div>
@@ -448,7 +451,7 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                   <button
                     type="button"
                     onClick={() => setShowFullFxTable(!showFullFxTable)}
-                    className="w-full py-2 rounded-xl bg-slate-700/80 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/50 dark:hover:bg-blue-900 text-[#0c2461] dark:text-blue-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-blue-200 dark:border-blue-700"
                   >
                     <span>{showFullFxTable ? 'Hide Complete FX Table' : 'View Full FX Table'}</span>
                     {showFullFxTable ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -459,36 +462,36 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
 
               {/* EXPANDABLE COMPLETE FX TABLE */}
               {showFullFxTable && (
-                <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-3">
+                <div className="p-5 rounded-2xl bg-white dark:bg-[#0c2252] border border-blue-200 dark:border-blue-800 shadow-lg space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                    <h3 className="text-xs font-bold text-[#0c2461] dark:text-white uppercase tracking-wider">
                       Complete Foreign Currency vs. Ghana Cedi (GHS) Rates
                     </h3>
-                    <span className="text-[11px] text-slate-400">Values updated continuously</span>
+                    <span className="text-[11px] text-slate-500 dark:text-blue-300">Values updated continuously</span>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-xl border border-blue-100 dark:border-blue-800">
                     <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-semibold border-b border-slate-700">
+                      <thead className="bg-blue-50 dark:bg-[#081738] text-[#0c2461] dark:text-blue-200 uppercase text-[10px] font-bold border-b border-blue-200 dark:border-blue-800">
                         <tr>
-                          <th className="p-2.5">Currency</th>
-                          <th className="p-2.5">Interbank Buy</th>
-                          <th className="p-2.5">Interbank Sell</th>
-                          <th className="p-2.5">Bureau Benchmark</th>
-                          <th className="p-2.5">24h Change</th>
+                          <th className="p-3">Currency</th>
+                          <th className="p-3">Interbank Buy</th>
+                          <th className="p-3">Interbank Sell</th>
+                          <th className="p-3">Bureau Benchmark</th>
+                          <th className="p-3">24h Change</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-700/60 font-mono">
+                      <tbody className="divide-y divide-blue-100 dark:divide-blue-800/60 font-mono">
                         {forexRates.map((fx) => (
-                          <tr key={fx.currencyCode} className="hover:bg-slate-750">
-                            <td className="p-2.5 font-sans font-semibold text-white flex items-center gap-2">
+                          <tr key={fx.currencyCode} className="hover:bg-blue-50/60 dark:hover:bg-blue-900/30">
+                            <td className="p-3 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-2">
                               <span>{fx.flag}</span>
                               <span>{fx.currencyCode} ({fx.currencyName})</span>
                             </td>
-                            <td className="p-2.5 text-slate-300">{fx.interbankBuy.toFixed(4)}</td>
-                            <td className="p-2.5 text-slate-300">{fx.interbankSell.toFixed(4)}</td>
-                            <td className="p-2.5 text-cyan-300 font-bold">{fx.bureauSell.toFixed(4)}</td>
-                            <td className={`p-2.5 font-bold ${fx.change24h >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            <td className="p-3 text-slate-700 dark:text-slate-200">{fx.interbankBuy.toFixed(4)}</td>
+                            <td className="p-3 text-slate-700 dark:text-slate-200">{fx.interbankSell.toFixed(4)}</td>
+                            <td className="p-3 text-[#155DFC] dark:text-[#38bdf8] font-bold">{fx.bureauSell.toFixed(4)}</td>
+                            <td className={`p-3 font-bold ${fx.change24h >= 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                               {fx.change24h >= 0 ? '+' : ''}{fx.change24h.toFixed(2)}%
                             </td>
                           </tr>
@@ -504,13 +507,13 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                 
                 {/* Search Input */}
                 <div className="relative flex-1 max-w-md">
-                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-blue-300" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search Ghana business news, keywords, FX..."
-                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:outline-hidden focus:border-blue-500"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-[#0c2252] border-2 border-blue-200 dark:border-blue-700 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 dark:placeholder:text-blue-300 focus:outline-hidden focus:border-[#155DFC]"
                   />
                 </div>
 
@@ -534,8 +537,8 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                         onClick={() => setSelectedCategory(cat)}
                         className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                           selectedCategory === cat
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-750'
+                            ? 'bg-[#155DFC] text-white shadow-md shadow-blue-500/20'
+                            : 'bg-white dark:bg-[#0c2252] text-slate-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/50'
                         }`}
                       >
                         {labelMap[cat] || cat}
@@ -548,16 +551,16 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
 
               {/* NEWS ARTICLES GRID */}
               {filteredArticles.length === 0 ? (
-                <div className="py-12 text-center text-slate-400 space-y-2">
-                  <Newspaper className="w-8 h-8 mx-auto text-slate-500" />
-                  <p className="text-sm font-semibold">No news articles match your search or filter.</p>
+                <div className="py-12 text-center text-slate-500 dark:text-blue-300 space-y-2">
+                  <Newspaper className="w-8 h-8 mx-auto text-blue-400" />
+                  <p className="text-sm font-bold text-slate-700 dark:text-white">No news articles match your search or filter.</p>
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedCategory('all');
                       setSearchQuery('');
                     }}
-                    className="text-xs text-blue-400 hover:underline cursor-pointer"
+                    className="text-xs font-bold text-[#155DFC] dark:text-blue-400 hover:underline cursor-pointer"
                   >
                     Clear search and show all articles
                   </button>
@@ -574,11 +577,11 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                           onSelectArticle?.(article);
                           setIsPopUpOpen(false);
                         }}
-                        className="group bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-slate-600 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 cursor-pointer"
+                        className="group bg-white dark:bg-[#0c2252] hover:bg-blue-50/50 dark:hover:bg-[#0e2a66] border border-blue-200/80 dark:border-blue-800 hover:border-[#155DFC] rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-xl cursor-pointer"
                       >
                         <div>
                           {/* Image Container */}
-                          <div className="relative h-44 w-full overflow-hidden bg-slate-900">
+                          <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
                             <img
                               src={article.coverImage}
                               alt={article.title}
@@ -586,12 +589,12 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                               loading="lazy"
                             />
                             <div className="absolute top-2.5 left-2.5">
-                              <span className="px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur text-white text-[10px] font-bold">
+                              <span className="px-2 py-0.5 rounded-md bg-[#0c2461]/90 backdrop-blur text-white text-[10px] font-bold">
                                 {article.source}
                               </span>
                             </div>
                             <div className="absolute bottom-2.5 left-2.5">
-                              <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-[10px] font-bold">
+                              <span className="px-2 py-0.5 rounded-md bg-[#155DFC] text-white text-[10px] font-black">
                                 {article.categoryLabel}
                               </span>
                             </div>
@@ -600,24 +603,24 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                           {/* Content */}
                           <div className="p-4 space-y-2">
                             {article.fxHighlight && (
-                              <div className="px-2 py-0.5 rounded-md bg-amber-950/60 border border-amber-800/80 text-amber-300 text-[10px] font-bold flex items-center gap-1">
-                                <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                              <div className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 text-[#155DFC] dark:text-blue-300 text-[10px] font-bold flex items-center gap-1">
+                                <Zap className="w-3 h-3 text-[#155DFC] dark:text-blue-400 shrink-0" />
                                 <span className="truncate">{article.fxHighlight}</span>
                               </div>
                             )}
 
-                            <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-blue-400 transition-colors leading-snug">
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2 group-hover:text-[#155DFC] dark:group-hover:text-blue-300 transition-colors leading-snug">
                               {article.title}
                             </h3>
 
-                            <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                            <p className="text-xs text-slate-600 dark:text-blue-100 line-clamp-2 leading-relaxed">
                               {article.excerpt}
                             </p>
                           </div>
                         </div>
 
                         {/* Card Footer */}
-                        <div className="p-4 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+                        <div className="p-4 pt-2 border-t border-blue-100 dark:border-blue-800/60 flex items-center justify-between text-[11px] text-slate-500 dark:text-blue-300">
                           <span>{article.publishedAt}</span>
 
                           <div className="flex items-center gap-1.5">
@@ -626,8 +629,8 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                               onClick={(e) => handleToggleLike(e, article.id)}
                               className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
                                 isLiked 
-                                  ? 'bg-rose-950/60 border-rose-800 text-rose-400' 
-                                  : 'bg-slate-700 border-slate-600 text-slate-300 hover:text-rose-400'
+                                  ? 'bg-rose-50 border-rose-200 text-rose-500 dark:bg-rose-950/60 dark:border-rose-800 dark:text-rose-400' 
+                                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-rose-500 dark:bg-blue-900/40 dark:border-blue-800 dark:text-blue-300'
                               }`}
                               title={isLiked ? 'Saved' : 'Save article'}
                             >
@@ -637,13 +640,13 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                             <button
                               type="button"
                               onClick={(e) => handleShareArticle(e, article)}
-                              className="p-1.5 rounded-lg bg-slate-700 border border-slate-600 text-slate-300 hover:text-blue-400 transition-colors cursor-pointer"
+                              className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-[#155DFC] dark:text-blue-300 hover:bg-[#155DFC] hover:text-white transition-colors cursor-pointer"
                               title="Share to WhatsApp"
                             >
                               <Share2 className="w-3.5 h-3.5" />
                             </button>
 
-                            <span className="ml-1 font-bold text-blue-400 inline-flex items-center group-hover:translate-x-0.5 transition-transform">
+                            <span className="ml-1 font-bold text-[#155DFC] dark:text-blue-400 inline-flex items-center group-hover:translate-x-0.5 transition-transform">
                               Read <ArrowRight className="w-3 h-3 ml-0.5" />
                             </span>
                           </div>
@@ -658,15 +661,15 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
             </div>
 
             {/* MODAL FOOTER */}
-            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-850 flex items-center justify-between text-xs text-slate-400">
+            <div className="p-4 sm:p-5 border-t border-blue-100 dark:border-blue-800 bg-blue-50/80 dark:bg-[#081738] flex items-center justify-between text-xs text-slate-600 dark:text-blue-300">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>AuraCentra Ghana Financial Intelligence Feed</span>
+                <ShieldCheck className="w-4 h-4 text-[#155DFC] dark:text-blue-400" />
+                <span className="font-semibold">AuraCentra Ghana Financial Intelligence Feed</span>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPopUpOpen(false)}
-                className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-[#155DFC] hover:bg-blue-700 text-white font-bold transition-all shadow-md cursor-pointer"
               >
                 Close Hub
               </button>

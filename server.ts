@@ -541,6 +541,18 @@ app.post('/api/moderation/action', (req, res) => {
   });
 });
 
+// 13. Admin Permanently Delete Business
+app.delete('/api/businesses/:id', (req, res) => {
+  const { id } = req.params;
+  const index = businessesCache.findIndex(b => b.id === id);
+  if (index !== -1) {
+    const deleted = businessesCache.splice(index, 1);
+    res.json({ status: 'success', message: 'Business permanently deleted', business: deleted[0] });
+  } else {
+    res.json({ status: 'success', message: 'Business deleted from cache' });
+  }
+});
+
 // ============================================================================
 // VITE MIDDLEWARE & STATIC SERVING
 // ============================================================================

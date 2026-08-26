@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDocs, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Business, BusinessInquiry, BusinessReview } from '../types';
 import { ApiClient } from './apiClient';
@@ -22,6 +22,19 @@ export const FirestoreSync = {
       await ApiClient.createBusiness(business).catch((e) => console.warn('[Backend Notice]', e));
     } catch (err) {
       console.warn('[Firestore Sync] Business save warning:', err);
+    }
+  },
+
+  // Delete business from Firestore and backend
+  async deleteBusiness(businessId: string) {
+    try {
+      if (db) {
+        const docRef = doc(db, 'businesses', businessId);
+        await deleteDoc(docRef);
+      }
+      await ApiClient.deleteBusiness(businessId).catch((e) => console.warn('[Backend Notice]', e));
+    } catch (err) {
+      console.warn('[Firestore Sync] Business delete warning:', err);
     }
   },
 

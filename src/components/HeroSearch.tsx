@@ -92,9 +92,11 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
     ? businesses
         .filter(
           (b) =>
-            b.name.toLowerCase().includes(trimmed) ||
-            b.services?.some((s) => s.toLowerCase().includes(trimmed)) ||
-            b.city.toLowerCase().includes(trimmed)
+            b.listingStatus === 'active' &&
+            b.verificationStatus !== 'rejected' &&
+            (b.name.toLowerCase().includes(trimmed) ||
+              b.services?.some((s) => s.toLowerCase().includes(trimmed)) ||
+              b.city.toLowerCase().includes(trimmed))
         )
         .slice(0, 4)
     : [];
@@ -315,7 +317,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
 
               {/* Dynamic Showcase for Verified Businesses */}
               {(() => {
-                const featuredBiz = businesses.find((b) => b.verificationStatus === 'verified' && b.listingStatus === 'active') || businesses[0];
+                const featuredBiz = businesses.find((b) => b.verificationStatus === 'verified' && b.listingStatus === 'active') || businesses.find((b) => b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
                 if (!featuredBiz) {
                   return (
                     <div className="py-10 px-4 rounded-2xl bg-white/5 border border-dashed border-white/20 flex flex-col items-center justify-center text-center space-y-2.5">

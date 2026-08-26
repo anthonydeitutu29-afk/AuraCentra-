@@ -199,6 +199,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
+
           {/* Button: List Your Business matching Image 1 */}
           <button
             type="button"
@@ -340,6 +341,22 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               About AuraCentra
             </button>
+
+            {/* Mobile Drawer Theme Switcher */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+                {theme === 'dark' ? <Moon className="w-4 h-4 text-cyan-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
+                <span>Appearance Theme</span>
+              </div>
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5" />}
+                <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+              </button>
+            </div>
           </nav>
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
