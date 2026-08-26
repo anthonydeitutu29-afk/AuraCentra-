@@ -41,6 +41,7 @@ interface NavbarProps {
   onOpenCompareModal: () => void;
   onOpenInquiriesModal?: () => void;
   onOpenAdminDashboard: () => void;
+  onOpenBusinessDashboard?: () => void;
   onSignOut: () => void;
   onSharePlatform?: () => void;
 }
@@ -62,6 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCompareModal,
   onOpenInquiriesModal,
   onOpenAdminDashboard,
+  onOpenBusinessDashboard,
   onSignOut,
   onSharePlatform,
 }) => {
@@ -222,6 +224,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <LayoutDashboard className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   <span>Admin</span>
                 </button>
+              ) : (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) ? (
+                <button
+                  type="button"
+                  id="nav-owner-dashboard-btn"
+                  onClick={onOpenBusinessDashboard}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+                  title="Open Business Owner Dashboard"
+                >
+                  <Building2 className="w-3.5 h-3.5 text-cyan-200 shrink-0" />
+                  <span>My Business</span>
+                </button>
               ) : (
                 <div 
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-blue-100 border border-blue-200/70 dark:border-slate-700 shrink-0"
@@ -330,6 +343,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+            {currentUser && (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenBusinessDashboard?.();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <Building2 className="w-4 h-4 text-cyan-200" />
+                <span>My Business Dashboard</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {

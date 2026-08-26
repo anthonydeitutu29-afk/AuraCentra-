@@ -438,6 +438,7 @@ export default function App() {
   };
 
   const handleApproveVerification = (businessId: string, badgeType: string = 'Gold Enterprise', verifiedCoords?: { lat: number; lng: number }) => {
+    const nowIso = new Date().toISOString();
     let approvedBiz: Business | undefined;
     setBusinesses((prev) =>
       prev.map((b) => {
@@ -446,21 +447,22 @@ export default function App() {
             ...b,
             listingStatus: 'active', // Enlist officially upon admin approval
             verificationStatus: 'verified',
+            updatedAt: nowIso,
             coordinates: verifiedCoords || b.coordinates,
             verificationDetails: {
               ...(b.verificationDetails || {
-                verifiedAt: new Date().toISOString(),
                 tinNumber: 'TIN-GH-882194',
                 businessRegNumber: 'BN-GH-2024-9128',
                 verifiedByAdmin: 'Executive Desk',
               }),
+              verifiedAt: nowIso,
               badgeType: (badgeType as any) || 'Gold Enterprise',
               gpsVerified: true,
             },
             verificationDocuments: b.verificationDocuments?.map((d) => ({
               ...d,
               status: 'verified',
-              reviewedAt: new Date().toISOString(),
+              reviewedAt: nowIso,
             })),
           };
           return approvedBiz;

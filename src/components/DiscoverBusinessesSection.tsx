@@ -46,9 +46,17 @@ export const DiscoverBusinessesSection: React.FC<DiscoverBusinessesSectionProps>
     if (activeTab === 'trending') {
       list = [...list].sort((a, b) => (b.views || 0) + (b.leadsCount || 0) * 3 - ((a.views || 0) + (a.leadsCount || 0) * 3));
     } else if (activeTab === 'near_you') {
-      list = [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
+      list = [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0) || (b.rating || 0) - (a.rating || 0));
     } else if (activeTab === 'newly_verified') {
-      list = [...list].filter((b) => b.verificationStatus === 'verified').sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      list = [...list].sort((a, b) => {
+        const isVerA = a.verificationStatus === 'verified' ? 1 : 0;
+        const isVerB = b.verificationStatus === 'verified' ? 1 : 0;
+        if (isVerB !== isVerA) return isVerB - isVerA;
+
+        const timeA = new Date(a.verificationDetails?.verifiedAt || a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.verificationDetails?.verifiedAt || b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
     } else if (activeTab === 'top_rated') {
       list = [...list].sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }

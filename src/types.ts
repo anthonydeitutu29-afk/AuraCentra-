@@ -100,6 +100,7 @@ export interface Business {
   views: number;
   leadsCount: number;
   ownerId?: string;
+  ownerEmail?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -360,5 +361,28 @@ export interface UserLocationRecord {
   networkCarrier?: string;
 }
 
+export interface CookieConsentPreferences {
+  essential: boolean; // Always true
+  analytics: boolean;
+  preferences: boolean;
+  marketing: boolean;
+  timestamp: string;
+  status: 'accepted_all' | 'essential_only' | 'custom';
+}
 
-
+export interface VisitorTrackingData {
+  visitorId: string;
+  sessionId: string;
+  visitCount: number;
+  firstVisitAt: string;
+  lastVisitAt: string;
+  referrer: string;
+  deviceType: 'mobile' | 'tablet' | 'desktop';
+  browser: string;
+  os: string;
+  screenResolution: string;
+  preferredRegion?: string;
+  preferredCity?: string;
+  pagesViewed: string[];
+  consentStatus: 'accepted_all' | 'essential_only' | 'custom' | 'pending';
+}

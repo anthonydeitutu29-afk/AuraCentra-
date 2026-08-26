@@ -36,6 +36,7 @@ interface MobileBottomNavProps {
   onOpenAuth: () => void;
   onSignOut: () => void;
   onOpenAdminDashboard?: () => void;
+  onOpenBusinessDashboard?: () => void;
   onSharePlatform?: () => void;
 }
 
@@ -56,6 +57,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onOpenAuth,
   onSignOut,
   onOpenAdminDashboard,
+  onOpenBusinessDashboard,
   onSharePlatform,
 }) => {
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
@@ -290,6 +292,26 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </span>
                   <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white font-extrabold text-[10px]">
                     {comparedCount} Selected
+                  </span>
+                </button>
+              )}
+
+              {/* Business Owner Console (if Owner) */}
+              {currentUser && (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) && onOpenBusinessDashboard && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAccountSheetOpen(false);
+                    onOpenBusinessDashboard();
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-blue-600 text-white font-bold transition-all shadow-sm shadow-blue-500/20 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <LayoutDashboard className="w-4 h-4 text-cyan-200" />
+                    <span>My Business Admin Desk</span>
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white uppercase tracking-wider">
+                    Owner Desk
                   </span>
                 </button>
               )}

@@ -216,12 +216,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ...editingBusiness,
         id: `biz-${Date.now()}`,
         slug: editingBusiness.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        listingStatus: editingBusiness.listingStatus || 'active',
+        verificationStatus: editingBusiness.verificationStatus || 'verified',
+        verificationDetails: editingBusiness.verificationDetails || {
+          verifiedAt: new Date().toISOString(),
+          tinNumber: 'TIN-GH-882194',
+          businessRegNumber: 'BN-GH-2024-9128',
+          badgeType: 'Gold Enterprise',
+          verifiedByAdmin: 'Executive Desk',
+          gpsVerified: true
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
     } else {
       onUpdateBusiness({
         ...editingBusiness,
+        listingStatus: editingBusiness.listingStatus || (editingBusiness.verificationStatus === 'verified' ? 'active' : 'pending_approval'),
         updatedAt: new Date().toISOString(),
       });
     }
@@ -1409,6 +1420,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     rating: 5.0,
                     reviewCount: 1,
                     verificationStatus: 'verified',
+                    listingStatus: 'active',
+                    verificationDetails: {
+                      verifiedAt: new Date().toISOString(),
+                      tinNumber: 'TIN-GH-882194',
+                      businessRegNumber: 'BN-GH-2024-9128',
+                      badgeType: 'Gold Enterprise',
+                      verifiedByAdmin: 'Executive Desk',
+                      gpsVerified: true,
+                    },
                     openingHours: {
                       monday: '08:00 - 18:00',
                       tuesday: '08:00 - 18:00',

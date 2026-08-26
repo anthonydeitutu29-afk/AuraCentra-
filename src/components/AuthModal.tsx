@@ -61,6 +61,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot_password'>(initialMode);
   
   // Form fields
+  const [accountType, setAccountType] = useState<'customer' | 'business_owner'>('business_owner');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -360,7 +361,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         name: cleanName,
         email: cleanEmail,
         phone: cleanPhone,
-        role: 'customer',
+        role: accountType,
         password: cleanPassword,
         createdAt: new Date().toISOString(),
         lastLoginAt: new Date().toISOString(),
@@ -374,7 +375,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         name: cleanName,
         email: cleanEmail,
         phone: cleanPhone,
-        role: 'customer',
+        role: accountType,
         authProvider: 'email',
         savedBusinessIds: [],
         createdAt: newAccountRecord.createdAt,
@@ -821,6 +822,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ) : authMode === 'signup' ? (
             /* Sign Up Form */
             <form onSubmit={handleSignUp} className="space-y-3.5">
+              {/* Account Purpose Selector */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  I want to create an account to:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('business_owner')}
+                    className={`p-2.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                      accountType === 'business_owner'
+                        ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 ring-2 ring-blue-600/30'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className={`w-4 h-4 ${accountType === 'business_owner' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                      <span className="text-xs font-extrabold">Enlist Business</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                      Manage listing, photos, contacts & leads
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('customer')}
+                    className={`p-2.5 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                      accountType === 'customer'
+                        ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 ring-2 ring-blue-600/30'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <User className={`w-4 h-4 ${accountType === 'customer' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                      <span className="text-xs font-extrabold">Customer</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
+                      Explore directory, leave reviews & save
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Full Name

@@ -35,6 +35,7 @@ interface BusinessRegistrationModalProps {
   onRegisterBusiness: (newBusiness: Business) => void;
   currentUser?: UserProfile | null;
   onOpenAuth?: () => void;
+  onOpenBusinessDashboard?: () => void;
 }
 
 export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps> = ({
@@ -44,6 +45,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
   onRegisterBusiness,
   currentUser,
   onOpenAuth,
+  onOpenBusinessDashboard,
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -294,6 +296,8 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       features: ['Official AuraCentra Member', 'Direct Contact Verified'],
       views: 1,
       leadsCount: 0,
+      ownerId: currentUser?.id || `user-owner-${Date.now()}`,
+      ownerEmail: currentUser?.email || cleanEmail,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -407,11 +411,29 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
           </div>
 
           {/* Action Button */}
-          <div className="pt-2">
+          <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+            {onOpenBusinessDashboard && (
+              <button
+                type="button"
+                onClick={() => {
+                  handleCloseSubmitted();
+                  onOpenBusinessDashboard();
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Building className="w-4 h-4" />
+                <span>Open Business Admin Dashboard</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={handleCloseSubmitted}
-              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
+              className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                onOpenBusinessDashboard
+                  ? 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200'
+                  : 'w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/30'
+              }`}
             >
               Done & Return to Directory
             </button>

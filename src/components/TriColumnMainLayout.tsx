@@ -79,16 +79,17 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
   // Robust category & tab filtering logic
   const filteredAndSortedBusinesses = useMemo(() => {
+    // 0. Only show active / approved businesses to directory users
     let list = businesses.filter((b) => b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected');
 
     // 1. Region filter
-    if (filters.region) {
-      list = list.filter((b) => b.region.toLowerCase() === filters.region.toLowerCase());
+    if (filters.region && filters.region !== 'All Regions' && filters.region !== 'all' && filters.region.trim() !== '') {
+      list = list.filter((b) => b.region?.toLowerCase() === filters.region.toLowerCase());
     }
 
-    // 2. City filter
-    if (filters.city) {
-      list = list.filter((b) => b.city.toLowerCase() === filters.city.toLowerCase());
+    // 2. City filter (safely handle 'All Cities' default)
+    if (filters.city && filters.city !== 'All Cities' && filters.city !== 'all' && filters.city.trim() !== '') {
+      list = list.filter((b) => b.city?.toLowerCase() === filters.city.toLowerCase());
     }
 
     // 3. Verification filter
@@ -97,7 +98,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     }
 
     // 4. Flexible Category filter matching by ID, Name, or Slug
-    if (filters.category) {
+    if (filters.category && filters.category !== 'All Categories' && filters.category !== 'all' && filters.category.trim() !== '') {
       const target = filters.category.trim().toLowerCase();
       list = list.filter((b) => {
         const bCat = (b.category || '').trim().toLowerCase();
@@ -119,14 +120,14 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     }
 
     // 5. Search Query matching
-    if (filters.searchQuery) {
+    if (filters.searchQuery && filters.searchQuery.trim() !== '') {
       const q = filters.searchQuery.trim().toLowerCase();
       list = list.filter((b) => {
         if (b.name.toLowerCase().includes(q)) return true;
         if (b.description.toLowerCase().includes(q)) return true;
-        if (b.city.toLowerCase().includes(q)) return true;
-        if (b.region.toLowerCase().includes(q)) return true;
-        if (b.category.toLowerCase().includes(q)) return true;
+        if (b.city?.toLowerCase().includes(q)) return true;
+        if (b.region?.toLowerCase().includes(q)) return true;
+        if (b.category?.toLowerCase().includes(q)) return true;
         if (b.services?.some((s) => s.toLowerCase().includes(q))) return true;
         if (b.features?.some((f) => f.toLowerCase().includes(q))) return true;
         if (b.digitalAddress?.toLowerCase().includes(q)) return true;
@@ -141,19 +142,30 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
       });
     }
 
-    // Apply Tab specific sorting
+    // Apply Tab specific sorting - all enlisted/approved businesses are displayed
     if (activeTab === 'trending') {
-      list = [...list].sort((a, b) => ((b.views || 0) + (b.leadsCount || 0) * 3) - ((a.views || 0) + (a.leadsCount || 0) * 3));
+      list = [...list].sort((a, b) => {
+        const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + (b.isFeatured ? 50 : 0);
+        const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + (a.isFeatured ? 50 : 0);
+        return scoreB - scoreA;
+      });
     } else if (activeTab === 'near_you') {
-      list = [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0) || (b.rating || 0) - (a.rating || 0));
+      list = [...list].sort((a, b) => {
+        if (b.isFeatured !== a.isFeatured) return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
+        return (b.rating || 0) - (a.rating || 0) || (b.reviewCount || 0) - (a.reviewCount || 0);
+      });
     } else if (activeTab === 'newly_verified') {
-      list = [...list]
-        .filter((b) => b.verificationStatus === 'verified')
-        .sort((a, b) => {
-          const timeA = new Date(a.verificationDetails?.verifiedAt || a.updatedAt || a.createdAt || 0).getTime();
-          const timeB = new Date(b.verificationDetails?.verifiedAt || b.updatedAt || b.createdAt || 0).getTime();
-          return timeB - timeA;
-        });
+      list = [...list].sort((a, b) => {
+        // Verified businesses first
+        const isVerA = a.verificationStatus === 'verified' ? 1 : 0;
+        const isVerB = b.verificationStatus === 'verified' ? 1 : 0;
+        if (isVerB !== isVerA) return isVerB - isVerA;
+
+        // Then sorted by newest verification date or update/creation date
+        const timeA = new Date(a.verificationDetails?.verifiedAt || a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.verificationDetails?.verifiedAt || b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
     }
 
     // Apply explicit sort dropdown if selected
@@ -236,7 +248,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               <div className="relative">
                 <select
                   id="filter-region-select"
-                  value={filters.region || ''}
+                  value={filters.region === 'All Regions' ? '' : (filters.region || '')}
                   onChange={(e) => onFilterChange({ region: e.target.value })}
                   className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
@@ -259,7 +271,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               <div className="relative">
                 <select
                   id="filter-city-select"
-                  value={filters.city || ''}
+                  value={filters.city === 'All Cities' ? '' : (filters.city || '')}
                   onChange={(e) => onFilterChange({ city: e.target.value })}
                   className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
