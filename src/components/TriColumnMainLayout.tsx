@@ -515,9 +515,13 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
             
             {/* Header Badge */}
             <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>LIVE BOG FX & BUSINESS NEWS</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#155DFC] text-white text-[10px] font-black shadow-xs tracking-wider">
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="2.5" fill="white" />
+                  <path d="M7.8 7.8C5.5 10.1 5.5 13.9 7.8 16.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M16.2 7.8C18.5 10.1 18.5 13.9 16.2 16.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+                <span>LIVE BoG FX & BUSINESS NEWS</span>
               </div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
                 Ghana Business News & Live FX Exchange

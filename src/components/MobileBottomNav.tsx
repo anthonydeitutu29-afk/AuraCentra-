@@ -278,28 +278,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </button>
               )}
 
-              {/* Visual Theme Switcher */}
-              {onToggleTheme && (
-                <button
-                  type="button"
-                  id="mobile-drawer-theme-toggle-btn"
-                  onClick={onToggleTheme}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 transition-colors cursor-pointer"
-                >
-                  <span className="flex items-center gap-2.5">
-                    {theme === 'dark' ? (
-                      <Sun className="w-4 h-4 text-amber-400" />
-                    ) : (
-                      <Moon className="w-4 h-4 text-blue-600" />
-                    )}
-                    <span>Visual Theme</span>
-                  </span>
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-                  </span>
-                </button>
-              )}
-
               {/* Share Platform Link */}
               <button
                 type="button"

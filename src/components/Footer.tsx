@@ -55,11 +55,11 @@ export const Footer: React.FC<FooterProps> = ({
 
   return (
     <footer 
-      className="relative w-full bg-gradient-to-b from-[#0a183d] via-[#0d2254] to-[#071436] text-white border-t border-blue-900/60 pt-8 sm:pt-10 pb-24 sm:pb-8 mt-10 sm:mt-14 overflow-hidden z-10"
+      className="relative w-full bg-[#030712] text-white border-t border-slate-800 pt-8 sm:pt-10 pb-24 sm:pb-8 mt-10 sm:mt-14 overflow-hidden z-10"
       id="auracentra-footer"
     >
-      {/* Ambient Royal Blue Glow */}
-      <div className="absolute top-0 left-1/4 w-[400px] h-[200px] bg-[#155DFC]/10 rounded-full blur-3xl pointer-events-none" />
+      {/* Subtle Midnight Accent */}
+      <div className="absolute top-0 left-1/4 w-[400px] h-[200px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         
@@ -69,10 +69,10 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Brand & Direct Contact (lg: 4 cols) */}
           <div className="lg:col-span-4 space-y-3">
             <Logo size="md" textColorMode="light" showTagline={true} />
-            <p className="text-xs text-blue-100/80 leading-relaxed max-w-sm">
+            <p className="text-xs text-slate-300 leading-relaxed max-w-sm">
               Ghana&apos;s verified business network connecting enterprises with customers across all 16 regions without stress.
             </p>
-            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-blue-200/90">
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-300">
               <a 
                 href="https://wa.me/233508203673" 
                 target="_blank" 
@@ -87,7 +87,7 @@ export const Footer: React.FC<FooterProps> = ({
                 href="mailto:tonysdigitalmarketing@gmail.com" 
                 className="hover:text-cyan-300 transition-colors flex items-center gap-1.5"
               >
-                <Mail className="w-3.5 h-3.5 text-blue-300" />
+                <Mail className="w-3.5 h-3.5 text-blue-400" />
                 <span>tonysdigitalmarketing@gmail.com</span>
               </a>
             </div>
@@ -95,11 +95,11 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* Quick Platform Links (lg: 2.5 cols) */}
           <div className="lg:col-span-3 space-y-2.5">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1 flex items-center gap-1.5">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-1 flex items-center gap-1.5">
               <Building2 className="w-3.5 h-3.5 text-[#38bdf8]" />
               <span>Platform</span>
             </h4>
-            <ul className="space-y-1.5 text-xs text-blue-100/90">
+            <ul className="space-y-1.5 text-xs text-slate-300">
               <li>
                 <button
                   type="button"
@@ -138,11 +138,11 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* For Businesses (lg: 2.5 cols) */}
           <div className="lg:col-span-2 space-y-2.5">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1 flex items-center gap-1.5">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-1 flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5 text-[#38bdf8]" />
               <span>Businesses</span>
             </h4>
-            <ul className="space-y-1.5 text-xs text-blue-100/90">
+            <ul className="space-y-1.5 text-xs text-slate-300">
               <li>
                 <button
                   type="button"
@@ -179,7 +179,7 @@ export const Footer: React.FC<FooterProps> = ({
 
           {/* Newsletter Compact (lg: 3 cols) */}
           <div className="lg:col-span-3 space-y-2.5">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1 flex items-center gap-1.5">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-1 flex items-center gap-1.5">
               <Mail className="w-3.5 h-3.5 text-[#38bdf8]" />
               <span>Stay Updated</span>
             </h4>
@@ -189,7 +189,7 @@ export const Footer: React.FC<FooterProps> = ({
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
                 placeholder="Your email address"
-                className="w-full px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-xs text-white placeholder:text-blue-200/50 focus:outline-hidden focus:border-[#155DFC]"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-[#155DFC]"
                 required
               />
               <button
@@ -199,13 +199,13 @@ export const Footer: React.FC<FooterProps> = ({
                 {subscribed ? '✓' : 'Join'}
               </button>
             </form>
-            <p className="text-[10px] text-blue-200/60">Weekly verified Ghana market updates.</p>
+            <p className="text-[10px] text-slate-400">Weekly verified Ghana market updates.</p>
           </div>
 
         </div>
 
-        {/* Bottom Legal & Recognition Strip */}
-        <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-blue-200/80">
+        {/* Bottom Legal & Recognition Strip (Midnight Black section matching Image 2) */}
+        <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
           <div className="flex flex-wrap items-center gap-2 text-center sm:text-left">
             <span>© 2026 AuraCentra • Tony&apos;s Digital Marketing Hub</span>
           </div>
@@ -218,8 +218,8 @@ export const Footer: React.FC<FooterProps> = ({
             >
               Privacy & Terms
             </button>
-            <span className="text-white/20">•</span>
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 text-white font-bold text-[10px]">
+            <span className="text-slate-700">•</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-200 font-bold text-[10px]">
               <span>Ghana</span>
               <span>🇬🇭</span>
             </div>

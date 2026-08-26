@@ -187,23 +187,26 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
               
               {/* Left Column: Title & Market Context */}
               <div className="space-y-3 max-w-2xl">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    LIVE BOG FX & BUSINESS NEWS
-                  </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#155DFC] text-white text-xs font-black shadow-md tracking-wider">
+                    {/* Live Broadcast Signal Wave Icon matching Image 1 */}
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="2.5" fill="white" />
+                      <path d="M7.8 7.8C5.5 10.1 5.5 13.9 7.8 16.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M16.2 7.8C18.5 10.1 18.5 13.9 16.2 16.2" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                      <path d="M4.9 4.9C1.1 8.8 1.1 15.2 4.9 19.1" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+                      <path d="M19.1 4.9C22.9 8.8 22.9 15.2 19.1 19.1" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+                    </svg>
+                    <span>LIVE BoG FX & BUSINESS NEWS</span>
+                  </div>
 
                   <span className="text-xs text-indigo-200/70">
                     Synced: <strong className="text-white">{lastSyncTime}</strong>
                   </span>
                 </div>
 
-                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-                  <span>Ghana Business News & Live FX Exchange</span>
-                  <Sparkles className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  Ghana Business News & Live FX Exchange
                 </h2>
 
                 <p className="text-sm text-slate-300 leading-relaxed">
