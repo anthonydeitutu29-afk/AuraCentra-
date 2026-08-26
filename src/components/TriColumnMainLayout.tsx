@@ -67,45 +67,93 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     return Array.from(set).sort();
   }, [businesses]);
 
-  // Tab filtering logic
+  // Dynamic helper to resolve category name cleanly
+  const getCategoryDisplayName = (catSlugOrId: string) => {
+    const found = categories.find(
+      (c) => c.id.toLowerCase() === catSlugOrId.toLowerCase() || 
+             c.slug.toLowerCase() === catSlugOrId.toLowerCase() || 
+             c.name.toLowerCase() === catSlugOrId.toLowerCase()
+    );
+    return found ? found.name : catSlugOrId;
+  };
+
+  // Robust category & tab filtering logic
   const filteredAndSortedBusinesses = useMemo(() => {
     let list = businesses.filter((b) => b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected');
 
-    // Apply sidebar filters
+    // 1. Region filter
     if (filters.region) {
       list = list.filter((b) => b.region.toLowerCase() === filters.region.toLowerCase());
     }
 
+    // 2. City filter
     if (filters.city) {
       list = list.filter((b) => b.city.toLowerCase() === filters.city.toLowerCase());
     }
 
+    // 3. Verification filter
     if (filters.verificationOnly) {
       list = list.filter((b) => b.verificationStatus === 'verified');
     }
 
+    // 4. Flexible Category filter matching by ID, Name, or Slug
     if (filters.category) {
-      list = list.filter((b) => b.category.toLowerCase() === filters.category.toLowerCase());
+      const target = filters.category.trim().toLowerCase();
+      list = list.filter((b) => {
+        const bCat = (b.category || '').trim().toLowerCase();
+        if (bCat === target) return true;
+
+        const targetCatObj = categories.find(
+          (c) => c.id.toLowerCase() === target || c.name.toLowerCase() === target || c.slug.toLowerCase() === target
+        );
+        const bCatObj = categories.find(
+          (c) => c.id.toLowerCase() === bCat || c.name.toLowerCase() === bCat || c.slug.toLowerCase() === bCat
+        );
+
+        if (targetCatObj && bCatObj && targetCatObj.id === bCatObj.id) return true;
+        if (targetCatObj && (bCat === targetCatObj.id.toLowerCase() || bCat === targetCatObj.name.toLowerCase() || bCat === targetCatObj.slug.toLowerCase())) return true;
+        if (bCatObj && (target === bCatObj.id.toLowerCase() || target === bCatObj.name.toLowerCase() || target === bCatObj.slug.toLowerCase())) return true;
+
+        return false;
+      });
     }
 
+    // 5. Search Query matching
     if (filters.searchQuery) {
-      const q = filters.searchQuery.toLowerCase();
-      list = list.filter((b) => 
-        b.name.toLowerCase().includes(q) ||
-        b.description.toLowerCase().includes(q) ||
-        b.city.toLowerCase().includes(q) ||
-        b.category.toLowerCase().includes(q) ||
-        b.services?.some((s) => s.toLowerCase().includes(q))
-      );
+      const q = filters.searchQuery.trim().toLowerCase();
+      list = list.filter((b) => {
+        if (b.name.toLowerCase().includes(q)) return true;
+        if (b.description.toLowerCase().includes(q)) return true;
+        if (b.city.toLowerCase().includes(q)) return true;
+        if (b.region.toLowerCase().includes(q)) return true;
+        if (b.category.toLowerCase().includes(q)) return true;
+        if (b.services?.some((s) => s.toLowerCase().includes(q))) return true;
+        if (b.features?.some((f) => f.toLowerCase().includes(q))) return true;
+        if (b.digitalAddress?.toLowerCase().includes(q)) return true;
+
+        // Check if query matches category name for this business
+        const catObj = categories.find(
+          (c) => c.id.toLowerCase() === b.category.toLowerCase() || c.slug.toLowerCase() === b.category.toLowerCase()
+        );
+        if (catObj && catObj.name.toLowerCase().includes(q)) return true;
+
+        return false;
+      });
     }
 
     // Apply Tab specific sorting
     if (activeTab === 'trending') {
       list = [...list].sort((a, b) => ((b.views || 0) + (b.leadsCount || 0) * 3) - ((a.views || 0) + (a.leadsCount || 0) * 3));
     } else if (activeTab === 'near_you') {
-      list = [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
+      list = [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0) || (b.rating || 0) - (a.rating || 0));
     } else if (activeTab === 'newly_verified') {
-      list = [...list].filter((b) => b.verificationStatus === 'verified').sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      list = [...list]
+        .filter((b) => b.verificationStatus === 'verified')
+        .sort((a, b) => {
+          const timeA = new Date(a.verificationDetails?.verifiedAt || a.updatedAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.verificationDetails?.verifiedAt || b.updatedAt || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
     }
 
     // Apply explicit sort dropdown if selected
@@ -118,9 +166,20 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     }
 
     return list;
-  }, [businesses, filters, activeTab]);
+  }, [businesses, categories, filters, activeTab]);
 
   const displayedList = filteredAndSortedBusinesses.slice(0, visibleCount);
+
+  // View All Businesses handler (resets filters, sets tab to trending, expands list and scrolls smoothly)
+  const handleViewAllBusinessesClick = () => {
+    onResetFilters();
+    setActiveTab('trending');
+    setVisibleCount(Math.max(filteredAndSortedBusinesses.length, 50));
+    const el = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6" id="discover-businesses-section">
@@ -130,19 +189,19 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
         {/* COLUMN 1: FILTERS SIDEBAR (Left - 3 cols on desktop)                      */}
         {/* ========================================================================= */}
         <div className="lg:col-span-3 space-y-4">
-          <div className="p-5 rounded-2xl bg-[#0f172a] border border-slate-800 text-white shadow-xl space-y-5">
+          <div className="space-y-5 text-slate-900 dark:text-white">
             
             {/* Filter Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-blue-400" />
-                <h3 className="text-sm font-bold text-white">Filters</h3>
+                <Filter className="w-4 h-4 text-[#155DFC]" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Filters</h3>
               </div>
               <button
                 type="button"
                 id="filters-clear-all-btn"
                 onClick={onResetFilters}
-                className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                className="text-xs font-semibold text-[#155DFC] hover:text-blue-700 dark:hover:text-blue-400 transition-colors cursor-pointer"
               >
                 Clear all
               </button>
@@ -150,7 +209,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 1. Sort by */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Sort by
               </label>
               <div className="relative">
@@ -158,12 +217,12 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-sort-by-select"
                   value={filters.sortBy}
                   onChange={(e) => onFilterChange({ sortBy: e.target.value as any })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#172033] border border-slate-700 text-slate-200 focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer pr-8"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="featured">Featured & Verified First</option>
-                  <option value="rating">Highest Customer Rating</option>
-                  <option value="reviews">Most Reviews & Feedback</option>
-                  <option value="name">Alphabetical (A - Z)</option>
+                  <option value="featured" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Featured & Verified First</option>
+                  <option value="rating" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Highest Customer Rating</option>
+                  <option value="reviews" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Most Reviews & Feedback</option>
+                  <option value="name" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Alphabetical (A - Z)</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -171,7 +230,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 2. Region Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Region
               </label>
               <div className="relative">
@@ -179,11 +238,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-region-select"
                   value={filters.region || ''}
                   onChange={(e) => onFilterChange({ region: e.target.value })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#172033] border border-slate-700 text-slate-200 focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer pr-8"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="">All 16 Ghana Regions</option>
+                  <option value="" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">All 16 Ghana Regions</option>
                   {GHANA_REGIONS.map((reg) => (
-                    <option key={reg.name} value={reg.name}>
+                    <option key={reg.name} value={reg.name} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
                       {reg.name}
                     </option>
                   ))}
@@ -194,7 +253,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 3. City Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 City
               </label>
               <div className="relative">
@@ -202,11 +261,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-city-select"
                   value={filters.city || ''}
                   onChange={(e) => onFilterChange({ city: e.target.value })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-[#172033] border border-slate-700 text-slate-200 focus:outline-hidden focus:border-blue-500 appearance-none cursor-pointer pr-8"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="">All Major Cities</option>
+                  <option value="" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">All Major Cities</option>
                   {availableCities.map((c) => (
-                    <option key={c} value={c}>
+                    <option key={c} value={c} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
                       {c}
                     </option>
                   ))}
@@ -217,28 +276,28 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 4. Verified Only Checkbox */}
             <div className="pt-1">
-              <label className="flex items-center gap-2.5 text-xs text-slate-200 font-medium cursor-pointer select-none">
+              <label className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 font-medium cursor-pointer select-none">
                 <input
                   type="checkbox"
                   id="filter-verified-only-checkbox"
                   checked={Boolean(filters.verificationOnly)}
                   onChange={(e) => onFilterChange({ verificationOnly: e.target.checked })}
-                  className="w-4 h-4 rounded-md border-slate-700 text-blue-600 focus:ring-blue-500 bg-[#172033] cursor-pointer"
+                  className="w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-[#155DFC] focus:ring-[#155DFC] bg-white dark:bg-black/60 cursor-pointer"
                 />
                 <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+                  <ShieldCheck className="w-4 h-4 text-[#155DFC]" />
                   <span>Verified Enterprises Only</span>
                 </span>
               </label>
             </div>
 
-            {/* Bottom helper card with magnifying glass graphic */}
-            <div className="pt-4 border-t border-slate-800 text-center space-y-2">
-              <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto">
-                <MapPin className="w-5 h-5" />
+            {/* Bottom helper directly on background */}
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 text-center space-y-2">
+              <div className="w-9 h-9 rounded-full bg-blue-500/10 text-[#155DFC] flex items-center justify-center mx-auto">
+                <MapPin className="w-4 h-4" />
               </div>
-              <p className="text-[11px] text-slate-400 leading-normal">
-                Filtering across <strong className="text-white">1,200+ verified businesses</strong> in Greater Accra, Ashanti, Western, and all 16 regions.
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-normal">
+                Filtering across <strong className="text-slate-900 dark:text-white">1,200+ verified businesses</strong> in Greater Accra, Ashanti, Western, and all 16 regions.
               </p>
             </div>
 
@@ -257,11 +316,12 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
             </h2>
             <button
               type="button"
-              onClick={onResetFilters}
-              className="text-xs sm:text-sm font-bold text-[#155DFC] hover:text-blue-500 flex items-center gap-1 cursor-pointer"
+              id="view-all-businesses-main-link"
+              onClick={handleViewAllBusinessesClick}
+              className="text-xs sm:text-sm font-bold text-[#155DFC] hover:text-blue-700 dark:hover:text-blue-400 flex items-center gap-1.5 cursor-pointer group"
             >
               <span>View all businesses</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
 
@@ -272,8 +332,8 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               onClick={() => setActiveTab('trending')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'trending'
-                  ? 'bg-[#155DFC] text-white shadow-md'
-                  : 'bg-white dark:bg-[#0f172a] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-400'
+                  ? 'bg-[#155DFC] text-white shadow-sm'
+                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC]'
               }`}
             >
               Trending
@@ -283,8 +343,8 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               onClick={() => setActiveTab('near_you')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'near_you'
-                  ? 'bg-[#155DFC] text-white shadow-md'
-                  : 'bg-white dark:bg-[#0f172a] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-400'
+                  ? 'bg-[#155DFC] text-white shadow-sm'
+                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC]'
               }`}
             >
               Popular Near You
@@ -294,8 +354,8 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               onClick={() => setActiveTab('newly_verified')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'newly_verified'
-                  ? 'bg-[#155DFC] text-white shadow-md'
-                  : 'bg-white dark:bg-[#0f172a] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-400'
+                  ? 'bg-[#155DFC] text-white shadow-sm'
+                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC]'
               }`}
             >
               Newly Verified
@@ -305,16 +365,17 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
           {/* Business Rows List */}
           <div className="space-y-3.5">
             {displayedList.length === 0 ? (
-              <div className="p-8 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 text-center space-y-3 shadow-md">
-                <Sparkles className="w-8 h-8 text-blue-500 mx-auto" />
+              <div className="py-8 px-4 text-center space-y-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-800">
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white">No businesses match the selected filters</h4>
-                <p className="text-xs text-slate-500">Try resetting filters to explore businesses across all regions.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                  Try resetting filters to explore all verified businesses across all regions and categories.
+                </p>
                 <button
                   type="button"
-                  onClick={onResetFilters}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold cursor-pointer"
+                  onClick={handleViewAllBusinessesClick}
+                  className="px-4 py-2 rounded-xl bg-[#155DFC] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
                 >
-                  Reset Filters
+                  <span>Reset Filters & View All</span>
                 </button>
               </div>
             ) : (
@@ -327,17 +388,17 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   <div
                     key={biz.id}
                     onClick={() => onSelectBusiness(biz)}
-                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-xl hover:border-blue-400 dark:hover:border-blue-500/80 transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center gap-4 group relative"
+                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-lg hover:border-[#155DFC] dark:hover:border-[#155DFC] transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center gap-4 group relative"
                   >
                     {/* Thumbnail Image */}
-                    <div className="w-full sm:w-28 h-32 sm:h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 relative">
+                    <div className="w-full sm:w-28 h-32 sm:h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 shrink-0 relative">
                       <img
                         src={biz.coverImage || (biz.gallery && biz.gallery[0]) || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=400&q=80'}
                         alt={biz.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       {biz.verificationStatus === 'verified' && (
-                        <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-blue-600 text-white text-[9px] font-bold flex items-center gap-1 shadow-md">
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#155DFC] text-white text-[9px] font-extrabold flex items-center gap-1 shadow-md">
                           <CheckCircle2 className="w-2.5 h-2.5" />
                           <span>VERIFIED</span>
                         </div>
@@ -347,13 +408,13 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                     {/* Middle Info */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-[#155DFC] transition-colors">
                           {biz.name}
                         </h4>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap text-xs">
-                        <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-semibold">
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#155DFC] dark:text-blue-400 font-semibold">
                           {categoryLabel}
                         </span>
                         <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -373,7 +434,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                           <span className="text-slate-400 ml-1">({biz.reviewCount} reviews)</span>
                         </div>
                         {biz.phone && (
-                          <span className="text-slate-400 text-[11px] hidden sm:inline">
+                          <span className="text-slate-500 dark:text-slate-400 text-[11px] hidden sm:inline">
                             📞 {biz.phone}
                           </span>
                         )}
@@ -390,7 +451,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                         }}
                         className={`p-2 rounded-xl transition-colors cursor-pointer ${
                           isSaved
-                            ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400'
+                            ? 'bg-blue-50 dark:bg-blue-950/80 text-[#155DFC]'
                             : 'text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                         title={isSaved ? 'Remove from saved' : 'Save business'}
@@ -417,7 +478,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                             e.stopPropagation();
                             onOpenQuote(biz);
                           }}
-                          className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white text-[11px] font-bold transition-colors cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#155DFC] dark:text-blue-400 hover:bg-[#155DFC] hover:text-white text-[11px] font-bold transition-colors cursor-pointer"
                           title="Request Quote"
                         >
                           Quote
@@ -437,7 +498,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                 type="button"
                 id="show-more-businesses-btn"
                 onClick={() => setVisibleCount((prev) => prev + 6)}
-                className="w-full py-3 rounded-2xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                className="w-full py-3 rounded-2xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
                 Show more businesses ({filteredAndSortedBusinesses.length - visibleCount} remaining) ↓
               </button>
@@ -450,89 +511,89 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
         {/* COLUMN 3: LIVE BOG FX & BUSINESS NEWS (Right - 3 cols on desktop)         */}
         {/* ========================================================================= */}
         <div className="lg:col-span-3 space-y-4">
-          <div className="p-5 rounded-2xl bg-[#0f172a] border border-slate-800 text-white shadow-xl space-y-4">
+          <div className="space-y-4 text-slate-900 dark:text-white">
             
             {/* Header Badge */}
             <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>LIVE BOG FX & BUSINESS NEWS</span>
               </div>
-              <h3 className="text-base font-bold text-white leading-snug">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
                 Ghana Business News & Live FX Exchange
               </h3>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Synced: 11:49 AM • Bank of Ghana Interbank Feed
               </p>
             </div>
 
-            {/* Live Exchange Rates Box */}
-            <div className="p-4 rounded-xl bg-[#172033] border border-slate-700/80 space-y-3">
-              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-700">
-                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+            {/* Live Exchange Rates */}
+            <div className="divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800 py-1">
+              <div className="flex items-center justify-between text-xs py-2.5">
+                <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
                   <span>🇺🇸 USD / GHS</span>
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-white">{forexRates.USD.rate.toFixed(2)}</span>
-                  <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md">{forexRates.USD.change}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{forexRates.USD.rate.toFixed(2)}</span>
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded-md">{forexRates.USD.change}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-700">
-                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <div className="flex items-center justify-between text-xs py-2.5">
+                <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
                   <span>🇬🇧 GBP / GHS</span>
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-white">{forexRates.GBP.rate.toFixed(2)}</span>
-                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">{forexRates.GBP.change}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{forexRates.GBP.rate.toFixed(2)}</span>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">{forexRates.GBP.change}</span>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+              <div className="flex items-center justify-between text-xs py-2.5">
+                <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
                   <span>🇪🇺 EUR / GHS</span>
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-white">{forexRates.EUR.rate.toFixed(2)}</span>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-700/40 px-1.5 py-0.5 rounded-md">{forexRates.EUR.change}</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">{forexRates.EUR.rate.toFixed(2)}</span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">{forexRates.EUR.change}</span>
                 </div>
               </div>
             </div>
 
             {/* Interactive Live Converter */}
-            <div className="p-3 rounded-xl bg-[#131b2d] border border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
                 <span>Quick FX Converter</span>
-                <span className="text-blue-400">Live BoG Rate</span>
+                <span className="text-[#155DFC]">Live BoG Rate</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
                   value={fxCalcAmount}
                   onChange={(e) => setFxCalcAmount(Number(e.target.value) || 0)}
-                  className="w-20 px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  className="w-20 px-2.5 py-1.5 rounded-xl bg-white dark:bg-black/50 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white font-mono shadow-xs focus:outline-hidden focus:border-[#155DFC]"
                   min="1"
                 />
                 <select
                   value={fxCalcCurrency}
                   onChange={(e) => setFxCalcCurrency(e.target.value as any)}
-                  className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                  className="px-2 py-1.5 rounded-xl bg-white dark:bg-black/50 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white cursor-pointer shadow-xs focus:outline-hidden focus:border-[#155DFC]"
                 >
-                  <option value="USD">USD</option>
-                  <option value="GBP">GBP</option>
-                  <option value="EUR">EUR</option>
+                  <option value="USD" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">USD</option>
+                  <option value="GBP" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">GBP</option>
+                  <option value="EUR" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">EUR</option>
                 </select>
                 <span className="text-slate-400 text-xs font-bold">=</span>
-                <div className="flex-1 text-right text-xs font-bold text-emerald-400 font-mono">
+                <div className="flex-1 text-right text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                   GH₵ {(fxCalcAmount * (forexRates[fxCalcCurrency]?.rate || 11.03)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>
 
             {/* Indicator */}
-            <div className="p-3 rounded-xl bg-blue-950/40 border border-blue-800/60 flex items-center gap-2 text-xs text-blue-300">
-              <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
-              <span>9 verified articles ready</span>
+            <div className="flex items-center gap-2 text-xs text-[#155DFC] dark:text-blue-400 pt-1">
+              <ShieldCheck className="w-4 h-4 text-[#155DFC] shrink-0" />
+              <span>9 verified business articles ready</span>
             </div>
 
             {/* Action button */}
@@ -540,7 +601,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               type="button"
               id="open-news-fx-hub-btn"
               onClick={onOpenNewsTab}
-              className="w-full py-3 rounded-xl bg-[#155DFC] hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-[#155DFC] hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>Open News & FX Hub</span>
               <ArrowRight className="w-4 h-4" />

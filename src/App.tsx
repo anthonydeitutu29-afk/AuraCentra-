@@ -237,12 +237,20 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sync theme with document class
+  // Sync theme with document class and color scheme
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+      document.body.classList.add('dark');
+      document.body.classList.remove('light');
+      document.documentElement.style.colorScheme = 'dark';
     } else {
       document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.body.classList.remove('dark');
+      document.body.classList.add('light');
+      document.documentElement.style.colorScheme = 'light';
     }
     localStorage.setItem('auracentra_theme', theme);
   }, [theme]);

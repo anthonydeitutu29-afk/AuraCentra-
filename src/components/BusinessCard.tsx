@@ -79,12 +79,12 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
   return (
     <div 
-      className="group relative bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-blue-100/90 dark:border-slate-800 shadow-sm hover:shadow-xl hover:shadow-blue-600/10 hover:border-blue-400/80 dark:hover:border-blue-500/60 transition-all duration-300 hover:-translate-y-2 transform-gpu flex flex-col overflow-hidden will-change-transform"
+      className="group relative bg-white dark:bg-black/50 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-xl hover:shadow-blue-600/10 hover:border-[#155DFC] dark:hover:border-[#155DFC] transition-all duration-300 hover:-translate-y-1 transform-gpu flex flex-col overflow-hidden will-change-transform"
       id={`business-card-${business.id}`}
     >
       {/* Cover Image & Action Badges */}
       <div 
-        className="relative aspect-[16/10] sm:aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-800 cursor-pointer select-none" 
+        className="relative aspect-[16/10] sm:aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900 cursor-pointer select-none" 
         onClick={() => onSelect(business)}
       >
         <img
@@ -95,17 +95,17 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         />
 
         {/* Ambient Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-black/20 to-black/30 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30 pointer-events-none" />
 
         {/* Top Badges: Category, Distance & Quick Utility Actions */}
         <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-slate-900/95 text-blue-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-blue-50 dark:border-slate-800">
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-black/80 text-slate-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-slate-200/80 dark:border-slate-800">
               {business.category}
             </span>
 
             {formattedDistance && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-blue-600/95 text-white backdrop-blur-md shadow-md border border-blue-400/40 animate-in fade-in duration-150">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-[#155DFC] text-white backdrop-blur-md shadow-md border border-blue-400/40 animate-in fade-in duration-150">
                 <MapPin className="w-3 h-3 text-cyan-300 fill-cyan-300" />
                 <span>{formattedDistance}</span>
               </span>
@@ -120,7 +120,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
                 justShared
                   ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
+                  : 'bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
               }`}
               title="Share business profile"
               aria-label="Share business"
@@ -137,8 +137,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               }}
               className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
                 isCompared
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
+                  ? 'bg-[#155DFC] text-white shadow-xs'
+                  : 'bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
               }`}
               title={isCompared ? 'Remove from compare' : 'Compare with other businesses'}
               aria-label="Compare business"
@@ -154,7 +154,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                   e.stopPropagation();
                   onOpenQR(business);
                 }}
-                className="p-2 rounded-full backdrop-blur-md bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer"
+                className="p-2 rounded-full backdrop-blur-md bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer"
                 title="View QR Code & Share"
                 aria-label="View QR Code"
               >
@@ -172,7 +172,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
                 isSaved
                   ? 'bg-rose-500 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
+                  : 'bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
               }`}
               title={isSaved ? 'Remove from saved' : 'Save business'}
               aria-label="Save business"
@@ -186,7 +186,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         <div className="absolute bottom-2.5 sm:bottom-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between text-white text-xs">
           <div className="flex items-center gap-1.5">
             {business.verificationStatus === 'verified' ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-600/95 backdrop-blur-sm font-bold text-[11px] shadow-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#155DFC] backdrop-blur-sm font-bold text-[11px] shadow-xs">
                 <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                 <span>Verified Enterprise</span>
               </span>
@@ -214,13 +214,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             <img
               src={business.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80'}
               alt={`${business.name} logo`}
-              className="w-11 h-11 rounded-xl object-cover border border-blue-100 dark:border-slate-700 shrink-0 bg-white p-0.5 shadow-xs"
+              className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-slate-800 shrink-0 bg-white p-0.5 shadow-xs"
               loading="lazy"
             />
             <div className="flex-1 min-w-0">
               <h3 
                 onClick={() => onSelect(business)}
-                className="text-base font-bold text-slate-900 dark:text-white truncate cursor-pointer hover:text-blue-600 dark:hover:text-cyan-400 transition-colors"
+                className="text-base font-bold text-slate-900 dark:text-white truncate cursor-pointer hover:text-[#155DFC] transition-colors"
                 title={business.name}
               >
                 {business.name}
@@ -234,11 +234,11 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           {/* Location & GPS Info */}
           <div className="flex items-center gap-2 text-xs mb-2.5">
             <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300 truncate font-medium">
-              <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <MapPin className="w-3.5 h-3.5 text-[#155DFC] shrink-0" />
               <span className="truncate">{business.city}, {business.region}</span>
             </div>
             {business.digitalAddress && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-black/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800">
                 {business.digitalAddress}
               </span>
             )}
@@ -255,7 +255,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               {business.services.slice(0, 3).map((service, idx) => (
                 <span
                   key={idx}
-                  className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50/70 dark:bg-slate-800 text-blue-800 dark:text-slate-300 border border-blue-100 dark:border-slate-700/60"
+                  className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-[#155DFC] dark:text-blue-400 border border-blue-100 dark:border-blue-900/40"
                 >
                   {service}
                 </span>
@@ -280,10 +280,10 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/90 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-cyan-300 transition-all text-xs font-bold border border-slate-200/80 dark:border-slate-700/80 shadow-2xs group/web cursor-pointer min-h-[36px]"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-black/50 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-200 hover:text-[#155DFC] dark:hover:text-cyan-300 transition-all text-xs font-bold border border-slate-200/80 dark:border-slate-800 shadow-2xs group/web cursor-pointer min-h-[36px]"
                   title={`Visit ${business.name} Website`}
                 >
-                  <Globe className="w-3.5 h-3.5 text-blue-500 group-hover/web:rotate-12 transition-transform shrink-0" />
+                  <Globe className="w-3.5 h-3.5 text-[#155DFC] group-hover/web:rotate-12 transition-transform shrink-0" />
                   <span className="truncate">Website</span>
                   <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-0.5 shrink-0" />
                 </a>
@@ -295,9 +295,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     if (onOpenQuote) onOpenQuote(business);
                     else onSelect(business);
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/90 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200/80 dark:border-slate-700/80 min-h-[36px]"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-black/50 hover:bg-blue-50 dark:hover:bg-blue-950/60 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200/80 dark:border-slate-800 min-h-[36px]"
                 >
-                  <FileText className="w-3.5 h-3.5 text-blue-500" />
+                  <FileText className="w-3.5 h-3.5 text-[#155DFC]" />
                   <span>Inquire</span>
                 </button>
               )}
@@ -319,7 +319,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     e.stopPropagation();
                     onSelect(business);
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-700 min-h-[36px]"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-black/50 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-800 min-h-[36px]"
                 >
                   <Eye className="w-3.5 h-3.5 text-slate-400" />
                   <span>Details</span>
@@ -334,7 +334,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             <button
               type="button"
               onClick={() => onSelect(business)}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs cursor-pointer min-h-[38px]"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#155DFC] hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs cursor-pointer min-h-[38px]"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Full Profile</span>
@@ -345,7 +345,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenQuote(business)}
-                className="inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-600 hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60 cursor-pointer min-h-[38px]"
+                className="inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#155DFC] dark:text-blue-300 hover:bg-[#155DFC] hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60 cursor-pointer min-h-[38px]"
                 title="Request Quote"
               >
                 <FileText className="w-3.5 h-3.5" />

@@ -5,12 +5,17 @@ import {
   Phone, 
   Mail, 
   ExternalLink, 
-  Sparkles, 
-  Heart,
   CheckCircle2,
-  Send
+  Send,
+  Building2,
+  TrendingUp,
+  MessageCircle,
+  Globe,
+  Layers,
+  Award,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
-import { Category } from '../types';
 import { Logo } from './Logo';
 
 interface FooterProps {
@@ -40,8 +45,8 @@ export const Footer: React.FC<FooterProps> = ({
     }
     setSubscribed(true);
     onShowToast?.(
-      'Subscribed!',
-      'You will receive weekly Ghana business updates and tender alerts.',
+      'Subscribed Successfully!',
+      'You will receive weekly Ghana business updates and market insights.',
       'success'
     );
     setNewsletterEmail('');
@@ -49,129 +54,113 @@ export const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <footer className="bg-[#070b14] text-slate-400 border-t border-slate-800/90 pt-12 sm:pt-16 pb-28 sm:pb-14 px-4 sm:px-6 lg:px-8 mt-16 sm:mt-24 relative z-10" id="auracentra-footer">
-      <div className="max-w-7xl mx-auto space-y-10">
-        
-        {/* Main 5-Column Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
-          
-          {/* Col 1 & 2: Brand, Tagline, Tony's Hub & Socials */}
-          <div className="lg:col-span-2 space-y-4">
-            <Logo size="md" showTagline={false} />
-            
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-sm font-medium">
-              Ghana's premier verified business discovery, trust verification, and commerce growth network.
-            </p>
+    <footer 
+      className="relative w-full bg-gradient-to-b from-[#0a183d] via-[#0d2254] to-[#071436] text-white border-t border-blue-900/60 pt-8 sm:pt-10 pb-24 sm:pb-8 mt-10 sm:mt-14 overflow-hidden z-10"
+      id="auracentra-footer"
+    >
+      {/* Ambient Royal Blue Glow */}
+      <div className="absolute top-0 left-1/4 w-[400px] h-[200px] bg-[#155DFC]/10 rounded-full blur-3xl pointer-events-none" />
 
-            {/* Social Icons */}
-            <div className="flex items-center gap-3 pt-2">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+        
+        {/* Main Streamlined Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-6 lg:gap-8">
+          
+          {/* Brand & Direct Contact (lg: 4 cols) */}
+          <div className="lg:col-span-4 space-y-3">
+            <Logo size="md" textColorMode="light" showTagline={true} />
+            <p className="text-xs text-blue-100/80 leading-relaxed max-w-sm">
+              Ghana&apos;s verified business network connecting enterprises with customers across all 16 regions without stress.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-blue-200/90">
               <a 
                 href="https://wa.me/233508203673" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-emerald-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold"
-                aria-label="WhatsApp Support"
+                className="hover:text-emerald-400 transition-colors flex items-center gap-1.5"
               >
-                WA
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <span>+233 50 820 3673</span>
               </a>
+              <span>•</span>
               <a 
                 href="mailto:tonysdigitalmarketing@gmail.com" 
-                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold"
-                aria-label="Email Support"
+                className="hover:text-cyan-300 transition-colors flex items-center gap-1.5"
               >
-                @
-              </a>
-              <a 
-                href="https://linkedin.com" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center justify-center transition-colors text-xs font-bold"
-                aria-label="LinkedIn"
-              >
-                in
+                <Mail className="w-3.5 h-3.5 text-blue-300" />
+                <span>tonysdigitalmarketing@gmail.com</span>
               </a>
             </div>
           </div>
 
-          {/* Col 3: Platform Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Platform
+          {/* Quick Platform Links (lg: 2.5 cols) */}
+          <div className="lg:col-span-3 space-y-2.5">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1 flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <span>Platform</span>
             </h4>
-            <ul className="space-y-2.5 text-xs">
+            <ul className="space-y-1.5 text-xs text-blue-100/90">
               <li>
                 <button
                   type="button"
                   onClick={() => {
-                    const el = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
+                    const el = document.getElementById('category-explore-row') || document.getElementById('discover-businesses-section');
                     el?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="hover:text-white transition-colors text-left cursor-pointer"
+                  className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  Explore Businesses
+                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <span>Browse Categories</span>
                 </button>
               </li>
               <li>
                 <button
                   type="button"
                   onClick={onOpenNews}
-                  className="hover:text-white transition-colors text-left cursor-pointer"
+                  className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  Ghana Business News
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onOpenNews}
-                  className="hover:text-white transition-colors text-left cursor-pointer"
-                >
-                  Bank of Ghana FX Rates
+                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <span>Ghana Business News & FX</span>
                 </button>
               </li>
               <li>
                 <button
                   type="button"
                   onClick={onOpenAboutUs}
-                  className="hover:text-white transition-colors text-left cursor-pointer"
+                  className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  About AuraCentra
+                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <span>About AuraCentra</span>
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Col 4: For Businesses Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              For Businesses
+          {/* For Businesses (lg: 2.5 cols) */}
+          <div className="lg:col-span-2 space-y-2.5">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1 flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <span>Businesses</span>
             </h4>
-            <ul className="space-y-2.5 text-xs">
+            <ul className="space-y-1.5 text-xs text-blue-100/90">
               <li>
                 <button
                   type="button"
                   onClick={onOpenRegister}
-                  className="hover:text-white transition-colors text-left font-bold text-blue-400 cursor-pointer"
+                  className="hover:text-cyan-300 font-bold text-[#38bdf8] transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  List Your Business
+                  <ArrowRight className="w-2.5 h-2.5 text-cyan-300" />
+                  <span>List Your Business</span>
                 </button>
               </li>
               <li>
                 <button
                   type="button"
                   onClick={onOpenPricing}
-                  className="hover:text-white transition-colors text-left cursor-pointer"
+                  className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  Verification & Badges
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onOpenPricing}
-                  className="hover:text-white transition-colors text-left cursor-pointer"
-                >
-                  Pricing & Marketing
+                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <span>Pricing & Verification</span>
                 </button>
               </li>
               <li>
@@ -179,86 +168,62 @@ export const Footer: React.FC<FooterProps> = ({
                   href="https://wa.me/233508203673"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white transition-colors text-left block"
+                  className="hover:text-white transition-colors text-left flex items-center gap-1"
                 >
-                  Advertise with Tony&apos;s Hub
+                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <span>Advertise with Tony</span>
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Col 5: Newsletter Subscribe Form */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Stay Updated
+          {/* Newsletter Compact (lg: 3 cols) */}
+          <div className="lg:col-span-3 space-y-2.5">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1 flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <span>Stay Updated</span>
             </h4>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Get weekly business news, grants, and market insights straight to your inbox.
-            </p>
-
-            <form onSubmit={handleNewsletterSubmit} className="space-y-2">
-              <div className="relative">
-                <input
-                  type="email"
-                  value={newsletterEmail}
-                  onChange={(e) => setNewsletterEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-blue-500"
-                  required
-                />
-              </div>
+            <form onSubmit={handleNewsletterSubmit} className="flex gap-1.5">
+              <input
+                type="email"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                placeholder="Your email address"
+                className="w-full px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 text-xs text-white placeholder:text-blue-200/50 focus:outline-hidden focus:border-[#155DFC]"
+                required
+              />
               <button
                 type="submit"
-                className="w-full py-2 px-3 rounded-xl bg-[#155DFC] hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-[#155DFC] hover:bg-blue-600 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>{subscribed ? 'Subscribed ✓' : 'Subscribe'}</span>
+                {subscribed ? '✓' : 'Join'}
               </button>
             </form>
+            <p className="text-[10px] text-blue-200/60">Weekly verified Ghana market updates.</p>
           </div>
 
         </div>
 
-        {/* Elevated Information Block (Elevated so it comes up cleanly above bottom bars) */}
-        <div className="pt-6 border-t border-slate-800/80 space-y-4">
-          
-          {/* Main Copyright & Legal Row */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-300">
-            <div className="flex items-center gap-2 font-semibold">
-              <span>© 2026 AuraCentra. All rights reserved.</span>
-              <span className="text-slate-600 hidden sm:inline">•</span>
-              <span className="text-blue-400 hidden sm:inline">Verified Ghana Business Directory</span>
-            </div>
-
-            <div className="flex items-center gap-5 text-xs">
-              <button
-                type="button"
-                onClick={onOpenAboutUs}
-                className="hover:text-white transition-colors cursor-pointer"
-              >
-                Privacy Policy
-              </button>
-              <button
-                type="button"
-                onClick={onOpenAboutUs}
-                className="hover:text-white transition-colors cursor-pointer"
-              >
-                Terms of Service
-              </button>
-              <button
-                type="button"
-                onClick={onOpenAboutUs}
-                className="hover:text-white transition-colors cursor-pointer"
-              >
-                Security
-              </button>
-              <span className="flex items-center gap-1 text-slate-200 font-bold bg-slate-800/80 px-2 py-0.5 rounded-md">
-                <span>Made in Ghana</span>
-                <span>🇬🇭</span>
-              </span>
-            </div>
+        {/* Bottom Legal & Recognition Strip */}
+        <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-blue-200/80">
+          <div className="flex flex-wrap items-center gap-2 text-center sm:text-left">
+            <span>© 2026 AuraCentra • Tony&apos;s Digital Marketing Hub</span>
           </div>
 
+          <div className="flex items-center gap-4 text-xs">
+            <button
+              type="button"
+              onClick={onOpenAboutUs}
+              className="hover:text-white transition-colors cursor-pointer text-[11px]"
+            >
+              Privacy & Terms
+            </button>
+            <span className="text-white/20">•</span>
+            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 text-white font-bold text-[10px]">
+              <span>Ghana</span>
+              <span>🇬🇭</span>
+            </div>
+          </div>
         </div>
 
       </div>

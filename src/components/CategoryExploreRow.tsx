@@ -91,12 +91,12 @@ export const CategoryExploreRow: React.FC<CategoryExploreRowProps> = ({
               onClick={() => onSelectCategory(isSelected ? '' : targetId)}
               className={`p-3.5 sm:p-4 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer ${
                 isSelected
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20'
-                  : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-blue-500 hover:shadow-sm'
+                  ? 'bg-[#155DFC] text-white border-[#155DFC] shadow-md shadow-blue-600/20'
+                  : 'bg-white dark:bg-black/40 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-[#155DFC] hover:shadow-xs'
               }`}
             >
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-transform ${
-                isSelected ? 'bg-blue-500 text-white' : 'bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400'
+                isSelected ? 'bg-blue-500 text-white' : 'bg-blue-50 dark:bg-blue-950/60 text-[#155DFC] dark:text-blue-400'
               }`}>
                 <IconComp className="w-5 h-5" />
               </div>
@@ -109,9 +109,9 @@ export const CategoryExploreRow: React.FC<CategoryExploreRowProps> = ({
         <button
           type="button"
           onClick={onViewAllCategories}
-          className="p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 hover:border-blue-500 hover:shadow-sm text-center transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer"
+          className="p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-black/40 text-slate-800 dark:text-slate-200 hover:border-[#155DFC] hover:shadow-xs text-center transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-black/60 text-slate-500 flex items-center justify-center">
             <MoreHorizontal className="w-5 h-5" />
           </div>
           <span className="text-xs font-bold leading-tight">More</span>

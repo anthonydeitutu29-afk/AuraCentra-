@@ -8,6 +8,7 @@ interface LogoProps {
   showTagline?: boolean;
   showSubtitle?: boolean;
   lightBackground?: boolean;
+  textColorMode?: 'auto' | 'light' | 'dark';
   showRuleLines?: boolean;
 }
 
@@ -17,6 +18,7 @@ export const Logo: React.FC<LogoProps> = ({
   className = '',
   showTagline = true,
   showSubtitle = false,
+  textColorMode = 'auto',
   showRuleLines = true,
 }) => {
   const pixelSizes = {
@@ -55,13 +57,32 @@ export const Logo: React.FC<LogoProps> = ({
     '2xl': 'w-24 h-24 rounded-3xl p-2.5',
   };
 
+  // Color resolution based on textColorMode
+  const auraColor = textColorMode === 'light' 
+    ? 'text-[#60a5fa]' 
+    : textColorMode === 'dark' 
+    ? 'text-[#155DFC]' 
+    : 'text-[#155DFC] dark:text-[#38BDF8]';
+
+  const centraColor = textColorMode === 'light'
+    ? 'text-white'
+    : textColorMode === 'dark'
+    ? 'text-[#0A1C44]'
+    : 'text-[#0A1C44] dark:text-white';
+
+  const tagColor = textColorMode === 'light'
+    ? 'text-blue-200'
+    : textColorMode === 'dark'
+    ? 'text-[#0A1C44]'
+    : 'text-[#0A1C44] dark:text-cyan-300';
+
   if (variant === 'icon') {
     return (
       <div 
-        className={`inline-flex items-center justify-center relative ${boxSizes[size]} bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/60 shadow-xs transition-transform hover:scale-105 ${className}`}
+        className={`inline-flex items-center justify-center relative transition-transform hover:scale-105 ${className}`}
         id="auracentra-icon-logo"
       >
-        <AuraCentraLogoSVG size={pixelSizes[size]} className="w-full h-full object-contain" />
+        <AuraCentraLogoSVG size={pixelSizes[size]} className="object-contain" />
       </div>
     );
   }
@@ -69,22 +90,22 @@ export const Logo: React.FC<LogoProps> = ({
   if (variant === 'stacked') {
     return (
       <div className={`flex flex-col items-center text-center select-none ${className}`} id="auracentra-brand-stacked">
-        {/* Logo Pin */}
-        <div className="relative p-2 rounded-2xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-900/70 shadow-md mb-2 flex items-center justify-center">
-          <AuraCentraLogoSVG size={pixelSizes[size] * 1.2} />
+        {/* Exact Logo Pin Emblem from Image 2 */}
+        <div className="relative mb-1 flex items-center justify-center transition-transform hover:scale-105">
+          <AuraCentraLogoSVG size={pixelSizes[size] * 1.5} />
         </div>
 
-        {/* Title */}
-        <div className="flex items-center leading-none">
-          <span className={`${titleSizes[size]} text-[#155DFC] dark:text-[#38BDF8]`}>Aura</span>
-          <span className={`${titleSizes[size]} text-[#0A1C44] dark:text-white`}>Centra</span>
+        {/* Title Lockup */}
+        <div className="flex items-center leading-none tracking-tight">
+          <span className={`${titleSizes[size]} ${auraColor}`}>Aura</span>
+          <span className={`${titleSizes[size]} ${centraColor}`}>Centra</span>
         </div>
 
         {/* Tagline */}
         {(showTagline || showSubtitle) && (
           <div className="flex items-center justify-center gap-2 w-full mt-1.5">
             {showRuleLines && <div className="h-[1px] flex-1 max-w-[28px] bg-gradient-to-r from-transparent to-[#155DFC]" />}
-            <div className={`flex items-center gap-1.5 font-black ${taglineSizes[size]} text-[#0A1C44] dark:text-cyan-300 uppercase`}>
+            <div className={`flex items-center gap-1.5 font-black ${taglineSizes[size]} ${tagColor} uppercase`}>
               <span>CONNECT</span>
               <span className="text-[#155DFC]">•</span>
               <span>DISCOVER</span>
@@ -110,24 +131,24 @@ export const Logo: React.FC<LogoProps> = ({
 
   // Default: Horizontal / Full Variant
   return (
-    <div className={`inline-flex items-center gap-2.5 sm:gap-3 select-none ${className}`} id="auracentra-brand-logo">
-      {/* Official AuraCentra Pin Logo Box */}
-      <div className={`relative shrink-0 ${boxSizes[size]} bg-white dark:bg-slate-900 border border-blue-100/90 dark:border-blue-900/60 shadow-xs flex items-center justify-center transition-transform hover:scale-105`}>
-        <AuraCentraLogoSVG size={pixelSizes[size]} className="w-full h-full object-contain" />
+    <div className={`inline-flex items-center gap-2 sm:gap-2.5 select-none ${className}`} id="auracentra-brand-logo">
+      {/* Official AuraCentra Pin Logo Emblem (Image 2) */}
+      <div className="relative shrink-0 flex items-center justify-center transition-transform hover:scale-105">
+        <AuraCentraLogoSVG size={pixelSizes[size]} className="object-contain" />
       </div>
 
       {/* Brand Text Content */}
       <div className="flex flex-col justify-center">
         <div className="flex items-center leading-none tracking-tight">
-          <span className={`${titleSizes[size]} text-[#155DFC] dark:text-[#38BDF8]`}>Aura</span>
-          <span className={`${titleSizes[size]} text-[#0A1C44] dark:text-white`}>Centra</span>
+          <span className={`${titleSizes[size]} ${auraColor}`}>Aura</span>
+          <span className={`${titleSizes[size]} ${centraColor}`}>Centra</span>
         </div>
 
         {/* Subline Tagline */}
         {showTagline && (
           <div className="flex items-center gap-1.5 mt-0.5 sm:mt-1">
             {showRuleLines && <div className="hidden sm:block w-3 h-[1px] bg-gradient-to-r from-transparent to-[#155DFC]" />}
-            <div className={`flex items-center gap-1 font-black ${taglineSizes[size]} text-[#0A1C44] dark:text-cyan-300 uppercase whitespace-nowrap`}>
+            <div className={`flex items-center gap-1 font-black ${taglineSizes[size]} ${tagColor} uppercase whitespace-nowrap`}>
               <span>CONNECT</span>
               <span className="text-[#155DFC]">•</span>
               <span>DISCOVER</span>
