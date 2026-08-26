@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Home, 
   Grid, 
@@ -60,6 +60,40 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
+          // If close to top or near page boundary, keep visible
+          if (currentScrollY <= 20) {
+            setIsVisible(true);
+          } else {
+            const diff = currentScrollY - lastScrollY.current;
+            // Scrolling down by more than 6px hides bottom bar
+            if (diff > 6 && currentScrollY > 70) {
+              setIsVisible(false);
+            } 
+            // Scrolling up by more than 6px reveals bottom bar
+            else if (diff < -6) {
+              setIsVisible(true);
+            }
+          }
+          lastScrollY.current = currentScrollY;
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleShare = () => {
     if (onSharePlatform) {
@@ -81,7 +115,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     <>
       {/* 1. Mobile Bottom Action Dock (Visible only on screens < 640px) */}
       <nav 
-        className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/90 dark:border-slate-800/90 px-2 py-1.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)] select-none safe-area-pb"
+        className={`sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/90 dark:border-slate-800/90 px-2 py-1.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] dark:shadow-[0_-4px_25px_rgba(0,0,0,0.5)] select-none safe-area-pb transition-transform duration-300 ease-in-out ${
+          isVisible ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+        }`}
         id="mobile-bottom-navigation-bar"
         aria-label="Mobile Navigation"
       >

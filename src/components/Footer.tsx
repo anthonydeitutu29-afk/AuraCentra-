@@ -77,17 +77,17 @@ export const Footer: React.FC<FooterProps> = ({
                 href="https://wa.me/233508203673" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="hover:text-emerald-400 transition-colors flex items-center gap-1.5"
+                className="hover:text-white transition-colors flex items-center gap-1.5"
               >
-                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
+                <MessageCircle className="w-3.5 h-3.5 text-slate-400" />
                 <span>+233 50 820 3673</span>
               </a>
-              <span>•</span>
+              <span className="text-slate-600">•</span>
               <a 
                 href="mailto:tonysdigitalmarketing@gmail.com" 
-                className="hover:text-cyan-300 transition-colors flex items-center gap-1.5"
+                className="hover:text-white transition-colors flex items-center gap-1.5"
               >
-                <Mail className="w-3.5 h-3.5 text-blue-400" />
+                <Mail className="w-3.5 h-3.5 text-slate-400" />
                 <span>tonysdigitalmarketing@gmail.com</span>
               </a>
             </div>
@@ -96,7 +96,7 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Quick Platform Links (lg: 2.5 cols) */}
           <div className="lg:col-span-3 space-y-2.5">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-1 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
               <span>Platform</span>
             </h4>
             <ul className="space-y-1.5 text-xs text-slate-300">
@@ -109,7 +109,7 @@ export const Footer: React.FC<FooterProps> = ({
                   }}
                   className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
                   <span>Browse Categories</span>
                 </button>
               </li>
@@ -119,7 +119,7 @@ export const Footer: React.FC<FooterProps> = ({
                   onClick={onOpenNews}
                   className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
                   <span>Ghana Business News & FX</span>
                 </button>
               </li>
@@ -129,7 +129,7 @@ export const Footer: React.FC<FooterProps> = ({
                   onClick={onOpenAboutUs}
                   className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
                   <span>About AuraCentra</span>
                 </button>
               </li>
@@ -139,7 +139,7 @@ export const Footer: React.FC<FooterProps> = ({
           {/* For Businesses (lg: 2.5 cols) */}
           <div className="lg:col-span-2 space-y-2.5">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-1 flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <Award className="w-3.5 h-3.5 text-slate-400" />
               <span>Businesses</span>
             </h4>
             <ul className="space-y-1.5 text-xs text-slate-300">
@@ -147,9 +147,9 @@ export const Footer: React.FC<FooterProps> = ({
                 <button
                   type="button"
                   onClick={onOpenRegister}
-                  className="hover:text-cyan-300 font-bold text-[#38bdf8] transition-colors text-left flex items-center gap-1 cursor-pointer"
+                  className="hover:text-white font-medium transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  <ArrowRight className="w-2.5 h-2.5 text-cyan-300" />
+                  <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
                   <span>List Your Business</span>
                 </button>
               </li>
@@ -159,7 +159,7 @@ export const Footer: React.FC<FooterProps> = ({
                   onClick={onOpenPricing}
                   className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
-                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
                   <span>Pricing & Verification</span>
                 </button>
               </li>
@@ -170,7 +170,7 @@ export const Footer: React.FC<FooterProps> = ({
                   rel="noopener noreferrer"
                   className="hover:text-white transition-colors text-left flex items-center gap-1"
                 >
-                  <ArrowRight className="w-2.5 h-2.5 text-[#38bdf8]" />
+                  <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
                   <span>Advertise with Tony</span>
                 </a>
               </li>
@@ -180,7 +180,7 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Newsletter Compact (lg: 3 cols) */}
           <div className="lg:col-span-3 space-y-2.5">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-1 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <Mail className="w-3.5 h-3.5 text-slate-400" />
               <span>Stay Updated</span>
             </h4>
             <form onSubmit={handleNewsletterSubmit} className="flex gap-1.5">
@@ -189,12 +189,12 @@ export const Footer: React.FC<FooterProps> = ({
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
                 placeholder="Your email address"
-                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-[#155DFC]"
+                className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-hidden focus:border-slate-500"
                 required
               />
               <button
                 type="submit"
-                className="px-3 py-1.5 rounded-lg bg-[#155DFC] hover:bg-blue-600 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
+                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shrink-0 cursor-pointer"
               >
                 {subscribed ? '✓' : 'Join'}
               </button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   MessageSquare, 
   X, 
@@ -9,12 +9,15 @@ import {
   CheckCircle2, 
   Headphones, 
   ArrowUpRight,
-  ExternalLink
+  ExternalLink,
+  GripHorizontal
 } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export const FloatingContactHub: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [quickMsg, setQuickMsg] = useState('');
+  const isDraggingRef = useRef(false);
 
   const adminPhone = '0508203673';
   const adminWhatsAppGhana = '233508203673';
@@ -37,7 +40,22 @@ export const FloatingContactHub: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 z-30" id="floating-admin-contact-hub">
+    <motion.div 
+      drag
+      dragMomentum={false}
+      dragElastic={0.08}
+      onDragStart={() => {
+        isDraggingRef.current = true;
+      }}
+      onDragEnd={() => {
+        // Small delay to prevent drag end from immediately triggering click toggle
+        setTimeout(() => {
+          isDraggingRef.current = false;
+        }, 120);
+      }}
+      className="fixed bottom-20 sm:bottom-6 right-3 sm:right-6 z-40 touch-none" 
+      id="floating-admin-contact-hub"
+    >
       {/* Expanded Quick Contact Card */}
       {isOpen && (
         <div className="mb-3 w-[calc(100vw-2rem)] max-w-sm sm:w-80 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-blue-200 dark:border-slate-800 p-4 sm:p-5 space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-200">
@@ -63,8 +81,11 @@ export const FloatingContactHub: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setIsOpen(false)}
-              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -134,22 +155,27 @@ export const FloatingContactHub: React.FC = () => {
         </div>
       )}
 
-      {/* Main Floating Trigger Button */}
+      {/* Main Floating Trigger Button (Draggable) */}
       <button
         type="button"
         id="floating-hub-toggle-btn"
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative group inline-flex items-center gap-2.5 p-3.5 sm:px-5 sm:py-3.5 rounded-full bg-gradient-to-r from-blue-600 via-sky-500 to-blue-700 text-white shadow-xl shadow-blue-600/30 hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-white/20"
-        aria-label="Direct contact Tony's Digital Marketing & Business Hub WhatsApp and Email"
+        onClick={() => {
+          if (!isDraggingRef.current) {
+            setIsOpen(!isOpen);
+          }
+        }}
+        className="relative group inline-flex items-center gap-2 p-3 sm:px-4 sm:py-3 rounded-full bg-[#155DFC] hover:bg-blue-700 text-white shadow-xl shadow-blue-600/30 hover:shadow-2xl active:scale-95 transition-all duration-200 border-2 border-white/20 cursor-grab active:cursor-grabbing select-none"
+        aria-label="Direct contact Tony's Digital Marketing & Business Hub WhatsApp and Email (Draggable)"
+        title="Chat with Support (Drag to reposition)"
       >
-        <div className="relative">
+        <div className="relative flex items-center">
           <MessageSquare className="w-5 h-5 fill-white/20" />
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-blue-600 animate-ping" />
+          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-[#155DFC] animate-ping" />
         </div>
         <span className="hidden sm:inline text-xs font-bold tracking-wide">
           Direct Hub Contact
         </span>
       </button>
-    </div>
+    </motion.div>
   );
 };
