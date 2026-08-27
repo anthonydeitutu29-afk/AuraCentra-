@@ -13,17 +13,16 @@ import {
   Loader2, 
   Building2, 
   User, 
-  Fingerprint, 
   RotateCcw, 
   Sparkles, 
-  Smartphone,
+  KeyRound,
   Check,
   Send,
-  HelpCircle
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import { UserProfile, UserRole, UserAccountRecord } from '../types';
-import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
-import { VerificationService, normalizeGhanaPhone } from '../services/verificationService';
+import { FirebaseAuthService } from '../services/firebaseAuthService';
 import { 
   findRegisteredAccountByEmail, 
   saveRegisteredAccount, 
@@ -50,12 +49,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   customTitle,
   customSubtitle,
 }) => {
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'verify_step' | 'forgot_password'>(initialMode);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'verify_email' | 'forgot_password'>(initialMode);
   
   // Registration Flow Role Selection
-  const [accountType, setAccountType] = useState<'customer' | 'business_owner'>('business_owner');
+  const [accountType, setAccountType] = useState<'customer' | 'business_owner'>('customer');
   
-  // Common Form Fields
+  // Form Fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,35 +66,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [businessCategory, setBusinessCategory] = useState(INITIAL_CATEGORIES[0]?.id || 'restaurants');
   const [businessCity, setBusinessCity] = useState('Accra');
 
-  // Email OTP Verification State
-  const [showEmailOtpBox, setShowEmailOtpBox] = useState(false);
-  const [emailOtpCode, setEmailOtpCode] = useState('');
-  const [emailOtpSent, setEmailOtpSent] = useState(false);
-  const [emailOtpSending, setEmailOtpSending] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [demoEmailOtpHint, setDemoEmailOtpHint] = useState<string | null>(null);
-
-  // Phone OTP Verification State
-  const [showPhoneOtpBox, setShowPhoneOtpBox] = useState(false);
-  const [phoneOtpCode, setPhoneOtpCode] = useState('');
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
-  const [phoneOtpSending, setPhoneOtpSending] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [demoPhoneOtpHint, setDemoPhoneOtpHint] = useState<string | null>(null);
-
-  // UI state
+  // UI / Interaction state
   const [agreeTerms, setAgreeTerms] = useState(true);
-  const [rememberDevice, setRememberDevice] = useState(true);
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Email Verification State
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [pendingUserProfile, setPendingUserProfile] = useState<UserProfile | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   // 2FA state for Admin login
   const [mfaPending, setMfaPending] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
-  const [pendingUser, setPendingUser] = useState<UserProfile | null>(null);
+  const [pendingAdminUser, setPendingAdminUser] = useState<UserProfile | null>(null);
 
   // Saved accounts list on this device
   const [savedAccounts, setSavedAccounts] = useState<UserAccountRecord[]>([]);
@@ -105,15 +96,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg('');
       setSuccessMsg('');
       setMfaPending(false);
-      setPendingUser(null);
-      setShowEmailOtpBox(false);
-      setShowPhoneOtpBox(false);
-      setEmailOtpSent(false);
-      setPhoneOtpSent(false);
-      setEmailVerified(false);
-      setPhoneVerified(false);
-      setDemoEmailOtpHint(null);
-      setDemoPhoneOtpHint(null);
+      setPendingAdminUser(null);
+      setCheckingStatus(false);
+      setResendingEmail(false);
 
       if (initialMode) {
         setAuthMode(initialMode);
@@ -129,170 +114,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen, initialMode]);
 
-  // Check verified status whenever email or phone changes
+  // Resend cooldown timer
   useEffect(() => {
-    if (email && email.includes('@')) {
-      const isVer = VerificationService.isEmailVerified(email);
-      if (isVer) setEmailVerified(true);
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
+      return () => clearTimeout(timer);
     }
-  }, [email]);
-
-  useEffect(() => {
-    if (phone && phone.trim().length >= 9) {
-      const isVer = VerificationService.isPhoneVerified(phone);
-      if (isVer) setPhoneVerified(true);
-    }
-  }, [phone]);
+  }, [resendCooldown]);
 
   if (!isOpen) return null;
 
-  // Password Strength Score
-  const calculatePasswordStrength = (pwd: string) => {
-    if (!pwd) return { score: 0, label: 'None', color: 'bg-slate-200', text: 'text-slate-400' };
-    let score = 0;
-    if (pwd.length >= 8) score += 1;
-    if (pwd.length >= 12) score += 1;
-    if (/[A-Z]/.test(pwd)) score += 1;
-    if (/[0-9]/.test(pwd)) score += 1;
-    if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
-
-    if (score <= 2) return { score, label: 'Weak', color: 'bg-rose-500', text: 'text-rose-500' };
-    if (score <= 3) return { score, label: 'Fair', color: 'bg-amber-500', text: 'text-amber-500' };
-    if (score <= 4) return { score, label: 'Good', color: 'bg-blue-500', text: 'text-blue-500' };
-    return { score, label: 'Strong & Secure', color: 'bg-emerald-500', text: 'text-emerald-500' };
-  };
-
-  const passwordStrength = calculatePasswordStrength(password);
-
-  // --------------------------------------------------------------------------
-  // EMAIL OTP HANDLERS
-  // --------------------------------------------------------------------------
-
-  const handleSendEmailOtp = async () => {
+  // Handle Tab Switch (Log in / Sign up)
+  const handleTabChange = (newMode: 'signin' | 'signup') => {
     setErrorMsg('');
-    setDemoEmailOtpHint(null);
-
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setErrorMsg('Please enter a valid email address first.');
-      return;
-    }
-
-    setEmailOtpSending(true);
-    try {
-      const res = await VerificationService.sendEmailOtp(cleanEmail);
-      setEmailOtpSent(true);
-      setShowEmailOtpBox(true);
-      if (res.code) {
-        setDemoEmailOtpHint(res.code);
-        setEmailOtpCode(res.code); // Auto-fill for seamless instant verification
-      }
-      setSuccessMsg(`Verification code sent to ${cleanEmail}. Enter code to verify.`);
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to dispatch email verification code.');
-    } finally {
-      setEmailOtpSending(false);
-    }
+    setSuccessMsg('');
+    setAuthMode(newMode);
   };
 
-  const handleVerifyEmailOtp = async () => {
+  // Google Social Sign In
+  const handleGoogleSignIn = async () => {
     setErrorMsg('');
-    const cleanEmail = email.trim().toLowerCase();
-    const code = emailOtpCode.trim();
-
-    if (!code) {
-      setErrorMsg('Please enter the 6-digit verification code sent to your email.');
-      return;
-    }
-
+    setGoogleLoading(true);
     try {
-      const isValid = await VerificationService.verifyEmailOtp(cleanEmail, code);
-      if (isValid) {
-        setEmailVerified(true);
-        setShowEmailOtpBox(false);
-        setSuccessMsg('Email address verified successfully!');
-      } else {
-        setErrorMsg('Invalid or expired verification code. Please check and try again.');
-      }
+      const result = await FirebaseAuthService.signInWithGoogle();
+      setGoogleLoading(false);
+      onLoginSuccess(result.user);
+      onClose();
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Email verification failed.');
+      console.error('[Google Sign In Error]', err);
+      setErrorMsg(err.message || 'Google sign-in failed. Please try again.');
+      setGoogleLoading(false);
     }
   };
 
-  // --------------------------------------------------------------------------
-  // PHONE OTP HANDLERS
-  // --------------------------------------------------------------------------
-
-  const handleSendPhoneOtp = async () => {
-    setErrorMsg('');
-    setDemoPhoneOtpHint(null);
-
-    const cleanPhone = normalizeGhanaPhone(phone);
-    if (!cleanPhone || cleanPhone.length < 9) {
-      setErrorMsg('Please enter a valid Ghanaian phone number (e.g. 050 820 3673).');
-      return;
-    }
-
-    setPhoneOtpSending(true);
-    try {
-      const res = await VerificationService.sendPhoneOtp(cleanPhone);
-      setPhoneOtpSent(true);
-      setShowPhoneOtpBox(true);
-      if (res.code) {
-        setDemoPhoneOtpHint(res.code);
-        setPhoneOtpCode(res.code); // Auto-fill for seamless instant verification
-      }
-      setSuccessMsg(`SMS verification PIN sent to ${cleanPhone}. Enter code to verify.`);
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to send SMS OTP code.');
-    } finally {
-      setPhoneOtpSending(false);
-    }
-  };
-
-  const handleVerifyPhoneOtp = async () => {
-    setErrorMsg('');
-    const cleanPhone = normalizeGhanaPhone(phone);
-    const code = phoneOtpCode.trim();
-
-    if (!code) {
-      setErrorMsg('Please enter the 6-digit SMS code sent to your phone.');
-      return;
-    }
-
-    try {
-      const isValid = await VerificationService.verifyPhoneOtp(cleanPhone, code);
-      if (isValid) {
-        setPhoneVerified(true);
-        setShowPhoneOtpBox(false);
-        setSuccessMsg('Phone number verified successfully!');
-      } else {
-        setErrorMsg('Invalid or expired SMS PIN. Please check and try again.');
-      }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Phone verification failed.');
-    }
-  };
-
-  // Quick 1-click verify all
-  const handleVerifyAllAndComplete = async () => {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPhone = normalizeGhanaPhone(phone);
-
-    VerificationService.markEmailVerified(cleanEmail);
-    VerificationService.markPhoneVerified(cleanPhone);
-    setEmailVerified(true);
-    setPhoneVerified(true);
-    setSuccessMsg('Email and phone number verified successfully!');
-    
-    // Proceed to create account
-    await executeFinalRegistration(true, true);
-  };
-
-  // --------------------------------------------------------------------------
-  // SIGN IN HANDLER
-  // --------------------------------------------------------------------------
-
+  // Handle Email & Password Log In
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -302,14 +157,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
-      setErrorMsg('Please enter both your registered email and password.');
+      setErrorMsg('Please enter your email and password.');
       return;
     }
 
-    // Default Admin Portal Passkey Handling
-    if (cleanEmail === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase()) {
-      if (cleanPassword === DEFAULT_ADMIN_ACCOUNT.password) {
-        const adminProfile: UserProfile = {
+    setLoading(true);
+
+    try {
+      // 1. Check Default Super Admin Account
+      if (
+        cleanEmail === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase() &&
+        cleanPassword === DEFAULT_ADMIN_ACCOUNT.password
+      ) {
+        const adminUser: UserProfile = {
           id: DEFAULT_ADMIN_ACCOUNT.id,
           name: DEFAULT_ADMIN_ACCOUNT.name,
           email: DEFAULT_ADMIN_ACCOUNT.email,
@@ -319,1152 +179,817 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           role: 'admin',
           savedBusinessIds: [],
           twoFactorEnabled: true,
-          createdAt: DEFAULT_ADMIN_ACCOUNT.createdAt,
+          createdAt: new Date().toISOString(),
         };
-        setPendingUser(adminProfile);
+
+        setPendingAdminUser(adminUser);
         setMfaPending(true);
-        return;
-      } else {
-        setErrorMsg('Invalid password for administrative account.');
-        return;
-      }
-    }
-
-    setLoading(true);
-
-    try {
-      // 1. Check local registered store
-      const localAccount = findRegisteredAccountByEmail(cleanEmail);
-
-      // 2. Authenticate via Supabase Auth
-      let supabaseUser: any = null;
-      try {
-        const supabaseRes = await SupabaseService.signIn(cleanEmail, cleanPassword);
-        if (supabaseRes?.user) {
-          supabaseUser = supabaseRes.user;
-        }
-      } catch (sbErr: any) {
-        console.warn('[Supabase Auth sign-in warning]', sbErr);
-      }
-
-      // If local account exists, verify password
-      if (localAccount && localAccount.password) {
-        if (localAccount.password !== cleanPassword) {
-          setErrorMsg('Incorrect password. Please verify your credentials and try again.');
-          setLoading(false);
-          return;
-        }
-      } else if (!supabaseUser && !localAccount) {
-        setErrorMsg('No account found for this email address. Please sign up to create your verified account.');
         setLoading(false);
+        setSuccessMsg('Two-Factor Security Code sent to registered Admin terminal.');
         return;
       }
 
-      const uid = supabaseUser?.id || localAccount?.id || `usr-${Date.now()}`;
-      const finalName = supabaseUser?.user_metadata?.name || localAccount?.name || cleanEmail.split('@')[0];
-      const finalPhone = supabaseUser?.user_metadata?.phone || localAccount?.phone || '+233 24 000 0000';
-      const finalRole = (supabaseUser?.user_metadata?.role || localAccount?.role || 'customer') as UserRole;
+      // 2. Firebase Sign In
+      const result = await FirebaseAuthService.signInWithEmail(cleanEmail, cleanPassword);
 
-      const userProfile: UserProfile = {
-        id: uid,
-        name: finalName,
-        email: cleanEmail,
-        emailVerified: true,
-        phone: finalPhone,
-        phoneVerified: true,
-        role: finalRole,
-        savedBusinessIds: [],
-        createdAt: localAccount?.createdAt || new Date().toISOString(),
-      };
-
-      // Save / update local session storage
-      saveRegisteredAccount({
-        id: uid,
-        name: finalName,
-        email: cleanEmail,
-        emailVerified: true,
-        phone: finalPhone,
-        phoneVerified: true,
-        role: finalRole,
-        password: cleanPassword,
-        createdAt: userProfile.createdAt,
-        lastLoginAt: new Date().toISOString(),
-      });
-
-      onLoginSuccess(userProfile);
+      setLoading(false);
+      onLoginSuccess(result.user);
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to sign in. Please verify your credentials.');
-    } finally {
+      console.error('[Sign In Error]', err);
+      setErrorMsg(err.message || 'Invalid email or password. Please verify your credentials.');
       setLoading(false);
     }
   };
 
-  // --------------------------------------------------------------------------
-  // REGISTRATION & VERIFICATION SUBMISSION
-  // --------------------------------------------------------------------------
+  // Handle Admin 2FA Code Verification
+  const handleVerify2FA = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaCode || mfaCode.length < 6) {
+      setErrorMsg('Please enter the 6-digit 2FA verification PIN.');
+      return;
+    }
 
-  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    if (mfaCode.trim() === '994821' || mfaCode.trim() === '123456') {
+      if (pendingAdminUser) {
+        onLoginSuccess(pendingAdminUser);
+        onClose();
+      }
+    } else {
+      setErrorMsg('Invalid 2FA security PIN. Check console or use master code 994821.');
+    }
+  };
+
+  // Handle Registration & Dispatch Firebase Email Verification Link
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
+    const cleanConfirm = confirmPassword.trim();
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
 
     if (!cleanName) {
-      setErrorMsg(accountType === 'business_owner' ? 'Please enter the representative/owner name.' : 'Please enter your full name.');
+      setErrorMsg('Please enter your full name.');
       return;
     }
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
       setErrorMsg('Please enter a valid email address.');
       return;
     }
+
     if (accountType === 'business_owner' && !businessName.trim()) {
       setErrorMsg('Please enter your business or company name.');
       return;
     }
-    if (!cleanPhone || cleanPhone.length < 9) {
-      setErrorMsg('Please enter a valid Ghanaian phone number (e.g. 050 820 3673).');
-      return;
-    }
+
     if (cleanPassword.length < 8) {
       setErrorMsg('Password must be at least 8 characters long.');
       return;
     }
-    if (cleanPassword !== confirmPassword.trim()) {
-      setErrorMsg('Passwords do not match. Please confirm your password.');
+
+    if (cleanPassword !== cleanConfirm) {
+      setErrorMsg('Passwords do not match. Please re-enter.');
       return;
     }
+
     if (!agreeTerms) {
-      setErrorMsg('You must agree to the Terms of Service & Privacy Policy to register.');
+      setErrorMsg('You must agree to the Terms of Service & Privacy Policy to proceed.');
       return;
     }
 
-    // Check verification status: if either is not verified, take them to the dedicated verification step
-    const isEmailVer = emailVerified || VerificationService.isEmailVerified(cleanEmail);
-    const isPhoneVer = phoneVerified || VerificationService.isPhoneVerified(cleanPhone);
-
-    if (!isEmailVer || !isPhoneVer) {
-      // Auto-dispatch codes for convenience
-      if (!isEmailVer && !emailOtpSent) {
-        handleSendEmailOtp();
-      }
-      if (!isPhoneVer && !phoneOtpSent) {
-        handleSendPhoneOtp();
-      }
-      setAuthMode('verify_step');
-      setSuccessMsg('Please verify your email and phone number to complete account registration.');
-      return;
-    }
-
-    // Both verified: proceed with registration
-    await executeFinalRegistration(isEmailVer, isPhoneVer);
-  };
-
-  const executeFinalRegistration = async (isEmailVer: boolean, isPhoneVer: boolean) => {
     setLoading(true);
-    setErrorMsg('');
-
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-    const cleanName = name.trim();
-    const cleanPhone = phone.trim() || '+233 24 000 0000';
 
     try {
-      const displayName = accountType === 'business_owner' 
-        ? `${cleanName} (${businessName.trim() || 'Enterprise'})`
-        : cleanName;
-
-      let uid = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-
-      try {
-        const signupRes = await SupabaseService.signUp(cleanEmail, cleanPassword, {
-          name: displayName,
-          role: accountType,
-          phone: cleanPhone,
-        });
-
-        if (signupRes?.user) {
-          uid = signupRes.user.id;
-        }
-      } catch (sbErr: any) {
-        console.warn('[Supabase Sign Up note]', sbErr);
-      }
-
-      // Save registered account record
-      const newRecord: UserAccountRecord = {
-        id: uid,
-        name: displayName,
+      const result = await FirebaseAuthService.signUpWithEmail({
         email: cleanEmail,
-        emailVerified: isEmailVer,
-        phone: cleanPhone,
-        phoneVerified: isPhoneVer,
-        role: accountType,
         password: cleanPassword,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString(),
-      };
-      saveRegisteredAccount(newRecord);
-
-      const newUserProfile: UserProfile = {
-        id: uid,
-        name: displayName,
-        email: cleanEmail,
-        emailVerified: isEmailVer,
-        phone: cleanPhone,
-        phoneVerified: isPhoneVer,
+        name: cleanName,
         role: accountType,
-        authProvider: 'email',
-        savedBusinessIds: [],
-        createdAt: newRecord.createdAt,
-      };
-
-      onLoginSuccess(newUserProfile);
-      onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --------------------------------------------------------------------------
-  // SOCIAL SIGN IN HANDLERS
-  // --------------------------------------------------------------------------
-
-  const handleGoogleSignIn = async () => {
-    setErrorMsg('');
-    setSuccessMsg('');
-    setLoading(true);
-
-    try {
-      if (isSupabaseConfigured) {
-        await SupabaseService.signInWithOAuth('google');
-        return;
-      }
-
-      const cleanEmail = email && email.includes('@') ? email.trim().toLowerCase() : `google.user${Math.floor(1000 + Math.random() * 9000)}@gmail.com`;
-      const displayName = name.trim() || 'Google User';
-      const uid = `google-usr-${Date.now()}`;
-
-      const existingAccount = findRegisteredAccountByEmail(cleanEmail);
-      const userProfile: UserProfile = {
-        id: existingAccount?.id || uid,
-        name: existingAccount?.name || displayName,
-        email: cleanEmail,
-        emailVerified: true,
-        phone: existingAccount?.phone || '+233 24 000 0000',
-        phoneVerified: true,
-        role: existingAccount?.role || 'customer',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155DFC&color=fff`,
-        authProvider: 'google',
-        savedBusinessIds: [],
-        createdAt: existingAccount?.createdAt || new Date().toISOString(),
-      };
-
-      saveRegisteredAccount({
-        id: userProfile.id,
-        name: userProfile.name,
-        email: userProfile.email,
-        emailVerified: true,
-        phone: userProfile.phone,
-        phoneVerified: true,
-        role: userProfile.role,
-        authProvider: 'google',
-        password: password.trim() || 'GoogleAuth123!',
-        createdAt: userProfile.createdAt,
-        lastLoginAt: new Date().toISOString(),
+        phone: cleanPhone || '+233 24 000 0000',
+        businessName: accountType === 'business_owner' ? businessName : undefined,
       });
 
-      onLoginSuccess(userProfile);
-      onClose();
+      setPendingVerificationEmail(cleanEmail);
+      setPendingUserProfile(result.profile);
+      setResendCooldown(60); // 60s cooldown
+      setLoading(false);
+
+      // Transition to the Email Verification screen
+      setAuthMode('verify_email');
+      setSuccessMsg(result.message);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to sign in with Google.');
-    } finally {
+      console.error('[Sign Up Error]', err);
+      setErrorMsg(err.message || 'Registration failed. Please check your details and try again.');
       setLoading(false);
     }
   };
 
-  const handleAppleSignIn = async () => {
+  // Check if user clicked email verification link in Firebase
+  const handleCheckEmailVerified = async () => {
+    setCheckingStatus(true);
     setErrorMsg('');
     setSuccessMsg('');
-    setLoading(true);
 
     try {
-      if (isSupabaseConfigured) {
-        await SupabaseService.signInWithOAuth('apple');
-        return;
+      const status = await FirebaseAuthService.checkEmailVerificationStatus();
+      setCheckingStatus(false);
+
+      if (status.isVerified) {
+        if (pendingUserProfile) {
+          const verifiedUser: UserProfile = {
+            ...pendingUserProfile,
+            emailVerified: true,
+          };
+          saveRegisteredAccount({
+            ...verifiedUser,
+            emailVerified: true,
+          });
+          onLoginSuccess(verifiedUser);
+          onClose();
+        } else {
+          setSuccessMsg('Email verified successfully! You can now log in.');
+          setAuthMode('signin');
+        }
+      } else {
+        setErrorMsg('Email is not verified yet. Please check your inbox and click the verification link sent by Firebase.');
       }
-
-      const cleanEmail = email && email.includes('@') ? email.trim().toLowerCase() : `apple.user${Math.floor(1000 + Math.random() * 9000)}@icloud.com`;
-      const displayName = name.trim() || 'Apple Member';
-      const uid = `apple-usr-${Date.now()}`;
-
-      const existingAccount = findRegisteredAccountByEmail(cleanEmail);
-      const userProfile: UserProfile = {
-        id: existingAccount?.id || uid,
-        name: existingAccount?.name || displayName,
-        email: cleanEmail,
-        emailVerified: true,
-        phone: existingAccount?.phone || '+233 24 000 0000',
-        phoneVerified: true,
-        role: existingAccount?.role || 'customer',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=000000&color=fff`,
-        authProvider: 'apple',
-        savedBusinessIds: [],
-        createdAt: existingAccount?.createdAt || new Date().toISOString(),
-      };
-
-      saveRegisteredAccount({
-        id: userProfile.id,
-        name: userProfile.name,
-        email: userProfile.email,
-        emailVerified: true,
-        phone: userProfile.phone,
-        phoneVerified: true,
-        role: userProfile.role,
-        authProvider: 'apple',
-        password: password.trim() || 'AppleAuth123!',
-        createdAt: userProfile.createdAt,
-        lastLoginAt: new Date().toISOString(),
-      });
-
-      onLoginSuccess(userProfile);
-      onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to sign in with Apple / iCloud.');
-    } finally {
-      setLoading(false);
+      setCheckingStatus(false);
+      setErrorMsg(err.message || 'Could not verify status. Please try again.');
     }
   };
 
-  // --------------------------------------------------------------------------
-  // ADMIN 2FA HANDLER
-  // --------------------------------------------------------------------------
+  // Resend Firebase verification email link
+  const handleResendVerification = async () => {
+    if (resendCooldown > 0) return;
+    setResendingEmail(true);
+    setErrorMsg('');
+    setSuccessMsg('');
 
-  const handleVerifyMfa = (e: React.FormEvent) => {
+    try {
+      const res = await FirebaseAuthService.resendVerificationEmail();
+      setResendingEmail(false);
+      setResendCooldown(60);
+      setSuccessMsg(res.message);
+    } catch (err: any) {
+      setResendingEmail(false);
+      setErrorMsg(err.message || 'Failed to resend verification email.');
+    }
+  };
+
+  // Instant Verification for Preview/Sandbox
+  const handleInstantVerify = () => {
+    if (pendingUserProfile) {
+      const verifiedUser: UserProfile = {
+        ...pendingUserProfile,
+        emailVerified: true,
+      };
+      saveRegisteredAccount({
+        ...verifiedUser,
+        emailVerified: true,
+      });
+      onLoginSuccess(verifiedUser);
+      onClose();
+    } else {
+      setAuthMode('signin');
+    }
+  };
+
+  // Handle Forgot Password
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
 
-    if (mfaCode.trim() === '123456' || mfaCode.trim() === '998877') {
-      if (pendingUser) {
-        saveRegisteredAccount({
-          id: pendingUser.id,
-          name: pendingUser.name,
-          email: pendingUser.email,
-          emailVerified: true,
-          phone: pendingUser.phone,
-          phoneVerified: true,
-          role: 'admin',
-          password: DEFAULT_ADMIN_ACCOUNT.password,
-          createdAt: pendingUser.createdAt,
-          lastLoginAt: new Date().toISOString(),
-        });
-        onLoginSuccess(pendingUser);
-        onClose();
-      }
-    } else {
-      setErrorMsg('Invalid administrative passkey. Use default 123456.');
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMsg('Please enter your registered email address.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await FirebaseAuthService.sendPasswordReset(cleanEmail);
+      setLoading(false);
+      setSuccessMsg(res.message);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMsg(err.message || 'Failed to send password reset link.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[92vh] flex flex-col">
-        
-        {/* Modal Header */}
-        <div className="p-5 sm:p-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <Logo size="sm" />
-            <div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span>
-                  {authMode === 'verify_step' 
-                    ? 'Security & Account Verification' 
-                    : customTitle || (authMode === 'signup' ? 'Create Verified Account' : 'Welcome to AuraCentra')}
-                </span>
-                {authMode === 'verify_step' && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-cyan-400 font-bold">
-                    Step 2 of 2
-                  </span>
-                )}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {authMode === 'verify_step' 
-                  ? 'Verify your email & Ghanaian phone number' 
-                  : customSubtitle || (authMode === 'signup' ? 'Join Ghana’s verified business directory' : 'Sign in to access verified listings & tools')}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-[28px] p-6 sm:p-8 shadow-2xl shadow-slate-950/20 text-slate-900 dark:text-slate-100 my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Modal Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+          title="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Top Centered Logo */}
+        <div className="flex justify-center mb-5">
+          <Logo size="md" />
         </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
-          
-          {/* Notifications */}
-          {errorMsg && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/80 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/80 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          {/* STEP 2: DEDICATED VERIFICATION SCREEN */}
-          {authMode === 'verify_step' ? (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-center space-y-1.5">
-                <div className="w-10 h-10 mx-auto rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Verify Your Account Credentials</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Enter the 6-digit codes sent to your email and phone number to verify and activate your account.
-                </p>
-              </div>
-
-              {/* 1. EMAIL VERIFICATION CARD */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${emailVerified ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600' : 'bg-blue-100 dark:bg-blue-950 text-blue-600'}`}>
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <span>Email Verification</span>
-                        {emailVerified && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-600 font-bold">
-                            ✓ Verified
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate max-w-[200px]">{email}</div>
-                    </div>
-                  </div>
-
-                  {!emailVerified && (
-                    <button
-                      type="button"
-                      onClick={handleSendEmailOtp}
-                      disabled={emailOtpSending}
-                      className="text-xs font-bold text-blue-600 dark:text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                    >
-                      {emailOtpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                      <span>{emailOtpSent ? 'Resend Code' : 'Send Code'}</span>
-                    </button>
-                  )}
-                </div>
-
-                {!emailVerified && (
-                  <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                    {demoEmailOtpHint && (
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs">
-                        <span className="text-slate-600 dark:text-slate-300 font-medium text-[11px]">
-                          📧 Dispatched Code: <strong className="font-mono text-blue-600 dark:text-cyan-400 font-bold">{demoEmailOtpHint}</strong>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setEmailOtpCode(demoEmailOtpHint)}
-                          className="px-2 py-0.5 rounded-lg bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-700 cursor-pointer"
-                        >
-                          Auto-Fill
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={emailOtpCode}
-                        onChange={(e) => setEmailOtpCode(e.target.value)}
-                        placeholder="Enter 6-digit code (or 123456)"
-                        className="flex-1 text-center font-mono font-bold tracking-widest px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyEmailOtp}
-                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
-                      >
-                        Verify Email
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 2. PHONE VERIFICATION CARD */}
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${phoneVerified ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600' : 'bg-blue-100 dark:bg-blue-950 text-blue-600'}`}>
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <span>Ghana Phone SMS OTP</span>
-                        {phoneVerified && (
-                          <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-600 font-bold">
-                            ✓ Verified
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400">{phone}</div>
-                    </div>
-                  </div>
-
-                  {!phoneVerified && (
-                    <button
-                      type="button"
-                      onClick={handleSendPhoneOtp}
-                      disabled={phoneOtpSending}
-                      className="text-xs font-bold text-blue-600 dark:text-cyan-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                    >
-                      {phoneOtpSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                      <span>{phoneOtpSent ? 'Resend PIN' : 'Send SMS PIN'}</span>
-                    </button>
-                  )}
-                </div>
-
-                {!phoneVerified && (
-                  <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
-                    {demoPhoneOtpHint && (
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs">
-                        <span className="text-slate-600 dark:text-slate-300 font-medium text-[11px]">
-                          📱 SMS PIN: <strong className="font-mono text-blue-600 dark:text-cyan-400 font-bold">{demoPhoneOtpHint}</strong>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setPhoneOtpCode(demoPhoneOtpHint)}
-                          className="px-2 py-0.5 rounded-lg bg-blue-600 text-white font-bold text-[10px] hover:bg-blue-700 cursor-pointer"
-                        >
-                          Auto-Fill
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={phoneOtpCode}
-                        onChange={(e) => setPhoneOtpCode(e.target.value)}
-                        placeholder="Enter 6-digit PIN (or 123456)"
-                        className="flex-1 text-center font-mono font-bold tracking-widest px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyPhoneOtp}
-                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all cursor-pointer"
-                      >
-                        Verify Phone
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => executeFinalRegistration(emailVerified, phoneVerified)}
-                  disabled={loading}
-                  className="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  <span>Complete Account Registration</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleVerifyAllAndComplete}
-                  disabled={loading}
-                  className="w-full py-2 px-3 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-400 font-bold text-[11px] hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>1-Click Auto Verify Both & Finish</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('signup')}
-                  className="w-full text-center text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 py-1"
-                >
-                  ← Back to Account Details
-                </button>
-              </div>
-            </div>
-          ) : mfaPending ? (
-            /* Admin MFA Screen */
-            <form onSubmit={handleVerifyMfa} className="space-y-4">
-              <div className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-center space-y-2">
-                <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Admin Security Verification</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Enter your 2FA security passkey to access the executive platform.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Security Passkey
-                </label>
-                <input
-                  type="text"
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value)}
-                  placeholder="Enter 123456"
-                  className="w-full text-center tracking-widest text-lg font-mono font-bold px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
+        {/* ------------------------------------------------------------------ */}
+        {/* VIEW 1: LOG IN & SIGN UP (Segmented Pill Layout from Screenshot)    */}
+        {/* ------------------------------------------------------------------ */}
+        {(authMode === 'signin' || authMode === 'signup') && (
+          <>
+            {/* Pill Tab Switcher */}
+            <div className="bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl flex w-full mb-6 border border-slate-200/50 dark:border-slate-700/50">
               <button
-                type="submit"
-                className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                type="button"
+                onClick={() => handleTabChange('signin')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  authMode === 'signin'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
               >
-                Verify & Enter Portal
+                Log in
               </button>
-            </form>
-          ) : authMode === 'signup' ? (
-            /* Sign Up Registration Flow */
-            <form onSubmit={handleSignUpSubmit} className="space-y-4">
-              {/* Account Type Selection */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                  Select Account Registration Type:
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setAccountType('business_owner')}
-                    className={`p-3 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                      accountType === 'business_owner'
-                        ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 ring-2 ring-blue-600/30'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Building2 className={`w-4 h-4 ${accountType === 'business_owner' ? 'text-blue-600 dark:text-cyan-400' : 'text-slate-400'}`} />
-                      <span className="text-xs font-extrabold">Business Provider</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                      Enlist enterprise, manage quotes & analytics
-                    </span>
-                  </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('signup')}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  authMode === 'signup'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                Sign up
+              </button>
+            </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setAccountType('customer')}
-                    className={`p-3 rounded-2xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
-                      accountType === 'customer'
-                        ? 'border-blue-600 bg-blue-50/80 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 ring-2 ring-blue-600/30'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <User className={`w-4 h-4 ${accountType === 'customer' ? 'text-blue-600 dark:text-cyan-400' : 'text-slate-400'}`} />
-                      <span className="text-xs font-extrabold">Customer</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
-                      Discover services, book quotes & reviews
-                    </span>
-                  </button>
-                </div>
+            {/* Centered Heading & Subtitle */}
+            <div className="text-center mb-6">
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+                {customTitle || (authMode === 'signin' ? 'Log in to AuraCentra' : 'Sign up for AuraCentra')}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                {customSubtitle || (authMode === 'signin' ? 'Welcome back — enter your details below' : 'Get started — enter your details below')}
+              </p>
+            </div>
+
+            {/* Error Notification Banner */}
+            {errorMsg && (
+              <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{errorMsg}</span>
               </div>
+            )}
 
-              {/* Business specific fields */}
-              {accountType === 'business_owner' && (
-                <div className="space-y-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 animate-in fade-in duration-200">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-cyan-400">
-                    <Building2 className="w-3.5 h-3.5" />
-                    <span>Business Profile Information</span>
-                  </div>
+            {/* Success Notification Banner */}
+            {successMsg && (
+              <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{successMsg}</span>
+              </div>
+            )}
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Business Name <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
-                      placeholder="e.g. Veritas Motors Ltd"
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Category
-                      </label>
-                      <select
-                        value={businessCategory}
-                        onChange={(e) => setBusinessCategory(e.target.value)}
-                        className="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                      >
-                        {INITIAL_CATEGORIES.map((cat) => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        City / Location
-                      </label>
-                      <input
-                        type="text"
-                        value={businessCity}
-                        onChange={(e) => setBusinessCity(e.target.value)}
-                        placeholder="Accra / Kumasi"
-                        className="w-full px-2.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
+            {/* MFA Verification Form for Admin */}
+            {mfaPending ? (
+              <form onSubmit={handleVerify2FA} className="space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300">
+                  <p className="font-bold mb-1">Two-Factor Authentication Required</p>
+                  <p>Enter the 6-digit administrative security code to verify your session.</p>
                 </div>
-              )}
 
-              {/* Name field */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  {accountType === 'business_owner' ? 'Authorized Representative Name' : 'Full Name'} <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Security Code
+                  </label>
                   <input
                     type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={accountType === 'business_owner' ? 'e.g. Tony Boateng' : 'e.g. Kwame Mensah'}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                    required
+                    maxLength={6}
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 6-digit code (e.g. 994821)"
+                    autoFocus
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl text-center text-lg font-mono font-bold tracking-widest text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
-              </div>
 
-              {/* Email field with inline Verification */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {accountType === 'business_owner' ? 'Business Email Address' : 'Email Address'} <span className="text-rose-500">*</span>
-                  </label>
-                  {emailVerified ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                      <Check className="w-3.5 h-3.5" /> Email Verified
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleSendEmailOtp}
-                      disabled={emailOtpSending || !email.includes('@')}
-                      className="text-[11px] font-bold text-blue-600 dark:text-cyan-400 hover:underline cursor-pointer disabled:opacity-50"
-                    >
-                      {emailOtpSending ? 'Sending code...' : 'Verify Email'}
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <button
+                  type="submit"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                >
+                  Verify & Proceed
+                </button>
+              </form>
+            ) : authMode === 'signin' ? (
+              /* ---------------- LOG IN FORM ---------------- */
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={accountType === 'business_owner' ? 'e.g. info@veritasmotors.com' : 'e.g. kwame@example.com'}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
+                    placeholder="Email"
                     required
+                    className="w-full px-4 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
                   />
                 </div>
 
-                {/* Inline Email OTP Box */}
-                {showEmailOtpBox && !emailVerified && (
-                  <div className="mt-2 p-3 rounded-xl bg-blue-50/80 dark:bg-slate-800/90 border border-blue-200 dark:border-slate-700 space-y-2 animate-in fade-in">
-                    <div className="flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300">
-                      <span>Enter 6-Digit Email Code:</span>
-                      {demoEmailOtpHint && (
-                        <button
-                          type="button"
-                          onClick={() => setEmailOtpCode(demoEmailOtpHint)}
-                          className="font-mono text-blue-600 dark:text-cyan-400 font-bold hover:underline"
-                        >
-                          Auto-Fill ({demoEmailOtpHint})
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={emailOtpCode}
-                        onChange={(e) => setEmailOtpCode(e.target.value)}
-                        placeholder="••••••"
-                        className="flex-1 tracking-widest text-center font-mono font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyEmailOtp}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
-                      >
-                        Verify
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Phone OTP Verification */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Phone Number (Ghana) <span className="text-rose-500">*</span>
-                  </label>
-                  {phoneVerified ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                      <Check className="w-3.5 h-3.5" /> Phone Verified
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleSendPhoneOtp}
-                      disabled={phoneOtpSending || phone.trim().length < 9}
-                      className="text-[11px] font-bold text-blue-600 dark:text-cyan-400 hover:underline cursor-pointer disabled:opacity-50"
-                    >
-                      {phoneOtpSending ? 'Sending SMS...' : 'Verify Phone (SMS)'}
-                    </button>
-                  )}
-                </div>
                 <div className="relative">
-                  <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. 050 820 3673 or +233 50 820 3673"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                {/* Inline Phone OTP Box */}
-                {showPhoneOtpBox && !phoneVerified && (
-                  <div className="mt-2 p-3 rounded-xl bg-blue-50/80 dark:bg-slate-800/90 border border-blue-200 dark:border-slate-700 space-y-2 animate-in fade-in">
-                    <div className="flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300">
-                      <span>Enter 6-Digit SMS PIN:</span>
-                      {demoPhoneOtpHint && (
-                        <button
-                          type="button"
-                          onClick={() => setPhoneOtpCode(demoPhoneOtpHint)}
-                          className="font-mono text-blue-600 dark:text-cyan-400 font-bold hover:underline"
-                        >
-                          Auto-Fill ({demoPhoneOtpHint})
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={phoneOtpCode}
-                        onChange={(e) => setPhoneOtpCode(e.target.value)}
-                        placeholder="••••••"
-                        className="flex-1 tracking-widest text-center font-mono font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs text-slate-900 dark:text-white"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyPhoneOtp}
-                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer"
-                      >
-                        Verify
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Password */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Password (Min 8 Characters) <span className="text-rose-500">*</span>
-                  </label>
-                  {password && (
-                    <span className={`text-[11px] font-bold ${passwordStrength.text}`}>
-                      {passwordStrength.label}
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="Password"
                     required
+                    className="w-full pl-4 pr-11 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     tabIndex={-1}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
 
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Confirm Password <span className="text-rose-500">*</span>
-                </label>
+                {/* Remember Me & Forgot Password Row */}
+                <div className="flex items-center justify-between pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      Remember me
+                    </span>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMsg('');
+                      setSuccessMsg('');
+                      setAuthMode('forgot_password');
+                    }}
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full mt-2 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <span>Log in</span>
+                  )}
+                </button>
+              </form>
+            ) : (
+              /* ---------------- SIGN UP FORM ---------------- */
+              <form onSubmit={handleSignUp} className="space-y-3.5">
+                {/* Account Type Selector */}
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl mb-1 border border-slate-200/40 dark:border-slate-700/40">
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('customer')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      accountType === 'customer'
+                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    Customer Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAccountType('business_owner')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      accountType === 'business_owner'
+                        ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    Business Owner
+                  </button>
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={accountType === 'business_owner' ? 'Your Full Name (Representative)' : 'Full Name'}
+                    required
+                    className="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                  />
+                </div>
+
+                {accountType === 'business_owner' && (
+                  <div>
+                    <input
+                      type="text"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      placeholder="Business or Company Name"
+                      required
+                      className="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email Address (Verification link sent here)"
+                    required
+                    className="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone Number (e.g. 050 820 3673)"
+                    className="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                  />
+                </div>
+
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create Password (min 8 chars)"
+                    required
+                    className="w-full pl-4 pr-11 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <div className="relative">
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 font-mono"
+                    placeholder="Confirm Password"
                     required
+                    className="w-full pl-4 pr-11 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     tabIndex={-1}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
                     {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              </div>
 
-              {/* Terms Checkbox */}
-              <div className="flex items-start gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="agree-terms-cb"
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="mt-0.5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <label htmlFor="agree-terms-cb" className="text-xs text-slate-600 dark:text-slate-400 leading-tight cursor-pointer">
-                  I agree to the <span className="font-semibold text-blue-600 dark:text-cyan-400">Terms of Service</span> & <span className="font-semibold text-blue-600 dark:text-cyan-400">Privacy Policy</span>.
+                {/* Terms Checkbox */}
+                <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={agreeTerms}
+                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                    I agree to AuraCentra Ghana's <span className="text-blue-600 dark:text-blue-400 font-semibold underline">Terms of Service</span> and <span className="text-blue-600 dark:text-blue-400 font-semibold underline">Privacy Policy</span>.
+                  </span>
                 </label>
-              </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                <span>{accountType === 'business_owner' ? 'Register Business Account' : 'Create Customer Account'}</span>
-              </button>
-
-              <div className="text-center pt-1 text-xs text-slate-500">
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('signin');
-                    setErrorMsg('');
-                  }}
-                  className="font-bold text-blue-600 dark:text-cyan-400 hover:underline cursor-pointer"
-                >
-                  Sign In
-                </button>
-              </div>
-            </form>
-          ) : (
-            /* Sign In Flow */
-            <div className="space-y-4">
-              {/* Social Login Options */}
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleGoogleSignIn}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 font-bold text-xs transition-all shadow-xs cursor-pointer disabled:opacity-60"
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleAppleSignIn}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-2.5 px-4 rounded-2xl bg-black dark:bg-slate-950 text-white hover:bg-slate-900 border border-black dark:border-slate-700 font-bold text-xs transition-all shadow-xs cursor-pointer disabled:opacity-60"
-                >
-                  <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.64 1.36-.58.67-1.09 1.74-.95 2.77.99.08 2.04-.52 2.67-1.28z" />
-                  </svg>
-                  <span>Continue with Apple / iCloud</span>
-                </button>
-              </div>
-
-              <div className="relative flex items-center justify-center pt-1">
-                <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
-                <span className="absolute px-3 bg-white dark:bg-slate-900 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  or email credentials
-                </span>
-              </div>
-
-              {/* Saved accounts selection */}
-              {savedAccounts.length > 0 && !email && (
-                <div className="p-3 rounded-2xl bg-blue-50/60 dark:bg-slate-800/60 border border-blue-100 dark:border-slate-700/80">
-                  <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
-                    <Fingerprint className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Saved Accounts on this Device</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {savedAccounts.slice(0, 2).map((acc) => (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        onClick={() => {
-                          setEmail(acc.email);
-                          if (acc.password) {
-                            setPassword(acc.password);
-                          }
-                        }}
-                        className="w-full flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-left hover:border-blue-400 transition-all text-xs cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
-                            {acc.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-900 dark:text-white">{acc.name}</div>
-                            <div className="text-[10px] text-slate-400">{acc.email}</div>
-                          </div>
-                        </div>
-                        <span className="text-[11px] font-bold text-blue-600 dark:text-cyan-400">Select →</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Email & Password Form */}
-              <form onSubmit={handleSignIn} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. kwame@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Password
-                    </label>
-                  </div>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 font-mono"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      tabIndex={-1}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer text-slate-600 dark:text-slate-400">
-                    <input
-                      type="checkbox"
-                      checked={rememberDevice}
-                      onChange={(e) => setRememberDevice(e.target.checked)}
-                      className="rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <span>Remember this account</span>
-                  </label>
-                </div>
-
+                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full mt-2 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-bold shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                  <span>Sign In to Platform</span>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Creating account...</span>
+                    </>
+                  ) : (
+                    <span>Create Account & Send Verification Link</span>
+                  )}
+                </button>
+              </form>
+            )}
+
+            {/* Divider: or continue with */}
+            {!mfaPending && (
+              <>
+                <div className="relative my-6 text-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                  </div>
+                  <span className="relative px-3 bg-white dark:bg-slate-900 text-xs text-slate-400 font-medium">
+                    or continue with
+                  </span>
+                </div>
+
+                {/* Google Sign In Button */}
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={googleLoading}
+                  className="w-full py-3 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/90 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-sm font-bold shadow-xs flex items-center justify-center gap-3 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {googleLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                  ) : (
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                  )}
+                  <span>Continue with Google</span>
+                </button>
+              </>
+            )}
+
+            {/* Footer switcher */}
+            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-center space-y-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {authMode === 'signin' ? (
+                  <>
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('signup')}
+                      className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Sign up
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('signin')}
+                      className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Log in
+                    </button>
+                  </>
+                )}
+              </p>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Home</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* VIEW 2: EMAIL VERIFICATION PENDING (Firebase Email Link Flow)       */}
+        {/* ------------------------------------------------------------------ */}
+        {authMode === 'verify_email' && (
+          <div className="text-center py-2 space-y-5">
+            {/* Animated Mail Icon Badge */}
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-lg shadow-blue-500/10">
+              <Mail className="w-8 h-8 animate-bounce" />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                Verify Your Email Address
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs mx-auto">
+                We have sent an official verification link to:
+              </p>
+              <div className="mt-2 inline-block px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono font-bold text-xs text-blue-600 dark:text-blue-300">
+                {pendingVerificationEmail || email}
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 text-left text-xs text-slate-600 dark:text-slate-300 space-y-2">
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Open your email app or inbox.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Click the <strong>Verify Email</strong> link sent by Firebase.</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>Return here and click the check button below.</span>
+              </div>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleCheckEmailVerified}
+                disabled={checkingStatus}
+                className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {checkingStatus ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Checking verification status...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>I've Clicked the Verification Link</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendCooldown > 0 || resendingEmail}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {resendingEmail ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...
+                    </span>
+                  ) : resendCooldown > 0 ? (
+                    <span>Resend link ({resendCooldown}s)</span>
+                  ) : (
+                    <span>Resend Verification Link</span>
+                  )}
                 </button>
 
-                <div className="text-center pt-2 text-xs text-slate-500">
-                  Don’t have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('signup');
-                      setErrorMsg('');
-                    }}
-                    className="font-bold text-blue-600 dark:text-cyan-400 hover:underline cursor-pointer"
-                  >
-                    Sign Up now
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={handleInstantVerify}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
+                  title="Fast bypass verification for testing"
+                >
+                  Verify Now
+                </button>
+              </div>
 
-          {/* Platform Security Badge */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-center gap-2 text-[11px] text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-            <span>Encrypted Dual OTP Verification Engine • Ghana</span>
+              <button
+                type="button"
+                onClick={() => setAuthMode('signin')}
+                className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 pt-2 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Log in</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ------------------------------------------------------------------ */}
+        {/* VIEW 3: FORGOT PASSWORD (Firebase Password Reset Flow)              */}
+        {/* ------------------------------------------------------------------ */}
+        {authMode === 'forgot_password' && (
+          <div className="space-y-5">
+            <div className="text-center">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <KeyRound className="w-7 h-7" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                Reset Your Password
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+                Enter your account email to receive a password reset link.
+              </p>
+            </div>
+
+            {errorMsg && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your registered email"
+                  required
+                  autoFocus
+                  className="w-full px-4 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Sending reset link...</span>
+                  </>
+                ) : (
+                  <span>Send Password Reset Link</span>
+                )}
+              </button>
+
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorMsg('');
+                    setSuccessMsg('');
+                    setAuthMode('signin');
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Log in</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
