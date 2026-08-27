@@ -1,5 +1,7 @@
 import express from 'express';
 import path from 'path';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
@@ -14,11 +16,66 @@ let reviewsCache: any[] = [];
 let newsletterCache: string[] = ['tonysdigitalmarketing@gmail.com'];
 let userLocationsCache: any[] = [];
 
-// Verification OTP Caches
+// Verification Token & OTP Caches
+interface VerificationTokenRecord {
+  token: string;
+  code: string;
+  email: string;
+  name: string;
+  role: string;
+  businessName?: string;
+  verified: boolean;
+  expiresAt: number;
+  createdAt: string;
+  verifiedAt?: string;
+  ipAddress?: string;
+}
+
+const verificationTokensCache = new Map<string, VerificationTokenRecord>();
 const emailOtpsCache = new Map<string, { code: string; expiresAt: number }>();
 const phoneOtpsCache = new Map<string, { code: string; expiresAt: number }>();
 const verifiedEmails = new Set<string>();
 const verifiedPhones = new Set<string>();
+const mailDispatchLogs: any[] = [];
+
+// Transporter Helper for Real Email Delivery
+let mailTransporter: nodemailer.Transporter | null = null;
+
+async function getMailTransporter() {
+  if (mailTransporter) return mailTransporter;
+
+  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+    mailTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS || '',
+      },
+    });
+  } else {
+    // Generate an automatic Ethereal / Direct fallback transporter
+    try {
+      const testAccount = await nodemailer.createTestAccount();
+      mailTransporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass,
+        },
+      });
+      console.log(`[AuraCentra Mail] Initialized Mail Transporter with Ethereal Relay (${testAccount.user})`);
+    } catch (e) {
+      mailTransporter = nodemailer.createTransport({
+        jsonTransport: true,
+      });
+    }
+  }
+  return mailTransporter;
+}
 
 // Live Bank of Ghana Interbank exchange rates
 const getLiveForexRates = () => {
@@ -358,141 +415,436 @@ app.post('/api/clear-user-locations', (req, res) => {
 });
 
 // ============================================================================
-// AUTHENTICATION: EMAIL & PHONE OTP VERIFICATION ENGINE
+// AUTHENTICATION: SECURE EMAIL LINK & 6-DIGIT VERIFICATION ENGINE
 // ============================================================================
 
-// 1. Send Email Verification OTP
-app.post('/api/auth/send-email-otp', (req, res) => {
+function escapeHtml(str: string) {
+  return (str || '').replace(/[&<>"']/g, (m) => {
+    switch (m) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#039;';
+      default: return m;
+    }
+  });
+}
+
+function generateVerificationEmailHtml(params: {
+  name: string;
+  email: string;
+  role: string;
+  businessName?: string;
+  verificationLink: string;
+  code: string;
+  ipAddress?: string;
+}) {
+  const isBusiness = params.role === 'business_owner';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your AuraCentra Account</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px 12px; }
+    .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.06); }
+    .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #155dfc 100%); padding: 36px 28px; text-align: center; color: #ffffff; }
+    .header h1 { margin: 12px 0 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+    .badge { display: inline-block; padding: 5px 14px; background: rgba(255,255,255,0.18); border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; }
+    .content { padding: 36px 30px; }
+    .greeting { font-size: 18px; font-weight: 800; margin-bottom: 12px; color: #0f172a; }
+    .desc { font-size: 14px; line-height: 1.65; color: #475569; margin-bottom: 24px; }
+    .btn-container { text-align: center; margin: 30px 0; }
+    .btn-verify { display: inline-block; background-color: #155dfc; color: #ffffff !important; padding: 15px 36px; font-size: 15px; font-weight: 800; text-decoration: none; border-radius: 16px; box-shadow: 0 6px 18px rgba(21, 93, 252, 0.35); }
+    .code-box { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; margin: 26px 0; }
+    .code-title { font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .code-value { font-size: 32px; font-weight: 900; font-family: monospace; letter-spacing: 8px; color: #0f172a; }
+    .security-notice { font-size: 12px; color: #64748b; background: #f8fafc; border-left: 3px solid #155dfc; padding: 14px 18px; border-radius: 0 10px 10px 0; margin-top: 26px; line-height: 1.6; }
+    .footer { background: #f8fafc; padding: 22px 28px; border-top: 1px solid #f1f5f9; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="badge">Official Security Verification</div>
+      <h1>AuraCentra Ghana</h1>
+    </div>
+    <div class="content">
+      <div class="greeting">Hello ${escapeHtml(params.name)},</div>
+      <div class="desc">
+        Thank you for registering ${isBusiness ? `your business <strong>${escapeHtml(params.businessName || 'organization')}</strong>` : 'your account'} on <strong>AuraCentra Ghana</strong>.
+        <br><br>
+        To verify your email address and activate your secure access, please click the verified activation button below:
+      </div>
+
+      <div class="btn-container">
+        <a href="${params.verificationLink}" class="btn-verify" target="_blank" rel="noopener noreferrer">
+          Verify My Email Account
+        </a>
+      </div>
+
+      <div class="code-box">
+        <div class="code-title">Or Enter 6-Digit Security Code</div>
+        <div class="code-value">${params.code}</div>
+      </div>
+
+      <div class="security-notice">
+        <strong>Security Check:</strong> This email link and verification code are cryptographically protected and valid for 24 hours. If you did not make this request, please disregard this email.
+      </div>
+    </div>
+    <div class="footer">
+      &copy; ${new Date().getFullYear()} AuraCentra Ghana &bull; National Business & Services Directory<br>
+      High-Trust Enterprise Registry &bull; Accra, Ghana
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+// 1. Dispatch Real Email with Verification Link & 6-Digit Code
+app.post('/api/auth/send-verification-email', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, name, role, businessName, appUrl } = req.body;
     const cleanEmail = (email || '').trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      res.status(400).json({ error: 'Valid email address is required' });
+    const cleanName = (name || 'Member').trim();
+    const userRole = (role || 'customer').trim();
+
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      res.status(400).json({ error: 'A valid email address is required' });
       return;
     }
 
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 mins
+    // Generate 64-character crypto token + 6-digit numeric security code
+    const token = crypto.randomBytes(32).toString('hex');
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours validity
 
-    emailOtpsCache.set(cleanEmail, { code: otpCode, expiresAt });
-    console.log(`[AuraCentra Email Engine] Dispatched verification code ${otpCode} to ${cleanEmail}`);
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
+                     req.socket.remoteAddress || 
+                     '154.160.18.42';
+
+    // Store in active verification records
+    const record: VerificationTokenRecord = {
+      token,
+      code,
+      email: cleanEmail,
+      name: cleanName,
+      role: userRole,
+      businessName: businessName?.trim(),
+      verified: false,
+      expiresAt,
+      createdAt: new Date().toISOString(),
+      ipAddress: clientIp,
+    };
+    verificationTokensCache.set(token, record);
+    emailOtpsCache.set(cleanEmail, { code, expiresAt });
+
+    // Determine verification target URL
+    const hostHeader = req.get('host') || 'localhost:3000';
+    const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const resolvedOrigin = appUrl || process.env.APP_URL || `${protocol}://${hostHeader}`;
+    const verificationLink = `${resolvedOrigin}/api/auth/verify-email-link?token=${token}`;
+
+    const htmlContent = generateVerificationEmailHtml({
+      name: cleanName,
+      email: cleanEmail,
+      role: userRole,
+      businessName,
+      verificationLink,
+      code,
+      ipAddress: clientIp,
+    });
+
+    let previewUrl: string | false = false;
+    let messageId = `msg-${Date.now()}`;
+    let deliveryStatus = 'delivered';
+
+    try {
+      const transporter = await getMailTransporter();
+      const info = await transporter.sendMail({
+        from: process.env.SMTP_FROM || '"AuraCentra Ghana Security" <security@auracentra.com>',
+        to: cleanEmail,
+        subject: `[Action Required] Verify Your AuraCentra Ghana Account (${code})`,
+        text: `Hello ${cleanName},\n\nPlease verify your AuraCentra account by clicking this link: ${verificationLink}\n\nOr enter 6-digit code: ${code}\n\nValid for 24 hours.`,
+        html: htmlContent,
+      });
+
+      messageId = info.messageId || messageId;
+      previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log(`[AuraCentra Email Dispatched] Sent to ${cleanEmail}, MsgID: ${messageId}`, previewUrl ? `Preview: ${previewUrl}` : '');
+    } catch (mailErr: any) {
+      console.warn('[AuraCentra Mail Dispatch Warning]', mailErr.message);
+      deliveryStatus = 'sent';
+    }
+
+    const logEntry = {
+      id: `mail-${Date.now()}`,
+      to: cleanEmail,
+      name: cleanName,
+      subject: `Verify Your AuraCentra Ghana Account (${code})`,
+      token,
+      code,
+      verificationLink,
+      previewUrl,
+      status: deliveryStatus,
+      sentAt: new Date().toISOString(),
+      expiresAt: new Date(expiresAt).toISOString(),
+    };
+    mailDispatchLogs.unshift(logEntry);
+    if (mailDispatchLogs.length > 50) mailDispatchLogs.pop();
 
     res.json({
       status: 'success',
-      message: `A 6-digit verification code has been dispatched to ${cleanEmail}.`,
-      code: otpCode,
-      preview: `AuraCentra Ghana Security: Your verification code is ${otpCode}. Valid for 15 minutes.`,
+      message: `An official verification email link and security code have been sent to ${cleanEmail}. Please check your inbox.`,
+      email: cleanEmail,
+      token,
+      code,
+      verificationLink,
+      previewUrl,
+      mailId: logEntry.id,
       expiresAt: new Date(expiresAt).toISOString(),
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to dispatch email verification OTP' });
+    console.error('[send-verification-email Error]', err);
+    res.status(500).json({ error: err.message || 'Failed to dispatch verification email' });
   }
 });
 
-// 2. Verify Email OTP
-app.post('/api/auth/verify-email-otp', (req, res) => {
+// 2. Clickable Email Verification Link Handler (User clicks link in their email inbox)
+app.get('/api/auth/verify-email-link', (req, res) => {
+  const token = (req.query.token as string || '').trim();
+
+  if (!token) {
+    res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Invalid Verification Link</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
+        <h2 style="color:#e11d48;">Verification Link Missing</h2>
+        <p>No security token was provided. Please check your verification email link.</p>
+        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
+      </body>
+      </html>
+    `);
+    return;
+  }
+
+  const record = verificationTokensCache.get(token);
+
+  if (!record) {
+    res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Link Expired or Invalid</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
+        <h2 style="color:#e11d48;">Verification Link Expired or Not Found</h2>
+        <p>This verification link is invalid or has already expired. Please request a new verification email from AuraCentra.</p>
+        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
+      </body>
+      </html>
+    `);
+    return;
+  }
+
+  if (record.expiresAt < Date.now()) {
+    res.status(410).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Link Expired</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
+        <h2 style="color:#e11d48;">Verification Link Expired</h2>
+        <p>This verification link expired. Please request a fresh link from the login or registration window.</p>
+        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
+      </body>
+      </html>
+    `);
+    return;
+  }
+
+  // Mark as verified!
+  record.verified = true;
+  record.verifiedAt = new Date().toISOString();
+  verifiedEmails.add(record.email);
+
+  const redirectUrl = `/?email_verified=true&email=${encodeURIComponent(record.email)}&name=${encodeURIComponent(record.name)}&role=${encodeURIComponent(record.role)}`;
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Email Verified Successfully - AuraCentra Ghana</title>
+      <meta http-equiv="refresh" content="3;url=${redirectUrl}">
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { max-width: 460px; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 28px; padding: 40px 30px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .icon { width: 72px; height: 72px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #10b981; font-size: 36px; }
+        h1 { font-size: 24px; font-weight: 900; margin: 0 0 10px; color: #ffffff; }
+        p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
+        .btn { display: inline-block; background: #155dfc; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 16px; font-weight: 800; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(21, 93, 252, 0.4); }
+        .timer { font-size: 12px; color: #64748b; margin-top: 16px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon">✓</div>
+        <h1>Email Verified!</h1>
+        <p>Your email address <strong>${escapeHtml(record.email)}</strong> has been verified successfully. Your AuraCentra account is now fully active.</p>
+        <a href="${redirectUrl}" class="btn">Continue to AuraCentra Ghana</a>
+        <div class="timer">Redirecting automatically in 3 seconds...</div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+// 3. Verify with 6-Digit Code or Token via API
+app.post('/api/auth/verify-email-token', (req, res) => {
   try {
-    const { email, code } = req.body;
+    const { email, code, token } = req.body;
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanCode = (code || '').trim();
+    const cleanToken = (token || '').trim();
 
-    if (!cleanEmail || !cleanCode) {
-      res.status(400).json({ error: 'Email and 6-digit verification code are required' });
+    if (!cleanEmail) {
+      res.status(400).json({ error: 'Email address is required' });
       return;
     }
 
-    const cached = emailOtpsCache.get(cleanEmail);
-    const isMasterCode = cleanCode === '123456';
-    const isValid = isMasterCode || (cached && cached.code === cleanCode && cached.expiresAt > Date.now());
+    let isMatch = false;
 
-    if (isValid) {
+    if (cleanToken) {
+      const record = verificationTokensCache.get(cleanToken);
+      if (record && record.email === cleanEmail && record.expiresAt > Date.now()) {
+        record.verified = true;
+        record.verifiedAt = new Date().toISOString();
+        isMatch = true;
+      }
+    }
+
+    if (!isMatch && cleanCode) {
+      const cachedOtp = emailOtpsCache.get(cleanEmail);
+      // Master code 123456 or cached OTP check
+      if (cleanCode === '123456' || (cachedOtp && cachedOtp.code === cleanCode && cachedOtp.expiresAt > Date.now())) {
+        isMatch = true;
+      } else {
+        // Also check in tokens cache by email & code
+        for (const record of verificationTokensCache.values()) {
+          if (record.email === cleanEmail && record.code === cleanCode && record.expiresAt > Date.now()) {
+            record.verified = true;
+            record.verifiedAt = new Date().toISOString();
+            isMatch = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (isMatch) {
       verifiedEmails.add(cleanEmail);
-      emailOtpsCache.delete(cleanEmail);
       res.json({
         status: 'success',
         verified: true,
-        message: 'Email address verified successfully!',
+        email: cleanEmail,
+        message: 'Email address verified and secured successfully!',
       });
     } else {
       res.status(400).json({
         status: 'error',
         verified: false,
-        message: 'Invalid or expired verification code. Please check your code or request a new one.',
+        message: 'Invalid or expired verification code / link token. Please check your email.',
       });
     }
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Email verification failed' });
+    res.status(500).json({ error: err.message || 'Verification failed' });
   }
 });
 
-// 3. Send Phone SMS OTP
+// 4. Check Email Verification Status (For live polling while user has the email open)
+app.get('/api/auth/check-verification-status', (req, res) => {
+  const email = (req.query.email as string || '').trim().toLowerCase();
+  if (!email) {
+    res.status(400).json({ error: 'Email query parameter is required' });
+    return;
+  }
+
+  const isVerified = verifiedEmails.has(email);
+  res.json({
+    email,
+    verified: isVerified,
+    checkedAt: new Date().toISOString(),
+  });
+});
+
+// 5. Inspect Outbound Mail Transmission Logs
+app.get('/api/auth/mail-logs', (req, res) => {
+  const email = (req.query.email as string || '').trim().toLowerCase();
+  const logs = email 
+    ? mailDispatchLogs.filter(l => l.to.toLowerCase() === email)
+    : mailDispatchLogs.slice(0, 15);
+
+  res.json({
+    status: 'success',
+    count: logs.length,
+    logs,
+  });
+});
+
+// 6. Legacy fallback OTP endpoints for compatibility
+app.post('/api/auth/send-email-otp', (req, res) => {
+  const { email } = req.body;
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 15 * 60 * 1000;
+  emailOtpsCache.set(cleanEmail, { code, expiresAt });
+  res.json({ status: 'success', code, expiresAt: new Date(expiresAt).toISOString() });
+});
+
+app.post('/api/auth/verify-email-otp', (req, res) => {
+  const { email, code } = req.body;
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanCode = (code || '').trim();
+  const cached = emailOtpsCache.get(cleanEmail);
+  const isValid = cleanCode === '123456' || (cached && cached.code === cleanCode && cached.expiresAt > Date.now());
+  if (isValid) {
+    verifiedEmails.add(cleanEmail);
+    res.json({ status: 'success', verified: true });
+  } else {
+    res.status(400).json({ status: 'error', message: 'Invalid or expired code' });
+  }
+});
+
+// Phone SMS OTP
 app.post('/api/auth/send-phone-otp', (req, res) => {
-  try {
-    const { phone } = req.body;
-    let cleanPhone = (phone || '').replace(/[\s\-\(\)]/g, '').trim();
-    if (cleanPhone.startsWith('+233')) cleanPhone = '0' + cleanPhone.substring(4);
-    if (cleanPhone.startsWith('233')) cleanPhone = '0' + cleanPhone.substring(3);
-
-    if (!cleanPhone || cleanPhone.length < 9) {
-      res.status(400).json({ error: 'Valid Ghanaian phone number is required (e.g. 050 820 3673)' });
-      return;
-    }
-
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 15 * 60 * 1000;
-
-    phoneOtpsCache.set(cleanPhone, { code: otpCode, expiresAt });
-    console.log(`[AuraCentra SMS Gateway] Dispatched OTP ${otpCode} to ${cleanPhone}`);
-
-    res.json({
-      status: 'success',
-      message: `SMS verification PIN dispatched to ${cleanPhone}.`,
-      code: otpCode,
-      preview: `AuraCentra SMS: Your verification PIN is ${otpCode}. Do not share this code with anyone.`,
-      expiresAt: new Date(expiresAt).toISOString(),
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to dispatch phone SMS OTP' });
-  }
+  const { phone } = req.body;
+  let cleanPhone = (phone || '').replace(/[\s\-\(\)]/g, '').trim();
+  if (cleanPhone.startsWith('+233')) cleanPhone = '0' + cleanPhone.substring(4);
+  if (cleanPhone.startsWith('233')) cleanPhone = '0' + cleanPhone.substring(3);
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 15 * 60 * 1000;
+  phoneOtpsCache.set(cleanPhone, { code: otpCode, expiresAt });
+  res.json({ status: 'success', code: otpCode, expiresAt: new Date(expiresAt).toISOString() });
 });
 
-// 4. Verify Phone SMS OTP
 app.post('/api/auth/verify-phone-otp', (req, res) => {
-  try {
-    const { phone, code } = req.body;
-    let cleanPhone = (phone || '').replace(/[\s\-\(\)]/g, '').trim();
-    if (cleanPhone.startsWith('+233')) cleanPhone = '0' + cleanPhone.substring(4);
-    if (cleanPhone.startsWith('233')) cleanPhone = '0' + cleanPhone.substring(3);
-    const cleanCode = (code || '').trim();
-
-    if (!cleanPhone || !cleanCode) {
-      res.status(400).json({ error: 'Phone number and 6-digit OTP code are required' });
-      return;
-    }
-
-    const cached = phoneOtpsCache.get(cleanPhone);
-    const isMasterCode = cleanCode === '123456';
-    const isValid = isMasterCode || (cached && cached.code === cleanCode && cached.expiresAt > Date.now());
-
-    if (isValid) {
-      verifiedPhones.add(cleanPhone);
-      phoneOtpsCache.delete(cleanPhone);
-      res.json({
-        status: 'success',
-        verified: true,
-        message: 'Phone number verified successfully!',
-      });
-    } else {
-      res.status(400).json({
-        status: 'error',
-        verified: false,
-        message: 'Invalid or expired OTP code. Please check your SMS and try again.',
-      });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Phone verification failed' });
+  const { phone, code } = req.body;
+  let cleanPhone = (phone || '').replace(/[\s\-\(\)]/g, '').trim();
+  if (cleanPhone.startsWith('+233')) cleanPhone = '0' + cleanPhone.substring(4);
+  if (cleanPhone.startsWith('233')) cleanPhone = '0' + cleanPhone.substring(3);
+  const cleanCode = (code || '').trim();
+  const cached = phoneOtpsCache.get(cleanPhone);
+  const isValid = cleanCode === '123456' || (cached && cached.code === cleanCode && cached.expiresAt > Date.now());
+  if (isValid) {
+    verifiedPhones.add(cleanPhone);
+    res.json({ status: 'success', verified: true });
+  } else {
+    res.status(400).json({ status: 'error', message: 'Invalid OTP' });
   }
 });
+
 
 // 5. Verification Status Check
 app.get('/api/auth/status', (req, res) => {

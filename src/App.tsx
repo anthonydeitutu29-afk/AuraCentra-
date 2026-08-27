@@ -51,7 +51,9 @@ import {
   saveCategorySuggestions,
   getStoredFeedback,
   saveFeedback,
-  validateAndClearSession
+  validateAndClearSession,
+  saveRegisteredAccount,
+  findRegisteredAccountByEmail
 } from './utils/storage';
 import { autoDetectUserLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
@@ -257,6 +259,47 @@ export default function App() {
     }
     localStorage.setItem('auracentra_theme', theme);
   }, [theme]);
+
+  // Check URL query parameters for email verification link landing
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const emailVerified = urlParams.get('email_verified');
+      const verifiedEmail = urlParams.get('email');
+      if (emailVerified === 'true') {
+        showToast(
+          'Email Verified Successfully!',
+          verifiedEmail 
+            ? `Your email address (${verifiedEmail}) is verified and your AuraCentra account is fully active.` 
+            : 'Your email address is verified and active.',
+          'success'
+        );
+        // If current user is logged in with this email, mark as verified in state & storage
+        if (verifiedEmail) {
+          const acc = findRegisteredAccountByEmail(verifiedEmail);
+          if (acc) {
+            saveRegisteredAccount({
+              ...acc,
+              emailVerified: true,
+            });
+          }
+          setCurrentUser((prev) => {
+            if (prev && prev.email.toLowerCase() === verifiedEmail.toLowerCase()) {
+              const updated = { ...prev, emailVerified: true };
+              localStorage.setItem('auracentra_user_clean_v7', JSON.stringify(updated));
+              return updated;
+            }
+            return prev;
+          });
+        }
+        // Clean URL query parameter without page reload
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    } catch (e) {
+      console.warn('[URL verification param handler]', e);
+    }
+  }, [showToast]);
 
   // Persist state changes
   useEffect(() => {

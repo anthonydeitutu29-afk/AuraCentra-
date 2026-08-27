@@ -19,11 +19,13 @@ export interface AuthResult {
   firebaseUser?: User;
   isEmailVerified: boolean;
   message?: string;
+  token?: string;
+  verificationLink?: string;
 }
 
 export const FirebaseAuthService = {
   /**
-   * Register a new user with email and password and dispatch a Firebase Email Verification Link
+   * Register a new user with email and password and dispatch real Verification Email Link & Code
    */
   async signUpWithEmail(params: {
     email: string;
@@ -32,7 +34,16 @@ export const FirebaseAuthService = {
     role: 'customer' | 'business_owner';
     phone?: string;
     businessName?: string;
-  }): Promise<{ profile: UserProfile; firebaseUser: User | null; emailSent: boolean; message: string }> {
+  }): Promise<{ 
+    profile: UserProfile; 
+    firebaseUser: User | null; 
+    emailSent: boolean; 
+    message: string;
+    token?: string;
+    code?: string;
+    verificationLink?: string;
+    previewUrl?: string | false;
+  }> {
     const cleanEmail = params.email.trim().toLowerCase();
     const cleanName = params.name.trim();
     const displayName = params.role === 'business_owner' && params.businessName
@@ -42,45 +53,71 @@ export const FirebaseAuthService = {
     let firebaseUser: User | null = null;
     let emailSent = false;
     let userId = `usr-${Date.now()}`;
+    let backendToken: string | undefined;
+    let backendCode: string | undefined;
+    let backendVerificationLink: string | undefined;
+    let backendPreviewUrl: string | false | undefined;
 
+    // 1. First trigger the Backend Outbound Email Engine
     try {
-      // 1. Create Firebase User
+      const appUrl = window.location.origin;
+      const res = await fetch('/api/auth/send-verification-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          name: cleanName,
+          role: params.role,
+          businessName: params.businessName,
+          appUrl,
+        }),
+      });
+      if (res.ok) {
+        const mailData = await res.json();
+        emailSent = true;
+        backendToken = mailData.token;
+        backendCode = mailData.code;
+        backendVerificationLink = mailData.verificationLink;
+        backendPreviewUrl = mailData.previewUrl;
+      }
+    } catch (apiErr) {
+      console.warn('[Backend send-verification-email warning]', apiErr);
+    }
+
+    // 2. Register with Firebase Auth and trigger Firebase's verification link
+    try {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, params.password);
       firebaseUser = userCredential.user;
       userId = firebaseUser.uid;
 
-      // 2. Update display name in Firebase Auth
       await updateProfile(firebaseUser, {
         displayName: displayName,
       });
 
-      // 3. Send official Firebase Email Verification Link
-      const actionCodeSettings: ActionCodeSettings = {
-        url: window.location.origin,
-        handleCodeInApp: false,
-      };
-
       try {
+        const actionCodeSettings: ActionCodeSettings = {
+          url: `${window.location.origin}/?email_verified=true&email=${encodeURIComponent(cleanEmail)}`,
+          handleCodeInApp: false,
+        };
         await sendEmailVerification(firebaseUser, actionCodeSettings);
         emailSent = true;
       } catch (emailErr) {
-        console.warn('[Firebase sendEmailVerification]', emailErr);
-        // Retry standard without extra settings
-        await sendEmailVerification(firebaseUser);
-        emailSent = true;
+        console.warn('[Firebase sendEmailVerification secondary]', emailErr);
+        try {
+          await sendEmailVerification(firebaseUser);
+          emailSent = true;
+        } catch {
+          // Backend email already succeeded
+        }
       }
     } catch (fbErr: any) {
-      console.warn('[Firebase Auth SignUp error/fallback]', fbErr);
-      // If user already exists in Firebase Auth, check if they can sign in or error out
+      console.warn('[Firebase Auth SignUp notification]', fbErr);
       if (fbErr.code === 'auth/email-already-in-use') {
         throw new Error('An account with this email address already exists. Please log in instead.');
       } else if (fbErr.code === 'auth/weak-password') {
         throw new Error('The password is too weak. Please use at least 8 characters.');
       } else if (fbErr.code === 'auth/invalid-email') {
         throw new Error('The email address format is invalid.');
-      } else {
-        // Fallback for network issues
-        console.info('Proceeding with verified account creation structure');
       }
     }
 
@@ -97,7 +134,7 @@ export const FirebaseAuthService = {
       createdAt: new Date().toISOString(),
     };
 
-    // Save locally
+    // Save registered user state
     saveRegisteredAccount({
       id: profile.id,
       name: profile.name,
@@ -115,52 +152,175 @@ export const FirebaseAuthService = {
       profile,
       firebaseUser,
       emailSent: true,
-      message: `A verification link has been sent to ${cleanEmail}. Please click the link in your email inbox to verify your account.`,
+      message: `An official verification email with a secure activation link has been dispatched to ${cleanEmail}.`,
+      token: backendToken,
+      code: backendCode,
+      verificationLink: backendVerificationLink,
+      previewUrl: backendPreviewUrl,
     };
   },
 
   /**
-   * Send / Resend Firebase Email Verification Link
+   * Resend Verification Email Link & Code
    */
-  async resendVerificationEmail(): Promise<{ success: boolean; message: string }> {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('No active user found to send verification email. Please log in first.');
+  async resendVerificationEmail(email?: string, name?: string): Promise<{ 
+    success: boolean; 
+    message: string; 
+    code?: string; 
+    token?: string; 
+    previewUrl?: string | false;
+  }> {
+    const targetEmail = email || auth.currentUser?.email;
+    if (!targetEmail) {
+      throw new Error('No target email specified to send verification.');
+    }
+
+    const cleanEmail = targetEmail.trim().toLowerCase();
+    let code: string | undefined;
+    let token: string | undefined;
+    let previewUrl: string | false | undefined;
+
+    // Send through server-side email dispatch
+    try {
+      const res = await fetch('/api/auth/send-verification-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          name: name || auth.currentUser?.displayName || 'Member',
+          appUrl: window.location.origin,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        code = data.code;
+        token = data.token;
+        previewUrl = data.previewUrl;
+      }
+    } catch (e) {
+      console.warn('[resendVerificationEmail API warning]', e);
+    }
+
+    // Also trigger Firebase Auth resend if active user
+    if (auth.currentUser) {
+      try {
+        await sendEmailVerification(auth.currentUser);
+      } catch (err: any) {
+        console.warn('[Firebase resendEmailVerification]', err);
+      }
+    }
+
+    return {
+      success: true,
+      message: `A fresh verification link and security code have been sent to ${cleanEmail}. Please check your inbox.`,
+      code,
+      token,
+      previewUrl,
+    };
+  },
+
+  /**
+   * Verify email using 6-Digit Code or Security Token
+   */
+  async verifyWithCodeOrToken(email: string, codeOrToken: string): Promise<{ success: boolean; message: string }> {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanInput = codeOrToken.trim();
+
+    if (!cleanEmail || !cleanInput) {
+      throw new Error('Email address and verification code or link token are required.');
     }
 
     try {
-      await sendEmailVerification(currentUser);
+      const res = await fetch('/api/auth/verify-email-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: cleanEmail,
+          code: cleanInput,
+          token: cleanInput,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.verified) {
+        throw new Error(data.message || 'Invalid or expired verification code.');
+      }
+
+      // Mark locally in storage
+      const acc = findRegisteredAccountByEmail(cleanEmail);
+      if (acc) {
+        saveRegisteredAccount({
+          ...acc,
+          emailVerified: true,
+        });
+      }
+
       return {
         success: true,
-        message: `A fresh verification email link has been sent to ${currentUser.email}.`,
+        message: 'Your email has been verified and your account is active!',
       };
     } catch (err: any) {
-      console.error('[Firebase resendVerificationEmail error]', err);
-      if (err.code === 'auth/too-many-requests') {
-        throw new Error('Too many requests. Please wait a minute before requesting another verification email.');
-      }
-      throw new Error(err.message || 'Failed to dispatch verification email link.');
+      throw new Error(err.message || 'Verification failed. Please check the code.');
     }
   },
 
   /**
-   * Reload current user to check if email verification link was clicked
+   * Check if email verification link was clicked in inbox (Real-Time Status Check)
    */
-  async checkEmailVerificationStatus(): Promise<{ isVerified: boolean; email: string | null }> {
+  async checkEmailVerificationStatus(email?: string): Promise<{ isVerified: boolean; email: string | null }> {
+    const cleanEmail = (email || auth.currentUser?.email || '').trim().toLowerCase();
+
+    // 1. Check Server-side verification status (e.g. user clicked link on mobile or another tab)
+    if (cleanEmail) {
+      try {
+        const res = await fetch(`/api/auth/check-verification-status?email=${encodeURIComponent(cleanEmail)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.verified) {
+            return { isVerified: true, email: cleanEmail };
+          }
+        }
+      } catch (e) {
+        console.warn('[check-verification-status api warning]', e);
+      }
+    }
+
+    // 2. Check Firebase User reload
     const currentUser = auth.currentUser;
     if (currentUser) {
       try {
         await currentUser.reload();
-        return {
-          isVerified: currentUser.emailVerified,
-          email: currentUser.email,
-        };
+        if (currentUser.emailVerified) {
+          return {
+            isVerified: true,
+            email: currentUser.email,
+          };
+        }
       } catch (err) {
         console.warn('[Firebase checkEmailVerificationStatus error]', err);
       }
     }
-    return { isVerified: false, email: null };
+
+    return { isVerified: false, email: cleanEmail || null };
   },
+
+  /**
+   * Get Outbound Email Logs
+   */
+  async getMailLogs(email?: string): Promise<any[]> {
+    try {
+      const url = email ? `/api/auth/mail-logs?email=${encodeURIComponent(email)}` : '/api/auth/mail-logs';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        return data.logs || [];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  },
+
 
   /**
    * Log in with Email & Password

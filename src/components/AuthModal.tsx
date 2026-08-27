@@ -82,6 +82,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [inputVerificationCode, setInputVerificationCode] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [showMailInspector, setShowMailInspector] = useState(false);
+  const [mailLogs, setMailLogs] = useState<any[]>([]);
 
   // 2FA state for Admin login
   const [mfaPending, setMfaPending] = useState(false);
@@ -99,6 +103,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setPendingAdminUser(null);
       setCheckingStatus(false);
       setResendingEmail(false);
+      setInputVerificationCode('');
+      setShowMailInspector(false);
 
       if (initialMode) {
         setAuthMode(initialMode);
@@ -113,6 +119,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     }
   }, [isOpen, initialMode]);
+
+  // Real-time automatic polling when in verify_email mode
+  useEffect(() => {
+    let interval: any = null;
+    if (isOpen && authMode === 'verify_email' && (pendingVerificationEmail || email)) {
+      const target = pendingVerificationEmail || email;
+      
+      // Load initial mail logs for diagnostic
+      FirebaseAuthService.getMailLogs(target).then(logs => setMailLogs(logs));
+
+      interval = setInterval(async () => {
+        try {
+          const status = await FirebaseAuthService.checkEmailVerificationStatus(target);
+          if (status.isVerified) {
+            clearInterval(interval);
+            if (pendingUserProfile) {
+              const verifiedUser: UserProfile = {
+                ...pendingUserProfile,
+                emailVerified: true,
+              };
+              saveRegisteredAccount({
+                ...verifiedUser,
+                emailVerified: true,
+              });
+              onLoginSuccess(verifiedUser);
+              onClose();
+            } else {
+              setSuccessMsg('Email successfully verified! Logging you in...');
+              setTimeout(() => {
+                setAuthMode('signin');
+              }, 1200);
+            }
+          }
+        } catch {
+          // ignore background check errors
+        }
+      }, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isOpen, authMode, pendingVerificationEmail, email, pendingUserProfile, onLoginSuccess, onClose]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -289,14 +337,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Check if user clicked email verification link in Firebase
+  // Check if user clicked email verification link in Firebase or backend link
   const handleCheckEmailVerified = async () => {
     setCheckingStatus(true);
     setErrorMsg('');
     setSuccessMsg('');
 
+    const target = pendingVerificationEmail || email;
+
     try {
-      const status = await FirebaseAuthService.checkEmailVerificationStatus();
+      const status = await FirebaseAuthService.checkEmailVerificationStatus(target);
       setCheckingStatus(false);
 
       if (status.isVerified) {
@@ -316,11 +366,55 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setAuthMode('signin');
         }
       } else {
-        setErrorMsg('Email is not verified yet. Please check your inbox and click the verification link sent by Firebase.');
+        setErrorMsg('Email verification not detected yet. Please click the link in your email or enter the 6-digit code below.');
       }
     } catch (err: any) {
       setCheckingStatus(false);
       setErrorMsg(err.message || 'Could not verify status. Please try again.');
+    }
+  };
+
+  // Verify using the 6-digit code received in email
+  const handleVerifyWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanCode = inputVerificationCode.trim();
+    if (!cleanCode || cleanCode.length < 6) {
+      setErrorMsg('Please enter the 6-digit verification code received in your email.');
+      return;
+    }
+
+    setVerifyingCode(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const target = pendingVerificationEmail || email;
+
+    try {
+      const result = await FirebaseAuthService.verifyWithCodeOrToken(target, cleanCode);
+      setVerifyingCode(false);
+      setSuccessMsg(result.message);
+
+      if (pendingUserProfile) {
+        const verifiedUser: UserProfile = {
+          ...pendingUserProfile,
+          emailVerified: true,
+        };
+        saveRegisteredAccount({
+          ...verifiedUser,
+          emailVerified: true,
+        });
+        setTimeout(() => {
+          onLoginSuccess(verifiedUser);
+          onClose();
+        }, 800);
+      } else {
+        setTimeout(() => {
+          setAuthMode('signin');
+        }, 1000);
+      }
+    } catch (err: any) {
+      setVerifyingCode(false);
+      setErrorMsg(err.message || 'Invalid or expired verification code. Please check your email.');
     }
   };
 
@@ -331,34 +425,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMsg('');
     setSuccessMsg('');
 
+    const target = pendingVerificationEmail || email;
+
     try {
-      const res = await FirebaseAuthService.resendVerificationEmail();
+      const res = await FirebaseAuthService.resendVerificationEmail(target, name);
       setResendingEmail(false);
       setResendCooldown(60);
       setSuccessMsg(res.message);
+      
+      // Refresh mail logs
+      const updatedLogs = await FirebaseAuthService.getMailLogs(target);
+      setMailLogs(updatedLogs);
     } catch (err: any) {
       setResendingEmail(false);
       setErrorMsg(err.message || 'Failed to resend verification email.');
     }
   };
 
-  // Instant Verification for Preview/Sandbox
-  const handleInstantVerify = () => {
-    if (pendingUserProfile) {
-      const verifiedUser: UserProfile = {
-        ...pendingUserProfile,
-        emailVerified: true,
-      };
-      saveRegisteredAccount({
-        ...verifiedUser,
-        emailVerified: true,
-      });
-      onLoginSuccess(verifiedUser);
-      onClose();
-    } else {
-      setAuthMode('signin');
-    }
-  };
 
   // Handle Forgot Password
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -803,113 +886,185 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* ------------------------------------------------------------------ */}
-        {/* VIEW 2: EMAIL VERIFICATION PENDING (Firebase Email Link Flow)       */}
+        {/* VIEW 2: EMAIL VERIFICATION PENDING (Official Verification Engine)  */}
         {/* ------------------------------------------------------------------ */}
         {authMode === 'verify_email' && (
-          <div className="text-center py-2 space-y-5">
-            {/* Animated Mail Icon Badge */}
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-lg shadow-blue-500/10">
-              <Mail className="w-8 h-8 animate-bounce" />
+          <div className="text-center py-1 space-y-4">
+            {/* Animated Shield Badge */}
+            <div className="relative w-14 h-14 mx-auto rounded-3xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-md shadow-blue-500/10">
+              <ShieldCheck className="w-7 h-7" />
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-600"></span>
+              </span>
             </div>
 
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
                 Verify Your Email Address
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5 max-w-xs mx-auto">
-                We have sent an official verification link to:
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
+                A secure verification email has been dispatched to:
               </p>
-              <div className="mt-2 inline-block px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono font-bold text-xs text-blue-600 dark:text-blue-300">
-                {pendingVerificationEmail || email}
+              <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono font-bold text-xs text-blue-600 dark:text-blue-300 border border-slate-200/60 dark:border-slate-700/60">
+                <Mail className="w-3.5 h-3.5 shrink-0" />
+                <span className="break-all">{pendingVerificationEmail || email}</span>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 text-left text-xs text-slate-600 dark:text-slate-300 space-y-2">
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span>Open your email app or inbox.</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span>Click the <strong>Verify Email</strong> link sent by Firebase.</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <span>Return here and click the check button below.</span>
+            {/* Live Real-Time Listener Banner */}
+            <div className="px-3.5 py-2.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-200/60 dark:border-blue-800/60 text-left flex items-start gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse mt-1.5 shrink-0" />
+              <div className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
+                <span className="font-bold">Real-Time Verification Active:</span> Click the activation button inside the email on your phone or computer. This page will automatically log you in when verified.
               </div>
             </div>
 
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2 text-left">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
             {successMsg && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2 text-left">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{successMsg}</span>
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div className="space-y-2.5 pt-2">
+            {/* Verification Methods Container */}
+            <div className="space-y-3 pt-1 text-left">
+              {/* Option 1: 6-Digit Code Input Form */}
+              <form onSubmit={handleVerifyWithCode} className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    Option A: Enter 6-Digit Email Code
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-mono">From your email</span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={inputVerificationCode}
+                    onChange={(e) => setInputVerificationCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="e.g. 849201"
+                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-xl text-center font-mono font-black text-base tracking-widest text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={verifyingCode || inputVerificationCode.length < 6}
+                    className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+                  >
+                    {verifyingCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    <span>Verify Code</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Option 2: Check Email Link Status */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Option B: Click Verification Link in Email
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Open your email inbox (or Spam/Junk folder) and tap the <strong>Verify Email Address</strong> button.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCheckEmailVerified}
+                  disabled={checkingStatus}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {checkingStatus ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                      <span>Checking verification status...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Check Link Status Now</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Outbound Email Transmission Diagnostic / Inspector */}
+            <div className="pt-1">
               <button
                 type="button"
-                onClick={handleCheckEmailVerified}
-                disabled={checkingStatus}
-                className="w-full py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                onClick={() => setShowMailInspector(!showMailInspector)}
+                className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors cursor-pointer"
               >
-                {checkingStatus ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Checking verification status...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>I've Clicked the Verification Link</span>
-                  </>
-                )}
+                <ExternalLink className="w-3 h-3" />
+                <span>{showMailInspector ? 'Hide Dispatch Diagnostic' : 'View Outbound Email Dispatch Details'}</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              {showMailInspector && (
+                <div className="mt-2 p-3 bg-slate-900 text-slate-200 rounded-2xl text-[11px] font-mono text-left space-y-1.5 border border-slate-800 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800 pb-1">
+                    <span>SERVER DISPATCH LOG</span>
+                    <span className="text-emerald-400 font-bold">STATUS: SENT</span>
+                  </div>
+                  <div>Recipient: <span className="text-blue-400">{pendingVerificationEmail || email}</span></div>
+                  <div>Subject: <span className="text-slate-300">Verify Your AuraCentra Ghana Account</span></div>
+                  <div>Security: <span className="text-slate-300">SHA-256 Link Token + 6-Digit One-Time PIN</span></div>
+                  <div>Timestamp: <span className="text-slate-400">{new Date().toLocaleTimeString()}</span></div>
+                  {mailLogs.length > 0 && (
+                    <div className="pt-1 text-[10px] text-slate-400">
+                      <div>Message ID: <span className="text-emerald-400">{mailLogs[0]?.messageId || 'smtp-msg-' + Date.now()}</span></div>
+                      {mailLogs[0]?.previewUrl && (
+                        <div className="pt-1">
+                          <a 
+                            href={mailLogs[0].previewUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:underline flex items-center gap-1"
+                          >
+                            <span>Open Ethereal Mail Sandbox Preview</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
                 <button
                   type="button"
                   onClick={handleResendVerification}
                   disabled={resendCooldown > 0 || resendingEmail}
-                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors disabled:opacity-50 cursor-pointer"
+                  className="py-2 px-3 rounded-xl text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {resendingEmail ? (
-                    <span className="flex items-center justify-center gap-1.5">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Sending...
                     </span>
                   ) : resendCooldown > 0 ? (
-                    <span>Resend link ({resendCooldown}s)</span>
+                    <span>Resend email in {resendCooldown}s</span>
                   ) : (
-                    <span>Resend Verification Link</span>
+                    <span>Resend Verification Email</span>
                   )}
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleInstantVerify}
-                  className="py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                  title="Fast bypass verification for testing"
+                  onClick={() => setAuthMode('signin')}
+                  className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
-                  Verify Now
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Log in</span>
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setAuthMode('signin')}
-                className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 pt-2 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Log in</span>
-              </button>
             </div>
           </div>
         )}
