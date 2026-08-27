@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Business, BusinessInquiry, BusinessReview, UserProfile, UserRole } from '../types';
+import { VerificationService, normalizeGhanaPhone } from '../services/verificationService';
 
 /**
  * AuraCentra Ghana - Supabase Realtime Database & Authentication Client
@@ -367,58 +368,52 @@ export const SupabaseService = {
   },
 
   // --------------------------------------------------------------------------
-  // PHONE NUMBER OTP VERIFICATION
+  // EMAIL & PHONE OTP VERIFICATION ENGINES
   // --------------------------------------------------------------------------
+
+  async sendEmailOtp(email: string): Promise<{ success: boolean; message: string; demoCode?: string }> {
+    const res = await VerificationService.sendEmailOtp(email);
+    return {
+      success: true,
+      message: res.message,
+      demoCode: res.code,
+    };
+  },
+
+  async verifyEmailOtp(email: string, inputOtp: string): Promise<boolean> {
+    return await VerificationService.verifyEmailOtp(email, inputOtp);
+  },
   
   async sendPhoneOtp(phone: string): Promise<{ success: boolean; message: string; demoCode?: string }> {
-    const cleanPhone = phone.trim().replace(/\s+/g, '');
+    const cleanPhone = normalizeGhanaPhone(phone);
     if (!cleanPhone || cleanPhone.length < 9) {
       throw new Error('Please enter a valid Ghanaian phone number (e.g., 050 820 3673 or +233 50 820 3673).');
     }
 
-    // Generate secure 6-digit numeric OTP code
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
-    generatedOtps.set(cleanPhone, { code: otpCode, expires });
+    const res = await VerificationService.sendPhoneOtp(cleanPhone);
 
     if (supabase) {
       try {
         await supabase.from('phone_verifications').insert({
           phone: cleanPhone,
-          otp_code: otpCode,
+          otp_code: res.code,
           verified: false,
-          expires_at: new Date(expires).toISOString(),
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         });
       } catch (e) {
         console.warn('[Supabase Phone OTP insert]', e);
       }
     }
 
-    console.log(`[AuraCentra Phone OTP] Code for ${cleanPhone}: ${otpCode}`);
-
     return {
       success: true,
-      message: `A 6-digit verification code has been dispatched to ${cleanPhone}.`,
-      demoCode: otpCode, // Provided for easy development/testing verification
+      message: res.message,
+      demoCode: res.code,
     };
   },
 
   async verifyPhoneOtp(phone: string, inputOtp: string): Promise<boolean> {
-    const cleanPhone = phone.trim().replace(/\s+/g, '');
-    const cleanOtp = inputOtp.trim();
-
-    const stored = generatedOtps.get(cleanPhone);
-    if (stored && stored.code === cleanOtp && stored.expires > Date.now()) {
-      generatedOtps.delete(cleanPhone);
-      return true;
-    }
-
-    // Direct match for master test code or recent generation
-    if (cleanOtp.length === 6 && (cleanOtp === '123456' || (stored && stored.code === cleanOtp))) {
-      return true;
-    }
-
-    return false;
+    return await VerificationService.verifyPhoneOtp(phone, inputOtp);
   },
 
   // --------------------------------------------------------------------------

@@ -121,6 +121,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
   phone?: string;
   phoneVerified?: boolean;
   role: UserRole;
@@ -137,7 +138,9 @@ export interface UserAccountRecord {
   id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
   phone?: string;
+  phoneVerified?: boolean;
   role: UserRole;
   avatar?: string;
   authProvider?: 'google' | 'apple' | 'email';
