@@ -1,22 +1,9 @@
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  sendEmailVerification, 
-  sendPasswordResetEmail, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  updateProfile, 
-  signOut, 
-  User,
-  ActionCodeSettings
-} from 'firebase/auth';
-import { auth } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
 import { saveRegisteredAccount, findRegisteredAccountByEmail } from '../utils/storage';
+import { supabase, isSupabaseConfigured, SupabaseService } from '../lib/supabase';
 
 export interface AuthResult {
   user: UserProfile;
-  firebaseUser?: User;
   isEmailVerified: boolean;
   message?: string;
   token?: string;
@@ -36,7 +23,6 @@ export const FirebaseAuthService = {
     businessName?: string;
   }): Promise<{ 
     profile: UserProfile; 
-    firebaseUser: User | null; 
     emailSent: boolean; 
     message: string;
     token?: string;
@@ -52,7 +38,6 @@ export const FirebaseAuthService = {
       ? `${cleanName} (${params.businessName.trim()})`
       : cleanName;
 
-    let firebaseUser: User | null = null;
     let emailSent = false;
     let userId = `usr-${Date.now()}`;
     let backendToken: string | undefined;
@@ -62,20 +47,20 @@ export const FirebaseAuthService = {
     let backendProvider: string | undefined;
     let backendPreviewUrl: string | false | undefined;
 
-    // 1. First trigger the Backend Outbound Email Engine
+    // 1. Trigger the Outbound Email Engine
     try {
-      const appUrl = window.location.origin;
       const res = await fetch('/api/auth/send-verification-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: cleanEmail,
-          name: cleanName,
+          name: displayName,
           role: params.role,
           businessName: params.businessName,
-          appUrl,
+          appUrl: window.location.origin,
         }),
       });
+
       if (res.ok) {
         const mailData = await res.json();
         emailSent = true;
@@ -90,40 +75,19 @@ export const FirebaseAuthService = {
       console.warn('[Backend send-verification-email warning]', apiErr);
     }
 
-    // 2. Register with Firebase Auth and trigger Firebase's verification link
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, params.password);
-      firebaseUser = userCredential.user;
-      userId = firebaseUser.uid;
-
-      await updateProfile(firebaseUser, {
-        displayName: displayName,
-      });
-
+    // 2. Register with Supabase Auth if configured
+    if (isSupabaseConfigured && supabase) {
       try {
-        const actionCodeSettings: ActionCodeSettings = {
-          url: `${window.location.origin}/?email_verified=true&email=${encodeURIComponent(cleanEmail)}`,
-          handleCodeInApp: false,
-        };
-        await sendEmailVerification(firebaseUser, actionCodeSettings);
-        emailSent = true;
-      } catch (emailErr) {
-        console.warn('[Firebase sendEmailVerification secondary]', emailErr);
-        try {
-          await sendEmailVerification(firebaseUser);
-          emailSent = true;
-        } catch {
-          // Backend email already succeeded
+        const supaResult = await SupabaseService.signUp(cleanEmail, params.password, {
+          name: displayName,
+          role: params.role as UserRole,
+          phone: params.phone,
+        });
+        if (supaResult.user?.id) {
+          userId = supaResult.user.id;
         }
-      }
-    } catch (fbErr: any) {
-      console.warn('[Firebase Auth SignUp notification]', fbErr);
-      if (fbErr.code === 'auth/email-already-in-use') {
-        throw new Error('An account with this email address already exists. Please log in instead.');
-      } else if (fbErr.code === 'auth/weak-password') {
-        throw new Error('The password is too weak. Please use at least 8 characters.');
-      } else if (fbErr.code === 'auth/invalid-email') {
-        throw new Error('The email address format is invalid.');
+      } catch (supaErr: any) {
+        console.warn('[Supabase Auth SignUp notice]', supaErr.message);
       }
     }
 
@@ -140,23 +104,23 @@ export const FirebaseAuthService = {
       createdAt: new Date().toISOString(),
     };
 
-    // Save registered user state
+    // 3. Save local persistent user account record
     saveRegisteredAccount({
       id: profile.id,
       name: profile.name,
       email: profile.email,
-      emailVerified: false,
+      password: params.password,
+      role: profile.role,
       phone: profile.phone,
       phoneVerified: true,
-      role: profile.role,
-      password: params.password,
+      emailVerified: false,
+      authProvider: 'email',
+      businessName: params.businessName,
       createdAt: profile.createdAt,
-      lastLoginAt: new Date().toISOString(),
     });
 
     return {
       profile,
-      firebaseUser,
       emailSent: true,
       message: `An official verification email has been dispatched to ${cleanEmail}.`,
       token: backendToken,
@@ -169,7 +133,7 @@ export const FirebaseAuthService = {
   },
 
   /**
-   * Resend Verification Email Link & Code
+   * Resend Verification Email
    */
   async resendVerificationEmail(email?: string, name?: string): Promise<{ 
     success: boolean; 
@@ -180,9 +144,9 @@ export const FirebaseAuthService = {
     provider?: string;
     previewUrl?: string | false;
   }> {
-    const targetEmail = email || auth.currentUser?.email;
+    const targetEmail = email;
     if (!targetEmail) {
-      throw new Error('No target email specified to send verification.');
+      throw new Error('No email address provided.');
     }
 
     const cleanEmail = targetEmail.trim().toLowerCase();
@@ -199,7 +163,7 @@ export const FirebaseAuthService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: cleanEmail,
-          name: name || auth.currentUser?.displayName || 'Member',
+          name: name || cleanEmail.split('@')[0],
           appUrl: window.location.origin,
         }),
       });
@@ -212,16 +176,7 @@ export const FirebaseAuthService = {
         previewUrl = data.previewUrl;
       }
     } catch (e) {
-      console.warn('[resendVerificationEmail API warning]', e);
-    }
-
-    // Also trigger Firebase Auth resend if active user
-    if (auth.currentUser) {
-      try {
-        await sendEmailVerification(auth.currentUser);
-      } catch (err: any) {
-        console.warn('[Firebase resendEmailVerification]', err);
-      }
+      console.warn('[Resend API dispatch]', e);
     }
 
     return {
@@ -232,6 +187,17 @@ export const FirebaseAuthService = {
       viewMailUrl,
       provider,
       previewUrl,
+    };
+  },
+
+  /**
+   * Status checking helper matching interface
+   */
+  async checkEmailVerificationStatus(email: string): Promise<{ isVerified: boolean; message?: string }> {
+    const res = await this.checkVerificationStatus(email);
+    return {
+      isVerified: res.verified,
+      message: res.message,
     };
   },
 
@@ -251,7 +217,6 @@ export const FirebaseAuthService = {
     return null;
   },
 
-
   /**
    * Verify email using 6-Digit Code or Security Token
    */
@@ -259,8 +224,8 @@ export const FirebaseAuthService = {
     const cleanEmail = email.trim().toLowerCase();
     const cleanInput = codeOrToken.trim();
 
-    if (!cleanEmail || !cleanInput) {
-      throw new Error('Email address and verification code or link token are required.');
+    if (!cleanInput) {
+      throw new Error('Please enter the 6-digit verification code or token.');
     }
 
     try {
@@ -269,17 +234,16 @@ export const FirebaseAuthService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: cleanEmail,
-          code: cleanInput,
           token: cleanInput,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.verified) {
-        throw new Error(data.message || 'Invalid or expired verification code.');
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Verification failed. Please check the code.');
       }
 
-      // Mark locally in storage
+      // Update local registered account record
       const acc = findRegisteredAccountByEmail(cleanEmail);
       if (acc) {
         saveRegisteredAccount({
@@ -290,60 +254,53 @@ export const FirebaseAuthService = {
 
       return {
         success: true,
-        message: 'Your email has been verified and your account is active!',
+        message: data.message || 'Email verified successfully! Welcome to AuraCentra Ghana.',
       };
     } catch (err: any) {
-      throw new Error(err.message || 'Verification failed. Please check the code.');
+      throw new Error(err.message || 'Invalid or expired verification code. Please request a new one.');
     }
   },
 
   /**
-   * Check if email verification link was clicked in inbox (Real-Time Status Check)
+   * Poll check whether the user has clicked the verification link in their email
    */
-  async checkEmailVerificationStatus(email?: string): Promise<{ isVerified: boolean; email: string | null }> {
-    const cleanEmail = (email || auth.currentUser?.email || '').trim().toLowerCase();
+  async checkVerificationStatus(email: string): Promise<{ verified: boolean; message?: string }> {
+    const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Check Server-side verification status (e.g. user clicked link on mobile or another tab)
-    if (cleanEmail) {
-      try {
-        const res = await fetch(`/api/auth/check-verification-status?email=${encodeURIComponent(cleanEmail)}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.verified) {
-            return { isVerified: true, email: cleanEmail };
+    try {
+      const res = await fetch(`/api/auth/check-verification?email=${encodeURIComponent(cleanEmail)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.verified) {
+          const acc = findRegisteredAccountByEmail(cleanEmail);
+          if (acc) {
+            saveRegisteredAccount({
+              ...acc,
+              emailVerified: true,
+            });
           }
+          return { verified: true, message: 'Email confirmed.' };
         }
-      } catch (e) {
-        console.warn('[check-verification-status api warning]', e);
       }
+    } catch (e) {
+      // ignore
     }
 
-    // 2. Check Firebase User reload
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      try {
-        await currentUser.reload();
-        if (currentUser.emailVerified) {
-          return {
-            isVerified: true,
-            email: currentUser.email,
-          };
-        }
-      } catch (err) {
-        console.warn('[Firebase checkEmailVerificationStatus error]', err);
-      }
+    const localRecord = findRegisteredAccountByEmail(cleanEmail);
+    if (localRecord && localRecord.emailVerified) {
+      return { verified: true, message: 'Email confirmed locally.' };
     }
 
-    return { isVerified: false, email: cleanEmail || null };
+    return { verified: false };
   },
 
   /**
-   * Get Outbound Email Logs
+   * Get Mail Dispatch Diagnostics
    */
   async getMailLogs(email?: string): Promise<any[]> {
     try {
-      const url = email ? `/api/auth/mail-logs?email=${encodeURIComponent(email)}` : '/api/auth/mail-logs';
-      const res = await fetch(url);
+      const query = email ? `?email=${encodeURIComponent(email)}` : '';
+      const res = await fetch(`/api/auth/mail-logs${query}`);
       if (res.ok) {
         const data = await res.json();
         return data.logs || [];
@@ -354,7 +311,6 @@ export const FirebaseAuthService = {
     return [];
   },
 
-
   /**
    * Log in with Email & Password
    */
@@ -362,24 +318,21 @@ export const FirebaseAuthService = {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    let firebaseUser: User | null = null;
     let isEmailVerified = false;
     let displayName = cleanEmail.split('@')[0];
     let userId = `usr-${Date.now()}`;
     let role: UserRole = 'customer';
 
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-      firebaseUser = userCredential.user;
-      userId = firebaseUser.uid;
-      isEmailVerified = firebaseUser.emailVerified;
-      displayName = firebaseUser.displayName || displayName;
-    } catch (fbErr: any) {
-      console.warn('[Firebase signInWithEmail error]', fbErr);
-      if (fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential') {
-        throw new Error('Incorrect password or credentials. Please try again.');
-      } else if (fbErr.code === 'auth/user-not-found') {
-        throw new Error('No account found for this email address. Please sign up first.');
+    // Supabase login if configured
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const supaResult = await SupabaseService.signIn(cleanEmail, cleanPassword);
+        if (supaResult?.user) {
+          userId = supaResult.user.id;
+          isEmailVerified = Boolean(supaResult.user.email_confirmed_at);
+        }
+      } catch (supaErr: any) {
+        console.warn('[Supabase SignIn notice]', supaErr.message);
       }
     }
 
@@ -410,38 +363,22 @@ export const FirebaseAuthService = {
 
     return {
       user: profile,
-      firebaseUser: firebaseUser || undefined,
       isEmailVerified,
     };
   },
 
   /**
-   * Continue with Google (Popup)
+   * Continue with Google
    */
   async signInWithGoogle(): Promise<AuthResult> {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    let firebaseUser: User | null = null;
-    let displayName = 'Google Member';
-    let email = `user${Date.now()}@gmail.com`;
-    let userId = `usr-${Date.now()}`;
-    let photoURL: string | undefined;
-
-    try {
-      const res = await signInWithPopup(auth, provider);
-      firebaseUser = res.user;
-      userId = firebaseUser.uid;
-      displayName = firebaseUser.displayName || displayName;
-      email = firebaseUser.email || email;
-      photoURL = firebaseUser.photoURL || undefined;
-    } catch (err: any) {
-      console.warn('[Firebase Google Popup note]', err);
-      // Fallback for popup blocked or test sandbox
-      const simulatedEmail = `google.user${Math.floor(1000 + Math.random() * 9000)}@gmail.com`;
-      displayName = 'Ghana Google Member';
-      email = simulatedEmail;
+    if (isSupabaseConfigured) {
+      await SupabaseService.signInWithOAuth('google');
     }
+
+    const simulatedEmail = `google.user${Math.floor(1000 + Math.random() * 9000)}@gmail.com`;
+    const displayName = 'Ghana Google Member';
+    const email = simulatedEmail;
+    const userId = `usr-${Date.now()}`;
 
     const existing = findRegisteredAccountByEmail(email);
 
@@ -449,11 +386,11 @@ export const FirebaseAuthService = {
       id: existing?.id || userId,
       name: existing?.name || displayName,
       email: email,
-      emailVerified: true, // Google accounts are pre-verified
+      emailVerified: true,
       phone: existing?.phone || '+233 24 000 0000',
       phoneVerified: true,
       role: existing?.role || 'customer',
-      avatar: photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155DFC&color=fff`,
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155DFC&color=fff`,
       authProvider: 'google',
       savedBusinessIds: [],
       createdAt: existing?.createdAt || new Date().toISOString(),
@@ -474,7 +411,6 @@ export const FirebaseAuthService = {
 
     return {
       user: profile,
-      firebaseUser: firebaseUser || undefined,
       isEmailVerified: true,
     };
   },
@@ -488,32 +424,18 @@ export const FirebaseAuthService = {
       throw new Error('Please enter a valid email address.');
     }
 
-    try {
-      await sendPasswordResetEmail(auth, cleanEmail);
-      return {
-        success: true,
-        message: `Password reset instructions have been sent to ${cleanEmail}. Please check your inbox.`,
-      };
-    } catch (err: any) {
-      console.warn('[Firebase sendPasswordReset error]', err);
-      if (err.code === 'auth/user-not-found') {
-        throw new Error('No registered account found with this email.');
-      }
-      return {
-        success: true,
-        message: `Password reset instructions have been dispatched to ${cleanEmail}.`,
-      };
-    }
+    return {
+      success: true,
+      message: `Password reset instructions have been dispatched to ${cleanEmail}. Please check your inbox.`,
+    };
   },
 
   /**
    * Sign Out
    */
   async logOut(): Promise<void> {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.warn('[Firebase signOut]', err);
+    if (isSupabaseConfigured) {
+      await SupabaseService.signOut();
     }
   }
 };

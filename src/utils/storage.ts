@@ -1,7 +1,6 @@
 import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, UserNotification } from '../types';
 import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
-import { auth } from '../lib/firebase';
-import { signOut } from 'firebase/auth';
+import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
   BUSINESSES: 'auracentra_businesses_clean_v7',
@@ -156,13 +155,9 @@ export function validateCurrentSession(user: UserProfile | null): { isValid: boo
  */
 export async function validateAndClearSession(): Promise<{ success: boolean; message: string }> {
   try {
-    // 1. Invalidate Firebase Auth session
-    try {
-      if (auth) {
-        await signOut(auth);
-      }
-    } catch (firebaseErr) {
-      console.warn('Firebase sign-out notification:', firebaseErr);
+    // 1. Invalidate Supabase session if configured
+    if (isSupabaseConfigured) {
+      await SupabaseService.signOut().catch(() => {});
     }
 
     // 2. Remove primary user session token

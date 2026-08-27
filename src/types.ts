@@ -146,6 +146,7 @@ export interface UserAccountRecord {
   authProvider?: 'google' | 'apple' | 'email';
   passwordHash?: string;
   password?: string;
+  businessName?: string;
   createdAt: string;
   lastLoginAt?: string;
 }

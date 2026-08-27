@@ -1,5 +1,3 @@
-import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { Business, BusinessInquiry, BusinessReview } from '../types';
 import { ApiClient } from './apiClient';
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
@@ -9,7 +7,7 @@ import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
  */
 
 export const FirestoreSync = {
-  // Sync business to Supabase, Firestore, and backend
+  // Sync business to Supabase and backend
   async saveBusiness(business: Business) {
     try {
       // 1. Save to Supabase (primary)
@@ -17,27 +15,14 @@ export const FirestoreSync = {
         await SupabaseService.saveBusiness(business).catch((e) => console.warn('[Supabase Sync]', e));
       }
 
-      // 2. Fallback to Firestore if configured
-      if (db) {
-        try {
-          const docRef = doc(db, 'businesses', business.id);
-          await setDoc(docRef, {
-            ...business,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      // 3. Notify Express backend
+      // 2. Notify Express backend
       await ApiClient.createBusiness(business).catch((e) => console.warn('[Backend Notice]', e));
     } catch (err) {
       console.warn('[Data Sync] Business save warning:', err);
     }
   },
 
-  // Delete business from Supabase, Firestore, and backend
+  // Delete business from Supabase and backend
   async deleteBusiness(businessId: string) {
     try {
       // 1. Delete from Supabase
@@ -45,34 +30,18 @@ export const FirestoreSync = {
         await SupabaseService.deleteBusiness(businessId).catch((e) => console.warn('[Supabase Delete]', e));
       }
 
-      // 2. Delete from Firestore if configured
-      if (db) {
-        try {
-          const docRef = doc(db, 'businesses', businessId);
-          await deleteDoc(docRef);
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      // 3. Delete from backend cache
+      // 2. Delete from backend cache
       await ApiClient.deleteBusiness(businessId).catch((e) => console.warn('[Backend Delete]', e));
     } catch (err) {
       console.warn('[Data Sync] Business delete warning:', err);
     }
   },
 
-  // Save inquiry/lead to Supabase, Firestore, and backend
+  // Save inquiry/lead to Supabase and backend
   async saveInquiry(inquiry: BusinessInquiry) {
     try {
-      if (db) {
-        try {
-          const docRef = doc(db, 'inquiries', inquiry.id);
-          await setDoc(docRef, {
-            ...inquiry,
-            createdAt: inquiry.createdAt || new Date().toISOString()
-          }, { merge: true });
-        } catch {}
+      if (isSupabaseConfigured) {
+        await SupabaseService.submitInquiry(inquiry).catch((e) => console.warn('[Supabase Inquiry]', e));
       }
       await ApiClient.submitInquiry(inquiry).catch((e) => console.warn('[Backend Notice]', e));
     } catch (err) {
@@ -83,14 +52,8 @@ export const FirestoreSync = {
   // Save review
   async saveReview(review: BusinessReview) {
     try {
-      if (db) {
-        try {
-          const docRef = doc(db, 'reviews', review.id);
-          await setDoc(docRef, {
-            ...review,
-            date: review.date || new Date().toISOString()
-          }, { merge: true });
-        } catch {}
+      if (isSupabaseConfigured) {
+        await SupabaseService.submitReview(review).catch((e) => console.warn('[Supabase Review]', e));
       }
       await ApiClient.submitReview(review).catch((e) => console.warn('[Backend Notice]', e));
     } catch (err) {
@@ -98,7 +61,7 @@ export const FirestoreSync = {
     }
   },
 
-  // Subscribe to real-time businesses updates from Supabase / Firestore
+  // Subscribe to real-time businesses updates from Supabase
   subscribeBusinesses(onUpdate: (businesses: Business[]) => void) {
     try {
       // 1. Prefer Supabase Realtime if configured
@@ -117,20 +80,6 @@ export const FirestoreSync = {
         return unsubscribeSupabase;
       }
 
-      // 2. Fallback to Firestore real-time listener if present
-      if (db) {
-        const q = collection(db, 'businesses');
-        return onSnapshot(q, (snapshot) => {
-          const list: Business[] = [];
-          snapshot.forEach((d) => {
-            list.push(d.data() as Business);
-          });
-          onUpdate(list);
-        }, (err) => {
-          console.warn('[Data Sync] Realtime listener notice:', err);
-        });
-      }
-
       return () => {};
     } catch (err) {
       console.warn('[Data Sync] Subscribe listener error:', err);
@@ -138,4 +87,3 @@ export const FirestoreSync = {
     }
   }
 };
-

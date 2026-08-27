@@ -478,6 +478,63 @@ export const SupabaseService = {
     return true;
   },
 
+  async submitInquiry(inquiry: BusinessInquiry): Promise<boolean> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('inquiries').insert({
+          id: inquiry.id,
+          business_id: inquiry.businessId,
+          business_name: inquiry.businessName,
+          client_name: inquiry.clientName,
+          client_phone: inquiry.clientPhone,
+          client_email: inquiry.clientEmail || null,
+          service_requested: inquiry.serviceRequested,
+          budget_range: inquiry.budgetRange || null,
+          message: inquiry.message,
+          contact_method: inquiry.contactMethod === 'call' ? 'phone' : inquiry.contactMethod,
+          status: inquiry.status || 'new',
+          created_at: inquiry.createdAt || new Date().toISOString(),
+        });
+        if (error) {
+          console.warn('[Supabase submitInquiry error]', error);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.warn('[Supabase submitInquiry]', err);
+        return false;
+      }
+    }
+    return true;
+  },
+
+  async submitReview(review: BusinessReview): Promise<boolean> {
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('reviews').insert({
+          id: review.id,
+          business_id: review.businessId,
+          user_name: review.userName,
+          user_email: review.userEmail || null,
+          rating: review.rating,
+          comment: review.comment,
+          helpful_count: review.helpfulCount || 0,
+          owner_reply: review.ownerReply || null,
+          created_at: review.date || new Date().toISOString(),
+        });
+        if (error) {
+          console.warn('[Supabase submitReview error]', error);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.warn('[Supabase submitReview]', err);
+        return false;
+      }
+    }
+    return true;
+  },
+
   // Subscribe to real-time changes in Supabase businesses table
   subscribeBusinesses(onUpdate: (businesses: Business[]) => void) {
     if (!supabase) return () => {};
