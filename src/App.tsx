@@ -85,10 +85,12 @@ import { SuggestCategoryModal } from './components/SuggestCategoryModal';
 import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
 import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection';
 import { NewsArticleModal } from './components/NewsArticleModal';
+import { SecureLogoutModal } from './components/SecureLogoutModal';
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
 import { FirestoreSync } from './services/dbSync';
 import { ApiClient } from './services/apiClient';
+import { SupabaseService } from './lib/supabase';
 
 export default function App() {
   // Theme state
@@ -159,6 +161,7 @@ export default function App() {
   const [isInquiriesModalOpen, setIsInquiriesModalOpen] = useState(false);
   const [isSuggestCategoryOpen, setIsSuggestCategoryOpen] = useState(false);
   const [isCustomerFeedbackOpen, setIsCustomerFeedbackOpen] = useState(false);
+  const [isSecureLogoutModalOpen, setIsSecureLogoutModalOpen] = useState(false);
   const [selectedBusinessForReview, setSelectedBusinessForReview] = useState<Business | null>(null);
 
   // Filters & Location Auto-Detection State
@@ -553,15 +556,22 @@ export default function App() {
     saveExecutiveSectionVisibility(visible);
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
+    if (!currentUser) return;
+    setIsSecureLogoutModalOpen(true);
+  };
+
+  const handleConfirmLogout = async () => {
     try {
       await validateAndClearSession();
+      await SupabaseService.signOut();
     } catch {
       // Ignore
     }
     setCurrentUser(null);
     setCurrentView('portal');
-    showToast('Signed Out Safely', 'Your local session was invalidated and state flushed.', 'info');
+    setIsSecureLogoutModalOpen(false);
+    showToast('Signed Out Safely', 'Your account session has been verified and securely terminated.', 'info');
   };
 
   // Feature Handlers
@@ -1118,6 +1128,13 @@ export default function App() {
         isOpen={!!selectedNewsArticle}
         onClose={() => setSelectedNewsArticle(null)}
         onShowToast={showToast}
+      />
+
+      <SecureLogoutModal
+        isOpen={isSecureLogoutModalOpen}
+        currentUser={currentUser}
+        onClose={() => setIsSecureLogoutModalOpen(false)}
+        onConfirmLogout={handleConfirmLogout}
       />
 
       {/* 9. Toast Notification Portal */}

@@ -122,7 +122,9 @@ export interface UserProfile {
   name: string;
   email: string;
   phone?: string;
+  phoneVerified?: boolean;
   role: UserRole;
+  accountType?: 'customer' | 'business_owner';
   avatar?: string;
   authProvider?: 'google' | 'apple' | 'email';
   savedBusinessIds: string[];

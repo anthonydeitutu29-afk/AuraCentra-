@@ -28,14 +28,20 @@ export function getStoredBusinesses(): Business[] {
     const data = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+      if (Array.isArray(parsed)) {
+        // Strip any residual legacy demo businesses if found
+        const demoIds = ['biz-zion-city', 'biz-veritas-motors', 'biz-buildright-supplies', 'biz-tonys-digital-marketing', 'biz-bonwire-kente', 'biz-apex-diagnostic', 'biz-pending-starbite-tema', 'biz-pending-northern-shea', 'biz-pending-technest-capecoast'];
+        const clean = parsed.filter((b) => b && b.id && !demoIds.includes(b.id));
+        if (clean.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+        }
+        return clean;
       }
     }
   } catch (e) {
     console.error('Failed to load businesses from storage', e);
   }
-  return INITIAL_BUSINESSES;
+  return [];
 }
 
 export function saveBusinesses(businesses: Business[]): void {
@@ -75,13 +81,14 @@ export function getStoredReviews(): BusinessReview[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        return parsed;
+        const demoIds = ['rev-zion-1', 'rev-veritas-1', 'rev-buildright-1', 'rev-tony-1'];
+        return parsed.filter((r) => r && r.id && !demoIds.includes(r.id));
       }
     }
   } catch (e) {
     console.error('Failed to load reviews from storage', e);
   }
-  return INITIAL_REVIEWS;
+  return [];
 }
 
 export function saveReviews(reviews: BusinessReview[]): void {
