@@ -1274,4 +1274,10 @@ async function startServer() {
   });
 }
 
-startServer();
+// Only launch listening server in non-serverless container or local environment
+if (!process.env.VERCEL && !process.env.NOW_REGION) {
+  startServer();
+}
+
+export { app };
+export default app;
