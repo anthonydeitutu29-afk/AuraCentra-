@@ -86,6 +86,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [verifyingCode, setVerifyingCode] = useState(false);
   const [showMailInspector, setShowMailInspector] = useState(false);
   const [mailLogs, setMailLogs] = useState<any[]>([]);
+  const [latestEmailData, setLatestEmailData] = useState<{
+    token?: string;
+    code?: string;
+    viewMailUrl?: string;
+    provider?: string;
+    previewUrl?: string | false;
+  } | null>(null);
+  const [showWebmailModal, setShowWebmailModal] = useState(false);
 
   // 2FA state for Admin login
   const [mfaPending, setMfaPending] = useState(false);
@@ -105,6 +113,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setResendingEmail(false);
       setInputVerificationCode('');
       setShowMailInspector(false);
+      setShowWebmailModal(false);
 
       if (initialMode) {
         setAuthMode(initialMode);
@@ -120,14 +129,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [isOpen, initialMode]);
 
-  // Real-time automatic polling when in verify_email mode
+  // Real-time automatic polling and email info fetching when in verify_email mode
   useEffect(() => {
     let interval: any = null;
     if (isOpen && authMode === 'verify_email' && (pendingVerificationEmail || email)) {
       const target = pendingVerificationEmail || email;
       
-      // Load initial mail logs for diagnostic
+      // Load initial mail logs and latest email data
       FirebaseAuthService.getMailLogs(target).then(logs => setMailLogs(logs));
+      FirebaseAuthService.getLatestEmailInfo(target).then(info => {
+        if (info) {
+          setLatestEmailData(info);
+        }
+      });
 
       interval = setInterval(async () => {
         try {
@@ -161,6 +175,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (interval) clearInterval(interval);
     };
   }, [isOpen, authMode, pendingVerificationEmail, email, pendingUserProfile, onLoginSuccess, onClose]);
+
 
   // Resend cooldown timer
   useEffect(() => {
@@ -324,6 +339,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       setPendingVerificationEmail(cleanEmail);
       setPendingUserProfile(result.profile);
+      setLatestEmailData({
+        token: result.token,
+        code: result.code,
+        viewMailUrl: result.viewMailUrl,
+        provider: result.provider,
+        previewUrl: result.previewUrl,
+      });
       setResendCooldown(60); // 60s cooldown
       setLoading(false);
 
@@ -366,7 +388,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           setAuthMode('signin');
         }
       } else {
-        setErrorMsg('Email verification not detected yet. Please click the link in your email or enter the 6-digit code below.');
+        setErrorMsg('Email verification not detected yet. Please click the link in your email, use the Webmail viewer below, or enter the 6-digit code.');
       }
     } catch (err: any) {
       setCheckingStatus(false);
@@ -433,6 +455,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setResendCooldown(60);
       setSuccessMsg(res.message);
       
+      if (res.code || res.token || res.viewMailUrl) {
+        setLatestEmailData({
+          token: res.token,
+          code: res.code,
+          viewMailUrl: res.viewMailUrl,
+          provider: res.provider,
+          previewUrl: res.previewUrl,
+        });
+      }
+
       // Refresh mail logs
       const updatedLogs = await FirebaseAuthService.getMailLogs(target);
       setMailLogs(updatedLogs);
@@ -441,6 +473,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg(err.message || 'Failed to resend verification email.');
     }
   };
+
 
 
   // Handle Forgot Password
@@ -936,13 +969,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* Verification Methods Container */}
             <div className="space-y-3 pt-1 text-left">
+              {/* Primary Option: Live Webmail Message Viewer */}
+              <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 rounded-2xl border border-blue-200/80 dark:border-blue-800/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-bold text-blue-950 dark:text-blue-200">
+                      Live Webmail Inbox & Link Access
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-600 text-white rounded-full">
+                    Instant Access
+                  </span>
+                </div>
+                <p className="text-[11px] text-blue-900/80 dark:text-blue-300 leading-relaxed">
+                  View the delivered verification email message in your browser to click the activation button directly or inspect the message.
+                </p>
+                <div className="flex gap-2 pt-0.5">
+                  <a
+                    href={latestEmailData?.viewMailUrl || `/api/auth/view-mail-html?email=${encodeURIComponent(pendingVerificationEmail || email)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Verification Email in Browser</span>
+                  </a>
+                </div>
+              </div>
+
               {/* Option 1: 6-Digit Code Input Form */}
               <form onSubmit={handleVerifyWithCode} className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                     Option A: Enter 6-Digit Email Code
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono">From your email</span>
+                  {latestEmailData?.code && (
+                    <button
+                      type="button"
+                      onClick={() => setInputVerificationCode(latestEmailData.code || '')}
+                      className="text-[10px] text-blue-600 hover:underline font-mono font-bold cursor-pointer"
+                    >
+                      Quick-Fill ({latestEmailData.code})
+                    </button>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -1008,33 +1078,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div className="mt-2 p-3 bg-slate-900 text-slate-200 rounded-2xl text-[11px] font-mono text-left space-y-1.5 border border-slate-800 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800 pb-1">
                     <span>SERVER DISPATCH LOG</span>
-                    <span className="text-emerald-400 font-bold">STATUS: SENT</span>
+                    <span className="text-emerald-400 font-bold">STATUS: DISPATCHED</span>
                   </div>
                   <div>Recipient: <span className="text-blue-400">{pendingVerificationEmail || email}</span></div>
+                  <div>Delivery Provider: <span className="text-emerald-400">{latestEmailData?.provider || 'AuraCentra Webmail Relay'}</span></div>
                   <div>Subject: <span className="text-slate-300">Verify Your AuraCentra Ghana Account</span></div>
                   <div>Security: <span className="text-slate-300">SHA-256 Link Token + 6-Digit One-Time PIN</span></div>
                   <div>Timestamp: <span className="text-slate-400">{new Date().toLocaleTimeString()}</span></div>
-                  {mailLogs.length > 0 && (
-                    <div className="pt-1 text-[10px] text-slate-400">
-                      <div>Message ID: <span className="text-emerald-400">{mailLogs[0]?.messageId || 'smtp-msg-' + Date.now()}</span></div>
-                      {mailLogs[0]?.previewUrl && (
-                        <div className="pt-1">
-                          <a 
-                            href={mailLogs[0].previewUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:underline flex items-center gap-1"
-                          >
-                            <span>Open Ethereal Mail Sandbox Preview</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <div className="pt-1 text-[10px] text-slate-400 border-t border-slate-800">
+                    <span>Production Outbound Setup:</span> Add <code className="text-blue-300">RESEND_API_KEY</code> or <code className="text-blue-300">SMTP_PASS</code> in <code className="text-slate-300">.env</code> for custom external SMTP delivery.
+                  </div>
                 </div>
               )}
             </div>
+
 
             {/* Footer Buttons */}
             <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">

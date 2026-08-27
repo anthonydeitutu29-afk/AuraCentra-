@@ -42,6 +42,8 @@ export const FirebaseAuthService = {
     token?: string;
     code?: string;
     verificationLink?: string;
+    viewMailUrl?: string;
+    provider?: string;
     previewUrl?: string | false;
   }> {
     const cleanEmail = params.email.trim().toLowerCase();
@@ -56,6 +58,8 @@ export const FirebaseAuthService = {
     let backendToken: string | undefined;
     let backendCode: string | undefined;
     let backendVerificationLink: string | undefined;
+    let backendViewMailUrl: string | undefined;
+    let backendProvider: string | undefined;
     let backendPreviewUrl: string | false | undefined;
 
     // 1. First trigger the Backend Outbound Email Engine
@@ -78,6 +82,8 @@ export const FirebaseAuthService = {
         backendToken = mailData.token;
         backendCode = mailData.code;
         backendVerificationLink = mailData.verificationLink;
+        backendViewMailUrl = mailData.viewMailUrl;
+        backendProvider = mailData.provider;
         backendPreviewUrl = mailData.previewUrl;
       }
     } catch (apiErr) {
@@ -152,10 +158,12 @@ export const FirebaseAuthService = {
       profile,
       firebaseUser,
       emailSent: true,
-      message: `An official verification email with a secure activation link has been dispatched to ${cleanEmail}.`,
+      message: `An official verification email has been dispatched to ${cleanEmail}.`,
       token: backendToken,
       code: backendCode,
       verificationLink: backendVerificationLink,
+      viewMailUrl: backendViewMailUrl,
+      provider: backendProvider,
       previewUrl: backendPreviewUrl,
     };
   },
@@ -168,6 +176,8 @@ export const FirebaseAuthService = {
     message: string; 
     code?: string; 
     token?: string; 
+    viewMailUrl?: string;
+    provider?: string;
     previewUrl?: string | false;
   }> {
     const targetEmail = email || auth.currentUser?.email;
@@ -178,6 +188,8 @@ export const FirebaseAuthService = {
     const cleanEmail = targetEmail.trim().toLowerCase();
     let code: string | undefined;
     let token: string | undefined;
+    let viewMailUrl: string | undefined;
+    let provider: string | undefined;
     let previewUrl: string | false | undefined;
 
     // Send through server-side email dispatch
@@ -195,6 +207,8 @@ export const FirebaseAuthService = {
         const data = await res.json();
         code = data.code;
         token = data.token;
+        viewMailUrl = data.viewMailUrl;
+        provider = data.provider;
         previewUrl = data.previewUrl;
       }
     } catch (e) {
@@ -212,12 +226,31 @@ export const FirebaseAuthService = {
 
     return {
       success: true,
-      message: `A fresh verification link and security code have been sent to ${cleanEmail}. Please check your inbox.`,
+      message: `A fresh verification email and security code have been sent to ${cleanEmail}.`,
       code,
       token,
+      viewMailUrl,
+      provider,
       previewUrl,
     };
   },
+
+  /**
+   * Get latest email transmission details
+   */
+  async getLatestEmailInfo(email: string): Promise<any | null> {
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const res = await fetch(`/api/auth/latest-email?email=${encodeURIComponent(cleanEmail)}`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  },
+
 
   /**
    * Verify email using 6-Digit Code or Security Token
