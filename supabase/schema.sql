@@ -257,15 +257,36 @@ ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.phone_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.email_verifications ENABLE ROW LEVEL SECURITY;
 
--- Profiles: Public read, User can update own profile
+-- Drop existing policies first to ensure safe re-execution
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Allow profile creation" ON public.profiles;
+DROP POLICY IF EXISTS "Allow profile updates" ON public.profiles;
+
+DROP POLICY IF EXISTS "Active businesses are viewable by everyone" ON public.businesses;
+DROP POLICY IF EXISTS "Authenticated users can create businesses" ON public.businesses;
+DROP POLICY IF EXISTS "Owners and Admins can update businesses" ON public.businesses;
+DROP POLICY IF EXISTS "Owners and Admins can delete businesses" ON public.businesses;
+
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON public.reviews;
+DROP POLICY IF EXISTS "Anyone can post a review" ON public.reviews;
+
+DROP POLICY IF EXISTS "Anyone can submit inquiry" ON public.inquiries;
+DROP POLICY IF EXISTS "Inquiries viewable by business owner or admin" ON public.inquiries;
+
+DROP POLICY IF EXISTS "Phone verifications open for OTP verification" ON public.phone_verifications;
+DROP POLICY IF EXISTS "Email verifications open for token check" ON public.email_verifications;
+
+-- Profiles: Public read, open insert/update
 CREATE POLICY "Public profiles are viewable by everyone" ON public.profiles
   FOR SELECT USING (true);
 
-CREATE POLICY "Users can insert their own profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Allow profile creation" ON public.profiles
+  FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Users can update their own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Allow profile updates" ON public.profiles
+  FOR UPDATE USING (true);
 
 -- Businesses: Public read active businesses, authenticated owners/admins can insert/update
 CREATE POLICY "Active businesses are viewable by everyone" ON public.businesses
@@ -304,9 +325,26 @@ CREATE POLICY "Email verifications open for token check" ON public.email_verific
 -- ============================================================================
 -- 15. ENABLE REALTIME BROADCAST
 -- ============================================================================
-ALTER PUBLICATION supabase_realtime ADD TABLE public.businesses;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.reviews;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.inquiries;
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.businesses;
+  EXCEPTION WHEN duplicate_object THEN
+    NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.reviews;
+  EXCEPTION WHEN duplicate_object THEN
+    NULL;
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.inquiries;
+  EXCEPTION WHEN duplicate_object THEN
+    NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 16. SEED DATA - POPULAR VERIFIED GHANAIAN BUSINESSES

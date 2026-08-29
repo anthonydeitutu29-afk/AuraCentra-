@@ -8,8 +8,18 @@ import { VerificationService, normalizeGhanaPhone } from '../services/verificati
  */
 
 const env = (import.meta as any).env || {};
-const supabaseUrl: string = env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey: string = env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl: string = 
+  env.VITE_SUPABASE_URL || 
+  env.SUPABASE_URL || 
+  env.NEXT_PUBLIC_SUPABASE_URL || 
+  '';
+
+const supabaseAnonKey: string = 
+  env.VITE_SUPABASE_ANON_KEY || 
+  env.SUPABASE_ANON_KEY || 
+  env.SUPABASE_KEY || 
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+  '';
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
@@ -272,11 +282,49 @@ export const SupabaseService = {
         }
       }
 
+      // Backend sync fallback
+      try {
+        await fetch('/api/auth/sync-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: data.user?.id || `user-${Date.now()}`,
+            name: metadata.name,
+            email: email.toLowerCase(),
+            phone: metadata.phone || null,
+            role: metadata.role,
+            auth_provider: 'email',
+            phone_verified: false,
+          }),
+        });
+      } catch {
+        // ignore
+      }
+
       return {
         user: data.user,
         session: data.session,
         requiresEmailConfirmation: !data.session,
       };
+    }
+
+    // Backend sync fallback for standard registration
+    try {
+      await fetch('/api/auth/sync-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `user-${Date.now()}`,
+          name: metadata.name,
+          email: email.toLowerCase(),
+          phone: metadata.phone || null,
+          role: metadata.role,
+          auth_provider: 'email',
+          phone_verified: false,
+        }),
+      });
+    } catch {
+      // ignore
     }
 
     // Fallback: Local registration with credentials
@@ -285,6 +333,129 @@ export const SupabaseService = {
       session: { access_token: `mock-token-${Date.now()}` },
       requiresEmailConfirmation: true,
     };
+  },
+
+  // Get Live Profile from Supabase
+  async getProfile(email: string): Promise<UserProfile | null> {
+    if (!email) return null;
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // 1. Direct Supabase Query
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', cleanEmail)
+          .maybeSingle();
+
+        if (!error && data) {
+          const isAdmin = data.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
+          return {
+            id: data.id,
+            name: data.name || cleanEmail.split('@')[0],
+            email: data.email,
+            phone: data.phone || '+233 24 000 0000',
+            role: isAdmin ? 'admin' : (data.role || 'customer'),
+            avatar: data.avatar,
+            emailVerified: true,
+            phoneVerified: Boolean(data.phone_verified),
+            savedBusinessIds: data.saved_business_ids || [],
+            createdAt: data.created_at || new Date().toISOString(),
+          };
+        }
+      } catch (err) {
+        console.warn('[Supabase getProfile warning]', err);
+      }
+    }
+
+    // 2. Server API fallback
+    try {
+      const res = await fetch(`/api/auth/profile?email=${encodeURIComponent(cleanEmail)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.profile) {
+          const isAdmin = data.profile.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
+          return {
+            id: data.profile.id,
+            name: data.profile.name || cleanEmail.split('@')[0],
+            email: data.profile.email,
+            phone: data.profile.phone || '+233 24 000 0000',
+            role: isAdmin ? 'admin' : (data.profile.role || 'customer'),
+            avatar: data.profile.avatar,
+            emailVerified: true,
+            phoneVerified: Boolean(data.profile.phone_verified),
+            savedBusinessIds: data.profile.saved_business_ids || [],
+            createdAt: data.profile.created_at || new Date().toISOString(),
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Admin fallback
+    if (cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com') {
+      return {
+        id: 'admin-anthony',
+        name: 'Anthony De-Tutu',
+        email: cleanEmail,
+        phone: '+233 50 820 3673',
+        role: 'admin',
+        emailVerified: true,
+        phoneVerified: true,
+        savedBusinessIds: [],
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    return null;
+  },
+
+  // Save / Sync Profile in Supabase
+  async saveProfile(profile: Partial<UserProfile>): Promise<boolean> {
+    if (!profile.email) return false;
+    
+    let saved = false;
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('profiles').upsert({
+          id: profile.id || undefined,
+          name: profile.name,
+          email: profile.email.toLowerCase(),
+          phone: profile.phone || null,
+          role: profile.role || 'customer',
+          avatar: profile.avatar || null,
+          auth_provider: 'email',
+          phone_verified: Boolean(profile.phoneVerified),
+          saved_business_ids: profile.savedBusinessIds || [],
+          updated_at: new Date().toISOString(),
+        });
+        if (!error) saved = true;
+      } catch (err) {
+        console.warn('[Supabase saveProfile warning]', err);
+      }
+    }
+
+    try {
+      const res = await fetch('/api/auth/sync-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: profile.id,
+          name: profile.name,
+          email: profile.email.toLowerCase(),
+          phone: profile.phone,
+          role: profile.role,
+          phone_verified: profile.phoneVerified,
+        }),
+      });
+      if (res.ok) saved = true;
+    } catch {
+      // ignore
+    }
+
+    return saved;
   },
 
   // Sign in with Email and Password

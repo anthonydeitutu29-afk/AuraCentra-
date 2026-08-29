@@ -260,6 +260,35 @@ export default function App() {
     localStorage.setItem('auracentra_theme', theme);
   }, [theme]);
 
+  // Synchronize Live Profile and Admin Role from Supabase
+  useEffect(() => {
+    if (currentUser?.email) {
+      SupabaseService.getProfile(currentUser.email)
+        .then((live) => {
+          if (live) {
+            const isAdmin = live.role === 'admin' || currentUser.email.toLowerCase() === 'anthonydeitutu29@gmail.com' || currentUser.email.toLowerCase() === 'admindashboard@gmail.com' || currentUser.email.toLowerCase() === 'tonysdigitalmarketing@gmail.com';
+            const targetRole = isAdmin ? 'admin' : live.role;
+
+            if (currentUser.role !== targetRole) {
+              setCurrentUser((prev) => {
+                if (!prev) return null;
+                const updated: UserProfile = {
+                  ...prev,
+                  role: targetRole,
+                  name: live.name || prev.name,
+                  emailVerified: live.emailVerified ?? prev.emailVerified,
+                  phoneVerified: live.phoneVerified ?? prev.phoneVerified,
+                };
+                saveCurrentUser(updated);
+                return updated;
+              });
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentUser?.email, currentUser?.role]);
+
   // Check URL query parameters for email verification link landing
   useEffect(() => {
     try {

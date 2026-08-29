@@ -119,6 +119,13 @@ export const FirebaseAuthService = {
       createdAt: profile.createdAt,
     });
 
+    // 4. Push directly to Supabase profiles
+    try {
+      SupabaseService.saveProfile(profile).catch(() => {});
+    } catch {
+      // ignore
+    }
+
     return {
       profile,
       emailSent: true,
@@ -250,6 +257,18 @@ export const FirebaseAuthService = {
           ...acc,
           emailVerified: true,
         });
+        try {
+          SupabaseService.saveProfile({
+            id: acc.id,
+            name: acc.name,
+            email: acc.email,
+            phone: acc.phone,
+            role: acc.role,
+            phoneVerified: acc.phoneVerified,
+          }).catch(() => {});
+        } catch {
+          // ignore
+        }
       }
 
       return {
@@ -336,6 +355,22 @@ export const FirebaseAuthService = {
       }
     }
 
+    let liveRoleFound = false;
+
+    // Fetch live profile from Supabase
+    try {
+      const liveProfile = await SupabaseService.getProfile(cleanEmail);
+      if (liveProfile) {
+        displayName = liveProfile.name || displayName;
+        role = liveProfile.role || role;
+        userId = liveProfile.id || userId;
+        isEmailVerified = true;
+        liveRoleFound = true;
+      }
+    } catch (e) {
+      console.warn('[Fetch live profile notice]', e);
+    }
+
     // Check local registered account record
     const localRecord = findRegisteredAccountByEmail(cleanEmail);
     if (localRecord) {
@@ -343,10 +378,17 @@ export const FirebaseAuthService = {
         throw new Error('Incorrect password. Please verify your credentials.');
       }
       displayName = localRecord.name || displayName;
-      role = localRecord.role || role;
+      if (!liveRoleFound) {
+        role = localRecord.role || role;
+      }
       if (localRecord.emailVerified) {
         isEmailVerified = true;
       }
+    }
+
+    if (cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com') {
+      role = 'admin';
+      isEmailVerified = true;
     }
 
     const profile: UserProfile = {

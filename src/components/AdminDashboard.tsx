@@ -147,6 +147,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newCatDescription, setNewCatDescription] = useState('');
   const [showAddCatModal, setShowAddCatModal] = useState(false);
 
+  // Brevo Testing State
+  const [brevoTestEmail, setBrevoTestEmail] = useState('tonysdigitalmarketing@gmail.com');
+  const [brevoTesting, setBrevoTesting] = useState(false);
+  const [brevoTestResult, setBrevoTestResult] = useState<any>(null);
+
   // Stats Calculations
   const verifiedCount = businesses.filter((b) => b.verificationStatus === 'verified').length;
   const pendingCount = businesses.filter((b) => b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval').length;
@@ -1704,6 +1709,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   {showExecutiveSection ? 'Section Visible (Active)' : 'Section Hidden (Removed)'}
                 </button>
+              </div>
+            </div>
+
+            {/* Brevo Transactional Email Gateway Testing */}
+            <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-blue-400" />
+                    <span>Brevo (Sendinblue) Email Gateway</span>
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Active Sender: <strong className="text-emerald-400 font-mono">tonysdigitalmarketing@gmail.com</strong> (AuraCentra Ghana)
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-950 text-blue-300 border border-blue-800">
+                  Transactional SMTP
+                </span>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700 space-y-3">
+                <label className="text-xs font-semibold text-slate-300 block">
+                  Send Test Verification Email
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    value={brevoTestEmail}
+                    onChange={(e) => setBrevoTestEmail(e.target.value)}
+                    placeholder="tonysdigitalmarketing@gmail.com"
+                    className="flex-1 px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={brevoTesting}
+                    onClick={async () => {
+                      setBrevoTesting(true);
+                      setBrevoTestResult(null);
+                      try {
+                        const res = await fetch('/api/test-brevo-email', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: brevoTestEmail || 'tonysdigitalmarketing@gmail.com' }),
+                        });
+                        const data = await res.json();
+                        setBrevoTestResult(data);
+                        if (res.ok) {
+                          onShowToast?.('Email Sent!', data.message || 'Live test email dispatched successfully.', 'success');
+                        } else {
+                          onShowToast?.('Delivery Notice', data.message || 'Could not dispatch email.', 'error');
+                        }
+                      } catch (err: any) {
+                        setBrevoTestResult({ status: 'error', message: err.message });
+                        onShowToast?.('Test Failed', err.message, 'error');
+                      } finally {
+                        setBrevoTesting(false);
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors shrink-0 disabled:opacity-50"
+                  >
+                    {brevoTesting ? 'Dispatching...' : 'Send Live Test Email'}
+                  </button>
+                </div>
+
+                {brevoTestResult && (
+                  <div className={`p-3 rounded-xl text-xs ${brevoTestResult.status === 'success' ? 'bg-emerald-950/80 border border-emerald-800 text-emerald-300' : 'bg-rose-950/80 border border-rose-800 text-rose-300'}`}>
+                    <p className="font-semibold">{brevoTestResult.message}</p>
+                    {brevoTestResult.messageId && (
+                      <p className="text-[11px] font-mono text-slate-400 mt-1">Brevo Message ID: {brevoTestResult.messageId}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

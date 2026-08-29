@@ -78,6 +78,8 @@ async function dispatchOutboundEmail(options: {
   // 2. Check for BREVO_API_KEY
   if (process.env.BREVO_API_KEY) {
     try {
+      const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'tonysdigitalmarketing@gmail.com').trim();
+      const senderName = (process.env.BREVO_SENDER_NAME || 'AuraCentra Ghana').trim();
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
@@ -85,7 +87,7 @@ async function dispatchOutboundEmail(options: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sender: { name: 'AuraCentra Ghana Security', email: 'security@auracentra.com' },
+          sender: { name: senderName, email: senderEmail },
           to: [{ email: options.to }],
           subject: options.subject,
           textContent: options.text,
@@ -94,7 +96,7 @@ async function dispatchOutboundEmail(options: {
       });
       const data = await response.json();
       if (response.ok) {
-        console.log(`[AuraCentra Email via Brevo API] Sent to ${options.to}, ID: ${data.messageId}`);
+        console.log(`[AuraCentra Email via Brevo API] Sent to ${options.to} from ${senderEmail}, ID: ${data.messageId}`);
         return { success: true, provider: 'Brevo API', messageId: data.messageId };
       } else {
         console.warn('[Brevo API Error]', data);
@@ -953,6 +955,78 @@ app.post('/api/auth/verify-email-token', (req, res) => {
   }
 });
 
+// Test Brevo Transactional Email Gateway
+app.post('/api/test-brevo-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const recipientEmail = (email || 'tonysdigitalmarketing@gmail.com').trim().toLowerCase();
+
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+      res.status(400).json({
+        status: 'error',
+        configured: false,
+        message: 'BREVO_API_KEY is not configured yet in the Settings / environment variables.',
+      });
+      return;
+    }
+
+    const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'tonysdigitalmarketing@gmail.com').trim();
+    const senderName = (process.env.BREVO_SENDER_NAME || 'AuraCentra Ghana').trim();
+    const testCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: recipientEmail }],
+        subject: `[Test] AuraCentra Ghana - Live Brevo Email Verification (${testCode})`,
+        htmlContent: `
+          <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #0f172a; margin: 0; font-size: 22px; font-weight: 800;">AuraCentra Ghana</h1>
+              <p style="color: #64748b; margin: 4px 0 0; font-size: 13px;">Official Email Gateway Test</p>
+            </div>
+            <p style="font-size: 15px; color: #334155; line-height: 1.6;">Hello,</p>
+            <p style="font-size: 15px; color: #334155; line-height: 1.6;">This email confirms that your <strong>Brevo (Sendinblue)</strong> email integration is active and successfully authenticated from <strong>${senderEmail}</strong>.</p>
+            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 18px; text-align: center; margin: 24px 0;">
+              <span style="display: block; font-size: 12px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">Test Security Code</span>
+              <span style="font-size: 32px; font-weight: 900; color: #155dfc; letter-spacing: 6px; font-family: monospace;">${testCode}</span>
+            </div>
+            <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Sender: <strong>${senderEmail}</strong><br>Recipient: <strong>${recipientEmail}</strong></p>
+          </div>
+        `,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      res.json({
+        status: 'success',
+        configured: true,
+        messageId: data.messageId,
+        senderEmail,
+        recipient: recipientEmail,
+        message: `Live test email successfully dispatched to ${recipientEmail} from ${senderEmail}!`,
+      });
+    } else {
+      res.status(response.status).json({
+        status: 'error',
+        configured: true,
+        error: data,
+        message: data.message || 'Failed to dispatch email via Brevo API',
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 4. Check Email Verification Status (For live polling while user has the email open)
 app.get('/api/auth/check-verification-status', (req, res) => {
   const email = (req.query.email as string || '').trim().toLowerCase();
@@ -1036,7 +1110,7 @@ app.post('/api/auth/verify-phone-otp', (req, res) => {
 });
 
 
-// 5. Verification Status Check
+// Verification Status Check
 app.get('/api/auth/status', (req, res) => {
   const email = (req.query.email as string || '').trim().toLowerCase();
   let phone = (req.query.phone as string || '').replace(/[\s\-\(\)]/g, '').trim();
@@ -1047,6 +1121,125 @@ app.get('/api/auth/status', (req, res) => {
     emailVerified: email ? verifiedEmails.has(email) : false,
     phoneVerified: phone ? verifiedPhones.has(phone) : false,
   });
+});
+
+// Safe Supabase Config Provider for frontend clients
+app.get('/api/supabase/config', (req, res) => {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  res.json({
+    configured: Boolean(url && anonKey && url.startsWith('https://')),
+    supabaseUrl: url,
+    supabaseAnonKey: anonKey,
+  });
+});
+
+// Fetch Profile from Supabase or Registry
+app.get('/api/auth/profile', async (req, res) => {
+  try {
+    const email = (req.query.email as string || '').trim().toLowerCase();
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+    let profile: any = null;
+
+    if (url && key) {
+      try {
+        const response = await fetch(`${url}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=*`, {
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+          },
+        });
+        if (response.ok) {
+          const rows = await response.json();
+          if (rows && rows.length > 0) {
+            profile = rows[0];
+          }
+        }
+      } catch (err) {
+        console.warn('[Supabase REST Profile Fetch]', err);
+      }
+    }
+
+    const isAdminEmail = email === 'anthonydeitutu29@gmail.com' || email === 'admindashboard@gmail.com' || email === 'tonysdigitalmarketing@gmail.com';
+
+    if (profile) {
+      if (isAdminEmail && profile.role !== 'admin') {
+        profile.role = 'admin';
+      }
+      res.json({ status: 'success', profile });
+    } else {
+      res.json({
+        status: 'success',
+        profile: {
+          id: `usr-${Date.now()}`,
+          name: email.split('@')[0],
+          email,
+          role: isAdminEmail ? 'admin' : 'customer',
+          phone_verified: true,
+        },
+      });
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sync Profile directly to Supabase from Server
+app.post('/api/auth/sync-profile', async (req, res) => {
+  try {
+    const { id, name, email, phone, role, auth_provider, phone_verified } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    
+    if (!cleanEmail) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+    if (url && key) {
+      const response = await fetch(`${url}/rest/v1/profiles`, {
+        method: 'POST',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify({
+          id: id || crypto.randomUUID(),
+          name: name || cleanEmail.split('@')[0],
+          email: cleanEmail,
+          phone: phone || null,
+          role: role || 'customer',
+          auth_provider: auth_provider || 'email',
+          phone_verified: Boolean(phone_verified),
+          updated_at: new Date().toISOString(),
+        }),
+      });
+
+      if (response.ok) {
+        res.json({ status: 'success', synced: true, message: `Profile for ${cleanEmail} saved to Supabase profiles table.` });
+        return;
+      } else {
+        const errorText = await response.text();
+        console.warn('[Supabase Server Sync Warning]', errorText);
+      }
+    }
+
+    res.json({ status: 'success', synced: false, message: 'Saved to local registry' });
+  } catch (err: any) {
+    console.error('[Sync Profile Error]', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 5. Query / Search Businesses

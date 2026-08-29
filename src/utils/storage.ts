@@ -102,7 +102,16 @@ export function getStoredCurrentUser(): UserProfile | null {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (data) {
-      return JSON.parse(data);
+      const user: UserProfile = JSON.parse(data);
+      if (user?.email) {
+        const clean = user.email.trim().toLowerCase();
+        if (clean === 'anthonydeitutu29@gmail.com' || clean === 'admindashboard@gmail.com' || clean === 'tonysdigitalmarketing@gmail.com') {
+          user.role = 'admin';
+          user.emailVerified = true;
+          user.phoneVerified = true;
+        }
+      }
+      return user;
     }
   } catch (e) {
     console.error('Failed to load current user', e);
