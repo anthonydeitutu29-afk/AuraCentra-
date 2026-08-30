@@ -248,7 +248,7 @@ export const SupabaseService = {
   // --------------------------------------------------------------------------
   
   // Sign up with Email and Password
-  async signUp(email: string, password: string, metadata: { name: string; role: UserRole; phone?: string }) {
+  async signUp(email: string, password: string, metadata: { name: string; username?: string; role: UserRole; phone?: string }) {
     if (supabase) {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -256,6 +256,7 @@ export const SupabaseService = {
         options: {
           data: {
             name: metadata.name,
+            username: metadata.username || email.split('@')[0],
             role: metadata.role,
             phone: metadata.phone || '',
           },
@@ -270,6 +271,7 @@ export const SupabaseService = {
           await supabase.from('profiles').upsert({
             id: data.user.id,
             name: metadata.name,
+            username: metadata.username || email.split('@')[0],
             email: email.toLowerCase(),
             phone: metadata.phone || null,
             role: metadata.role,
@@ -290,6 +292,7 @@ export const SupabaseService = {
           body: JSON.stringify({
             id: data.user?.id || `user-${Date.now()}`,
             name: metadata.name,
+            username: metadata.username || email.split('@')[0],
             email: email.toLowerCase(),
             phone: metadata.phone || null,
             role: metadata.role,
@@ -316,6 +319,7 @@ export const SupabaseService = {
         body: JSON.stringify({
           id: `user-${Date.now()}`,
           name: metadata.name,
+          username: metadata.username || email.split('@')[0],
           email: email.toLowerCase(),
           phone: metadata.phone || null,
           role: metadata.role,

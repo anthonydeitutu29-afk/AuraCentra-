@@ -273,10 +273,108 @@ export function saveRegisteredAccount(account: UserAccountRecord): void {
   }
 }
 
+export function normalizePhoneNumber(phone?: string): string {
+  if (!phone) return '';
+  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '').trim();
+  // Standardize Ghana telephone formatting: +233, 233, or leading 0
+  if (cleaned.startsWith('+233')) {
+    cleaned = '0' + cleaned.slice(4);
+  } else if (cleaned.startsWith('233') && cleaned.length >= 12) {
+    cleaned = '0' + cleaned.slice(3);
+  }
+  return cleaned;
+}
+
+export function normalizeUsername(username?: string): string {
+  if (!username) return '';
+  return username.trim().toLowerCase().replace(/^@+/, '');
+}
+
 export function findRegisteredAccountByEmail(email: string): UserAccountRecord | null {
   const cleanEmail = email.trim().toLowerCase();
   const accounts = getRegisteredAccounts();
   return accounts.find((a) => a.email.toLowerCase() === cleanEmail) || null;
+}
+
+export function findRegisteredAccountByPhone(phone: string): UserAccountRecord | null {
+  const cleanPhone = normalizePhoneNumber(phone);
+  if (!cleanPhone || cleanPhone.length < 9) return null;
+  const accounts = getRegisteredAccounts();
+  return accounts.find((a) => {
+    if (!a.phone) return false;
+    const aCleanPhone = normalizePhoneNumber(a.phone);
+    return aCleanPhone === cleanPhone;
+  }) || null;
+}
+
+export function findRegisteredAccountByUsername(username: string): UserAccountRecord | null {
+  const cleanUser = normalizeUsername(username);
+  if (!cleanUser) return null;
+  const accounts = getRegisteredAccounts();
+  return accounts.find((a) => {
+    if (a.username && normalizeUsername(a.username) === cleanUser) return true;
+    // Also check if username matches the email prefix
+    const emailPrefix = normalizeUsername(a.email.split('@')[0]);
+    if (emailPrefix === cleanUser) return true;
+    return false;
+  }) || null;
+}
+
+/**
+ * Validates uniqueness of Email, Phone number, and Username before registration.
+ * Ensures an email, phone number, or username can ONLY be used once across the platform.
+ */
+export function checkAccountUniqueness(params: {
+  email: string;
+  phone?: string;
+  username?: string;
+  excludeAccountId?: string;
+}): { isUnique: boolean; conflictField?: 'email' | 'phone' | 'username'; errorMessage?: string } {
+  const cleanEmail = (params.email || '').trim().toLowerCase();
+  const cleanPhone = normalizePhoneNumber(params.phone);
+  const cleanUsername = normalizeUsername(params.username);
+  const accounts = getRegisteredAccounts();
+
+  for (const acc of accounts) {
+    if (params.excludeAccountId && acc.id === params.excludeAccountId) {
+      continue;
+    }
+
+    // 1. Check Email Uniqueness
+    if (cleanEmail && acc.email.toLowerCase() === cleanEmail) {
+      return {
+        isUnique: false,
+        conflictField: 'email',
+        errorMessage: `The email address "${cleanEmail}" is already registered. Please log in or use a different email address.`
+      };
+    }
+
+    // 2. Check Phone Number Uniqueness
+    if (cleanPhone && cleanPhone.length >= 9 && acc.phone) {
+      const accPhone = normalizePhoneNumber(acc.phone);
+      if (accPhone === cleanPhone) {
+        return {
+          isUnique: false,
+          conflictField: 'phone',
+          errorMessage: `The phone number "${params.phone?.trim()}" is already associated with an existing account. Each phone number can only be used once.`
+        };
+      }
+    }
+
+    // 3. Check Username Uniqueness
+    if (cleanUsername) {
+      const accUser = acc.username ? normalizeUsername(acc.username) : normalizeUsername(acc.email.split('@')[0]);
+      if (accUser === cleanUsername) {
+        return {
+          isUnique: false,
+          conflictField: 'username',
+          errorMessage: `The username "@${cleanUsername}" is already taken. Please choose another username.`
+        };
+      }
+    }
+  }
+
+  return { isUnique: true };
 }
 
 export function getStoredSearchHistory(): string[] {

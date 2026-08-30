@@ -120,6 +120,7 @@ export type UserRole = 'visitor' | 'customer' | 'business_owner' | 'verified_own
 export interface UserProfile {
   id: string;
   name: string;
+  username?: string;
   email: string;
   emailVerified?: boolean;
   phone?: string;
@@ -137,6 +138,7 @@ export interface UserProfile {
 export interface UserAccountRecord {
   id: string;
   name: string;
+  username?: string;
   email: string;
   emailVerified?: boolean;
   phone?: string;

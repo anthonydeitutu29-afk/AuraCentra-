@@ -15,6 +15,50 @@ let inquiriesCache: any[] = [];
 let reviewsCache: any[] = [];
 let newsletterCache: string[] = ['tonysdigitalmarketing@gmail.com'];
 let userLocationsCache: any[] = [];
+let registeredUsersRegistry: Array<{
+  id: string;
+  name: string;
+  username?: string;
+  email: string;
+  phone?: string;
+  role: string;
+  createdAt: string;
+}> = [
+  {
+    id: 'admin-super-01',
+    name: 'AuraCentra Executive Admin',
+    username: 'admin',
+    email: 'admindashboard@gmail.com',
+    phone: '+233 50 820 3673',
+    role: 'admin',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'admin-tony-02',
+    name: 'Tony Executive Admin',
+    username: 'tonysdigitalmarketing',
+    email: 'tonysdigitalmarketing@gmail.com',
+    phone: '+233 50 820 3673',
+    role: 'admin',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+];
+
+function normalizePhone(phone?: string): string {
+  if (!phone) return '';
+  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '').trim();
+  if (cleaned.startsWith('+233')) {
+    cleaned = '0' + cleaned.slice(4);
+  } else if (cleaned.startsWith('233') && cleaned.length >= 12) {
+    cleaned = '0' + cleaned.slice(3);
+  }
+  return cleaned;
+}
+
+function normalizeUsername(username?: string): string {
+  if (!username) return '';
+  return username.trim().toLowerCase().replace(/^@+/, '');
+}
 
 // Verification Token & OTP Caches
 interface VerificationTokenRecord {
@@ -1191,15 +1235,121 @@ app.get('/api/auth/profile', async (req, res) => {
   }
 });
 
+// Check Unique Account Availability (Email, Phone, Username)
+app.post('/api/auth/check-uniqueness', async (req, res) => {
+  try {
+    const { email, phone, username, excludeAccountId } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPhone = normalizePhone(phone);
+    const cleanUsername = normalizeUsername(username);
+
+    // 1. Check in-memory registry
+    for (const acc of registeredUsersRegistry) {
+      if (excludeAccountId && acc.id === excludeAccountId) continue;
+
+      if (cleanEmail && acc.email.toLowerCase() === cleanEmail) {
+        res.status(409).json({
+          isUnique: false,
+          conflictField: 'email',
+          message: `The email address "${cleanEmail}" is already registered. Please log in or use a different email address.`,
+        });
+        return;
+      }
+
+      if (cleanPhone && cleanPhone.length >= 9 && acc.phone) {
+        if (normalizePhone(acc.phone) === cleanPhone) {
+          res.status(409).json({
+            isUnique: false,
+            conflictField: 'phone',
+            message: `The phone number "${phone.trim()}" is already linked to an existing account. Each phone number can only be used once.`,
+          });
+          return;
+        }
+      }
+
+      if (cleanUsername) {
+        const accUser = acc.username ? normalizeUsername(acc.username) : normalizeUsername(acc.email.split('@')[0]);
+        if (accUser === cleanUsername) {
+          res.status(409).json({
+            isUnique: false,
+            conflictField: 'username',
+            message: `The username "@${cleanUsername}" is already taken. Please choose another username.`,
+          });
+          return;
+        }
+      }
+    }
+
+    // 2. Check Supabase DB if configured
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+    if (url && key && cleanEmail) {
+      try {
+        const supaRes = await fetch(`${url}/rest/v1/profiles?email=eq.${encodeURIComponent(cleanEmail)}&select=id,email,phone,name`, {
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+          },
+        });
+        if (supaRes.ok) {
+          const rows = await supaRes.json();
+          if (rows && rows.length > 0) {
+            const conflict = rows.find((r: any) => !excludeAccountId || r.id !== excludeAccountId);
+            if (conflict) {
+              res.status(409).json({
+                isUnique: false,
+                conflictField: 'email',
+                message: `The email address "${cleanEmail}" is already registered in the national registry. Please sign in instead.`,
+              });
+              return;
+            }
+          }
+        }
+      } catch (supaErr) {
+        console.warn('[Uniqueness Supabase Check Notice]', supaErr);
+      }
+    }
+
+    res.json({
+      isUnique: true,
+      message: 'Email, phone number, and username are available for registration.',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Uniqueness check failed' });
+  }
+});
+
 // Sync Profile directly to Supabase from Server
 app.post('/api/auth/sync-profile', async (req, res) => {
   try {
-    const { id, name, email, phone, role, auth_provider, phone_verified } = req.body;
+    const { id, name, username, email, phone, role, auth_provider, phone_verified } = req.body;
     const cleanEmail = (email || '').trim().toLowerCase();
     
     if (!cleanEmail) {
       res.status(400).json({ error: 'Email is required' });
       return;
+    }
+
+    // Upsert into registeredUsersRegistry
+    const existingIndex = registeredUsersRegistry.findIndex(
+      u => u.email.toLowerCase() === cleanEmail || (id && u.id === id)
+    );
+
+    const userEntry = {
+      id: id || (existingIndex >= 0 ? registeredUsersRegistry[existingIndex].id : `usr-${Date.now()}`),
+      name: name || cleanEmail.split('@')[0],
+      username: username ? normalizeUsername(username) : normalizeUsername(cleanEmail.split('@')[0]),
+      email: cleanEmail,
+      phone: phone || '',
+      role: role || 'customer',
+      createdAt: existingIndex >= 0 ? registeredUsersRegistry[existingIndex].createdAt : new Date().toISOString(),
+    };
+
+    if (existingIndex >= 0) {
+      registeredUsersRegistry[existingIndex] = userEntry;
+    } else {
+      registeredUsersRegistry.push(userEntry);
     }
 
     const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -1215,8 +1365,8 @@ app.post('/api/auth/sync-profile', async (req, res) => {
           'Prefer': 'resolution=merge-duplicates',
         },
         body: JSON.stringify({
-          id: id || crypto.randomUUID(),
-          name: name || cleanEmail.split('@')[0],
+          id: userEntry.id,
+          name: userEntry.name,
           email: cleanEmail,
           phone: phone || null,
           role: role || 'customer',

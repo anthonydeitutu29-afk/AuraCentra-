@@ -1,5 +1,13 @@
 import { UserProfile, UserRole } from '../types';
-import { saveRegisteredAccount, findRegisteredAccountByEmail } from '../utils/storage';
+import { 
+  saveRegisteredAccount, 
+  findRegisteredAccountByEmail, 
+  findRegisteredAccountByPhone,
+  findRegisteredAccountByUsername,
+  checkAccountUniqueness,
+  normalizePhoneNumber,
+  normalizeUsername 
+} from '../utils/storage';
 import { supabase, isSupabaseConfigured, SupabaseService } from '../lib/supabase';
 
 export interface AuthResult {
@@ -12,12 +20,56 @@ export interface AuthResult {
 
 export const FirebaseAuthService = {
   /**
+   * Check if an Email, Phone Number, or Username is already registered anywhere in the system
+   */
+  async checkAccountAvailability(params: {
+    email: string;
+    phone?: string;
+    username?: string;
+    excludeAccountId?: string;
+  }): Promise<{ isUnique: boolean; conflictField?: 'email' | 'phone' | 'username'; message?: string }> {
+    // 1. Client Storage Instant Validation
+    const localCheck = checkAccountUniqueness(params);
+    if (!localCheck.isUnique) {
+      return {
+        isUnique: false,
+        conflictField: localCheck.conflictField,
+        message: localCheck.errorMessage,
+      };
+    }
+
+    // 2. Server-side / Supabase Live Registry Validation
+    try {
+      const res = await fetch('/api/auth/check-uniqueness', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        return {
+          isUnique: false,
+          conflictField: errData.conflictField || 'email',
+          message: errData.message || 'This credential is already associated with an account.',
+        };
+      }
+    } catch (apiErr) {
+      console.warn('[check-uniqueness network check]', apiErr);
+    }
+
+    return { isUnique: true };
+  },
+
+  /**
    * Register a new user with email and password and dispatch real Verification Email Link & Code
+   * Strictly enforces that an email, phone number, or username can ONLY be used once.
    */
   async signUpWithEmail(params: {
     email: string;
     password: string;
     name: string;
+    username?: string;
     role: 'customer' | 'business_owner';
     phone?: string;
     businessName?: string;
@@ -34,6 +86,22 @@ export const FirebaseAuthService = {
   }> {
     const cleanEmail = params.email.trim().toLowerCase();
     const cleanName = params.name.trim();
+    const cleanUsername = normalizeUsername(params.username || cleanEmail.split('@')[0]);
+    const cleanPhone = params.phone ? params.phone.trim() : '';
+
+    // ========================================================================
+    // STRICT UNIQUENESS ENFORCEMENT
+    // ========================================================================
+    const availability = await this.checkAccountAvailability({
+      email: cleanEmail,
+      phone: cleanPhone,
+      username: cleanUsername,
+    });
+
+    if (!availability.isUnique) {
+      throw new Error(availability.message || 'This email, phone number, or username is already in use.');
+    }
+
     const displayName = params.role === 'business_owner' && params.businessName
       ? `${cleanName} (${params.businessName.trim()})`
       : cleanName;
@@ -55,6 +123,7 @@ export const FirebaseAuthService = {
         body: JSON.stringify({
           email: cleanEmail,
           name: displayName,
+          username: cleanUsername,
           role: params.role,
           businessName: params.businessName,
           appUrl: window.location.origin,
@@ -80,8 +149,9 @@ export const FirebaseAuthService = {
       try {
         const supaResult = await SupabaseService.signUp(cleanEmail, params.password, {
           name: displayName,
+          username: cleanUsername,
           role: params.role as UserRole,
-          phone: params.phone,
+          phone: cleanPhone,
         });
         if (supaResult.user?.id) {
           userId = supaResult.user.id;
@@ -94,9 +164,10 @@ export const FirebaseAuthService = {
     const profile: UserProfile = {
       id: userId,
       name: displayName,
+      username: cleanUsername,
       email: cleanEmail,
       emailVerified: false,
-      phone: params.phone?.trim() || '+233 24 000 0000',
+      phone: cleanPhone || '+233 24 000 0000',
       phoneVerified: true,
       role: params.role as UserRole,
       accountType: params.role,
@@ -108,6 +179,7 @@ export const FirebaseAuthService = {
     saveRegisteredAccount({
       id: profile.id,
       name: profile.name,
+      username: cleanUsername,
       email: profile.email,
       password: params.password,
       role: profile.role,
@@ -119,7 +191,7 @@ export const FirebaseAuthService = {
       createdAt: profile.createdAt,
     });
 
-    // 4. Push directly to Supabase profiles
+    // 4. Push directly to Supabase & Backend server profiles
     try {
       SupabaseService.saveProfile(profile).catch(() => {});
     } catch {
@@ -331,19 +403,41 @@ export const FirebaseAuthService = {
   },
 
   /**
-   * Log in with Email & Password
+   * Log in with Email, Phone Number, or Username & Password
    */
-  async signInWithEmail(email: string, password: string): Promise<AuthResult> {
-    const cleanEmail = email.trim().toLowerCase();
+  async signInWithEmail(identifier: string, password: string): Promise<AuthResult> {
+    const cleanInput = identifier.trim();
     const cleanPassword = password.trim();
 
+    if (!cleanInput) {
+      throw new Error('Please enter your email, phone number, or username.');
+    }
+
+    // Resolve identifier to account record
+    let targetAccount = findRegisteredAccountByEmail(cleanInput);
+    if (!targetAccount) {
+      targetAccount = findRegisteredAccountByPhone(cleanInput);
+    }
+    if (!targetAccount) {
+      targetAccount = findRegisteredAccountByUsername(cleanInput);
+    }
+
+    const cleanEmail = targetAccount ? targetAccount.email.toLowerCase() : cleanInput.toLowerCase();
+
     let isEmailVerified = false;
-    let displayName = cleanEmail.split('@')[0];
-    let userId = `usr-${Date.now()}`;
-    let role: UserRole = 'customer';
+    let displayName = targetAccount ? targetAccount.name : cleanEmail.split('@')[0];
+    let userId = targetAccount ? targetAccount.id : `usr-${Date.now()}`;
+    let role: UserRole = targetAccount ? targetAccount.role : 'customer';
+
+    // Check password if account is in local registry
+    if (targetAccount && targetAccount.password) {
+      if (targetAccount.password !== cleanPassword) {
+        throw new Error('Incorrect password. Please verify your credentials.');
+      }
+    }
 
     // Supabase login if configured
-    if (isSupabaseConfigured && supabase) {
+    if (isSupabaseConfigured && supabase && cleanEmail.includes('@')) {
       try {
         const supaResult = await SupabaseService.signIn(cleanEmail, cleanPassword);
         if (supaResult?.user) {
@@ -358,54 +452,51 @@ export const FirebaseAuthService = {
     let liveRoleFound = false;
 
     // Fetch live profile from Supabase
-    try {
-      const liveProfile = await SupabaseService.getProfile(cleanEmail);
-      if (liveProfile) {
-        displayName = liveProfile.name || displayName;
-        role = liveProfile.role || role;
-        userId = liveProfile.id || userId;
-        isEmailVerified = true;
-        liveRoleFound = true;
-      }
-    } catch (e) {
-      console.warn('[Fetch live profile notice]', e);
-    }
-
-    // Check local registered account record
-    const localRecord = findRegisteredAccountByEmail(cleanEmail);
-    if (localRecord) {
-      if (localRecord.password && localRecord.password !== cleanPassword) {
-        throw new Error('Incorrect password. Please verify your credentials.');
-      }
-      displayName = localRecord.name || displayName;
-      if (!liveRoleFound) {
-        role = localRecord.role || role;
-      }
-      if (localRecord.emailVerified) {
-        isEmailVerified = true;
+    if (cleanEmail.includes('@')) {
+      try {
+        const liveProfile = await SupabaseService.getProfile(cleanEmail);
+        if (liveProfile) {
+          displayName = liveProfile.name || displayName;
+          role = liveProfile.role || role;
+          userId = liveProfile.id || userId;
+          isEmailVerified = true;
+          liveRoleFound = true;
+        }
+      } catch (e) {
+        console.warn('[Fetch live profile notice]', e);
       }
     }
 
-    if (cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com') {
+    if (targetAccount) {
+      isEmailVerified = Boolean(targetAccount.emailVerified || isEmailVerified);
+      role = targetAccount.role || role;
+      userId = targetAccount.id || userId;
+      displayName = targetAccount.name || displayName;
+    }
+
+    const isAdmin = cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
+    if (isAdmin) {
       role = 'admin';
       isEmailVerified = true;
     }
 
-    const profile: UserProfile = {
+    const user: UserProfile = {
       id: userId,
       name: displayName,
+      username: targetAccount?.username || (cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanInput),
       email: cleanEmail,
       emailVerified: isEmailVerified,
-      phone: localRecord?.phone || '+233 24 000 0000',
+      phone: targetAccount?.phone || '+233 24 000 0000',
       phoneVerified: true,
       role: role,
       savedBusinessIds: [],
-      createdAt: localRecord?.createdAt || new Date().toISOString(),
+      createdAt: targetAccount?.createdAt || new Date().toISOString(),
     };
 
     return {
-      user: profile,
+      user,
       isEmailVerified,
+      message: 'Login successful.',
     };
   },
 

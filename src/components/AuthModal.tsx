@@ -19,7 +19,8 @@ import {
   Check,
   Send,
   ExternalLink,
-  ArrowLeft
+  ArrowLeft,
+  AtSign
 } from 'lucide-react';
 import { UserProfile, UserRole, UserAccountRecord } from '../types';
 import { FirebaseAuthService } from '../services/firebaseAuthService';
@@ -27,6 +28,9 @@ import {
   findRegisteredAccountByEmail, 
   saveRegisteredAccount, 
   getRegisteredAccounts,
+  checkAccountUniqueness,
+  normalizePhoneNumber,
+  normalizeUsername,
   DEFAULT_ADMIN_ACCOUNT 
 } from '../utils/storage';
 import { Logo } from './Logo';
@@ -56,10 +60,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   
   // Form Fields
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  
+  // Real-time Credential Availability Indicators
+  const [emailConflict, setEmailConflict] = useState<string | null>(null);
+  const [phoneConflict, setPhoneConflict] = useState<string | null>(null);
+  const [usernameConflict, setUsernameConflict] = useState<string | null>(null);
   
   // Business Specific Fields
   const [businessName, setBusinessName] = useState('');
@@ -288,8 +298,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
+    setEmailConflict(null);
+    setPhoneConflict(null);
+    setUsernameConflict(null);
 
     const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = normalizeUsername(username || cleanEmail.split('@')[0]);
     const cleanPassword = password.trim();
     const cleanConfirm = confirmPassword.trim();
     const cleanName = name.trim();
@@ -302,6 +316,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
       setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
+    // 1. Strict Uniqueness Pre-Check against local registry
+    const localCheck = checkAccountUniqueness({
+      email: cleanEmail,
+      phone: cleanPhone,
+      username: cleanUsername,
+    });
+
+    if (!localCheck.isUnique) {
+      if (localCheck.conflictField === 'email') {
+        setEmailConflict(localCheck.errorMessage || 'Email already exists');
+      } else if (localCheck.conflictField === 'phone') {
+        setPhoneConflict(localCheck.errorMessage || 'Phone number already exists');
+      } else if (localCheck.conflictField === 'username') {
+        setUsernameConflict(localCheck.errorMessage || 'Username is taken');
+      }
+      setErrorMsg(localCheck.errorMessage || 'This email, phone number, or username is already in use.');
       return;
     }
 
@@ -332,6 +365,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         email: cleanEmail,
         password: cleanPassword,
         name: cleanName,
+        username: cleanUsername,
         role: accountType,
         phone: cleanPhone || '+233 24 000 0000',
         businessName: accountType === 'business_owner' ? businessName : undefined,
@@ -354,7 +388,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setSuccessMsg(result.message);
     } catch (err: any) {
       console.error('[Sign Up Error]', err);
-      setErrorMsg(err.message || 'Registration failed. Please check your details and try again.');
+      const errMsg = err.message || 'Registration failed. Please check your details and try again.';
+      setErrorMsg(errMsg);
+      if (errMsg.toLowerCase().includes('email')) {
+        setEmailConflict(errMsg);
+      } else if (errMsg.toLowerCase().includes('phone') || errMsg.toLowerCase().includes('number')) {
+        setPhoneConflict(errMsg);
+      } else if (errMsg.toLowerCase().includes('username') || errMsg.toLowerCase().includes('@')) {
+        setUsernameConflict(errMsg);
+      }
       setLoading(false);
     }
   };
@@ -615,33 +657,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               /* ---------------- LOG IN FORM ---------------- */
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email"
-                    required
-                    className="w-full px-4 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Email, Phone Number, or Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. name@email.com, 0508203673, @username"
+                      required
+                      className="w-full px-4 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                    />
+                  </div>
                 </div>
 
                 <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password"
-                    required
-                    className="w-full pl-4 pr-11 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Password
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Your Password"
+                      required
+                      className="w-full pl-4 pr-11 py-3.5 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Remember Me & Forgot Password Row */}
@@ -727,6 +781,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   />
                 </div>
 
+                {/* Unique Username Input */}
+                <div>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 text-sm font-semibold">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        setUsernameConflict(null);
+                      }}
+                      placeholder="Username (e.g. kwame_mensah)"
+                      className={`w-full pl-8 pr-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border ${
+                        usernameConflict ? 'border-red-500 bg-red-50/20' : 'border-slate-200/70 dark:border-slate-700/70'
+                      } focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all`}
+                    />
+                  </div>
+                  {usernameConflict && (
+                    <p className="mt-1 text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1 font-medium pl-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {usernameConflict}
+                    </p>
+                  )}
+                </div>
+
                 {accountType === 'business_owner' && (
                   <div>
                     <input
@@ -744,21 +825,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setEmailConflict(null);
+                    }}
                     placeholder="Email Address (Verification link sent here)"
                     required
-                    className="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                    className={`w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border ${
+                      emailConflict ? 'border-red-500 bg-red-50/20' : 'border-slate-200/70 dark:border-slate-700/70'
+                    } focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all`}
                   />
+                  {emailConflict && (
+                    <p className="mt-1 text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1 font-medium pl-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {emailConflict}
+                    </p>
+                  )}
                 </div>
 
                 <div>
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      setPhoneConflict(null);
+                    }}
                     placeholder="Phone Number (e.g. 050 820 3673)"
-                    className="w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70 focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all"
+                    className={`w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border ${
+                      phoneConflict ? 'border-red-500 bg-red-50/20' : 'border-slate-200/70 dark:border-slate-700/70'
+                    } focus:border-blue-500 focus:bg-white dark:focus:bg-slate-900 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all`}
                   />
+                  {phoneConflict && (
+                    <p className="mt-1 text-[11px] text-red-600 dark:text-red-400 flex items-center gap-1 font-medium pl-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      {phoneConflict}
+                    </p>
+                  )}
                 </div>
 
                 <div className="relative">
