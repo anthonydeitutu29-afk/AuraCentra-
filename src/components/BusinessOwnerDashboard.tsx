@@ -60,6 +60,8 @@ interface BusinessOwnerDashboardProps {
   reviews: BusinessReview[];
   onUpdateBusiness: (updated: Business) => void;
   onAddBusiness?: (newBiz: Business) => void;
+  onDeleteBusiness?: (businessId: string) => void;
+  onOpenAccountSettings?: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
   onBackToPortal: () => void;
   onSignOut: () => void;
@@ -76,6 +78,8 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
   reviews,
   onUpdateBusiness,
   onAddBusiness,
+  onDeleteBusiness,
+  onOpenAccountSettings,
   onShowToast,
   onBackToPortal,
   onSignOut,
@@ -109,7 +113,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
 
   // Navigation tab
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'profile' | 'media' | 'contact' | 'location' | 'hours' | 'inquiries' | 'reviews' | 'verification'
+    'overview' | 'profile' | 'media' | 'contact' | 'location' | 'hours' | 'inquiries' | 'reviews' | 'verification' | 'settings'
   >('overview');
 
   // Form states for active business
@@ -664,9 +668,11 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               { id: 'inquiries', label: `Inquiries & Leads (${businessInquiries.length})`, icon: MessageSquare },
               { id: 'reviews', label: `Reviews (${businessReviews.length})`, icon: Star },
               { id: 'verification', label: 'Verification Center', icon: ShieldCheck },
+              { id: 'settings', label: 'Settings & Deletion', icon: Trash2 },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const isDanger = tab.id === 'settings';
               return (
                 <button
                   key={tab.id}
@@ -674,7 +680,9 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`flex items-center gap-2 py-2.5 px-3.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
                     isActive
-                      ? 'bg-blue-600 text-white shadow-xs'
+                      ? isDanger ? 'bg-rose-600 text-white shadow-xs' : 'bg-blue-600 text-white shadow-xs'
+                      : isDanger
+                      ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
@@ -1821,6 +1829,92 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               )}
             </div>
 
+          </div>
+        )}
+
+        {/* TAB 10: SETTINGS & DELETION */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Danger Zone: Delete Single Business Listing */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                    Delete Business Listing: {activeBusiness.name}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Remove this specific business from AuraCentra Ghana while keeping your user account active.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 space-y-2">
+                <p>
+                  Removing <strong>{activeBusiness.name}</strong> will delete its public page, logo, photos, GPS digital address, customer reviews, and leads from the directory.
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to permanently delete "${activeBusiness.name}" from AuraCentra Ghana? This cannot be undone.`)) {
+                      if (onDeleteBusiness) {
+                        onDeleteBusiness(activeBusiness.id);
+                      } else {
+                        onShowToast('Business Deleted', `${activeBusiness.name} has been removed.`, 'info');
+                      }
+                    }
+                  }}
+                  className="px-5 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Listing "{activeBusiness.name}"</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Danger Zone: Delete Entire Business Owner Account */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border-2 border-rose-200 dark:border-rose-900/60 shadow-xs space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 tracking-tight">
+                    Permanently Delete Business Account & All Data
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Permanently wipe your user login ({currentUser.email}), personal credentials, and all registered businesses.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-800 dark:text-rose-300 space-y-2">
+                <p className="font-bold">Important Notice:</p>
+                <p>
+                  This will completely delete your account from AuraCentra Ghana. You will immediately be signed out, and all associated enterprise profiles, customer reviews, and inquiries will be permanently purged.
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onOpenAccountSettings) {
+                      onOpenAccountSettings();
+                    }
+                  }}
+                  className="px-6 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Open Permanent Account Deletion Modal</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -89,6 +89,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Email Verification State
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
   const [pendingUserProfile, setPendingUserProfile] = useState<UserProfile | null>(null);
+  const [pendingSignupPayload, setPendingSignupPayload] = useState<{
+    email: string;
+    password: string;
+    name: string;
+    username?: string;
+    role: 'customer' | 'business_owner';
+    phone?: string;
+    businessName?: string;
+  } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -112,6 +121,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Saved accounts list on this device
   const [savedAccounts, setSavedAccounts] = useState<UserAccountRecord[]>([]);
+
+  // Helper to finalize account setup upon verified email
+  const finalizeAccountOnVerified = async (targetEmail: string) => {
+    try {
+      if (pendingSignupPayload) {
+        const result = await FirebaseAuthService.completeSignUpAfterVerification(pendingSignupPayload);
+        setSuccessMsg('Email verified! Account created successfully. Logging you in...');
+        setTimeout(() => {
+          onLoginSuccess(result.profile);
+          onClose();
+        }, 800);
+      } else if (pendingUserProfile) {
+        const verifiedUser: UserProfile = {
+          ...pendingUserProfile,
+          emailVerified: true,
+        };
+        saveRegisteredAccount({
+          ...verifiedUser,
+          emailVerified: true,
+        });
+        setSuccessMsg('Email verified! Logging you in...');
+        setTimeout(() => {
+          onLoginSuccess(verifiedUser);
+          onClose();
+        }, 800);
+      } else {
+        setSuccessMsg('Email verified successfully! You can now log in.');
+        setTimeout(() => {
+          setAuthMode('signin');
+        }, 1200);
+      }
+    } catch (finalizeErr: any) {
+      setErrorMsg(finalizeErr.message || 'Error finalizing account creation');
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -158,33 +202,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           const status = await FirebaseAuthService.checkEmailVerificationStatus(target);
           if (status.isVerified) {
             clearInterval(interval);
-            if (pendingUserProfile) {
-              const verifiedUser: UserProfile = {
-                ...pendingUserProfile,
-                emailVerified: true,
-              };
-              saveRegisteredAccount({
-                ...verifiedUser,
-                emailVerified: true,
-              });
-              onLoginSuccess(verifiedUser);
-              onClose();
-            } else {
-              setSuccessMsg('Email successfully verified! Logging you in...');
-              setTimeout(() => {
-                setAuthMode('signin');
-              }, 1200);
-            }
+            finalizeAccountOnVerified(target);
           }
         } catch {
           // ignore background check errors
         }
-      }, 3000);
+      }, 2500);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isOpen, authMode, pendingVerificationEmail, email, pendingUserProfile, onLoginSuccess, onClose]);
+  }, [isOpen, authMode, pendingVerificationEmail, email, pendingUserProfile, pendingSignupPayload, onLoginSuccess, onClose]);
 
 
   // Resend cooldown timer
@@ -361,7 +389,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      const result = await FirebaseAuthService.signUpWithEmail({
+      const signupPayload = {
         email: cleanEmail,
         password: cleanPassword,
         name: cleanName,
@@ -369,11 +397,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         role: accountType,
         phone: cleanPhone || '+233 24 000 0000',
         businessName: accountType === 'business_owner' ? businessName : undefined,
-      });
+      };
+
+      const result = await FirebaseAuthService.initiateSignUpWithEmail(signupPayload);
+
+      setPendingSignupPayload(signupPayload);
+      setPendingVerificationEmail(cleanEmail);
+      if (result.token || result.code || result.viewMailUrl) {
+        setLatestEmailData({
+          token: result.token,
+          code: result.code,
+          viewMailUrl: result.viewMailUrl,
+          provider: result.provider,
+          previewUrl: result.previewUrl,
+        });
+      }
 
       setLoading(false);
-      onLoginSuccess(result.profile);
-      onClose();
+      setResendCooldown(60);
+      setAuthMode('verify_email');
+      setSuccessMsg(`Verification email dispatched to ${cleanEmail}. Please verify your email to create your account.`);
     } catch (err: any) {
       console.error('[Sign Up Error]', err);
       const errMsg = err.message || 'Registration failed. Please check your details and try again.';
@@ -402,21 +445,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setCheckingStatus(false);
 
       if (status.isVerified) {
-        if (pendingUserProfile) {
-          const verifiedUser: UserProfile = {
-            ...pendingUserProfile,
-            emailVerified: true,
-          };
-          saveRegisteredAccount({
-            ...verifiedUser,
-            emailVerified: true,
-          });
-          onLoginSuccess(verifiedUser);
-          onClose();
-        } else {
-          setSuccessMsg('Email verified successfully! You can now log in.');
-          setAuthMode('signin');
-        }
+        await finalizeAccountOnVerified(target);
       } else {
         setErrorMsg('Email verification not detected yet. Please click the link in your email, use the Webmail viewer below, or enter the 6-digit code.');
       }
@@ -445,25 +474,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const result = await FirebaseAuthService.verifyWithCodeOrToken(target, cleanCode);
       setVerifyingCode(false);
       setSuccessMsg(result.message);
-
-      if (pendingUserProfile) {
-        const verifiedUser: UserProfile = {
-          ...pendingUserProfile,
-          emailVerified: true,
-        };
-        saveRegisteredAccount({
-          ...verifiedUser,
-          emailVerified: true,
-        });
-        setTimeout(() => {
-          onLoginSuccess(verifiedUser);
-          onClose();
-        }, 800);
-      } else {
-        setTimeout(() => {
-          setAuthMode('signin');
-        }, 1000);
-      }
+      await finalizeAccountOnVerified(target);
     } catch (err: any) {
       setVerifyingCode(false);
       setErrorMsg(err.message || 'Invalid or expired verification code. Please check your email.');

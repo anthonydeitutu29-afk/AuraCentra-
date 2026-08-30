@@ -221,14 +221,15 @@ async function dispatchOutboundEmail(options: {
   }
 
   // 2. Check for BREVO_API_KEY
-  if (process.env.BREVO_API_KEY) {
+  const brevoApiKey = process.env.BREVO_API_KEY?.trim();
+  if (brevoApiKey) {
     try {
       const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'tonysdigitalmarketing@gmail.com').trim();
       const senderName = (process.env.BREVO_SENDER_NAME || 'AuraCentra Ghana').trim();
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
-          'api-key': process.env.BREVO_API_KEY,
+          'api-key': brevoApiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -1501,6 +1502,88 @@ app.post('/api/auth/sync-profile', async (req, res) => {
   } catch (err: any) {
     console.error('[Sync Profile Error]', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Permanent Account & Business Deletion Endpoint
+app.post('/api/auth/delete-account', async (req, res) => {
+  try {
+    const { email, userId, deleteBusinesses } = req.body;
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (!cleanEmail && !userId) {
+      res.status(400).json({ error: 'Email or User ID is required for account deletion' });
+      return;
+    }
+
+    // 1. Remove from registeredUsersRegistry
+    const initialCount = registeredUsersRegistry.length;
+    registeredUsersRegistry = registeredUsersRegistry.filter(
+      u => (cleanEmail && u.email.toLowerCase() !== cleanEmail) && (userId && u.id !== userId)
+    );
+
+    // 2. Remove from verification tokens and OTPs cache
+    if (cleanEmail) {
+      verifiedEmails.delete(cleanEmail);
+      emailOtpsCache.delete(cleanEmail);
+      for (const [token, record] of verificationTokensCache.entries()) {
+        if (record.email.toLowerCase() === cleanEmail) {
+          verificationTokensCache.delete(token);
+        }
+      }
+    }
+
+    // 3. If deleteBusinesses is requested, remove user's businesses from businessesCache
+    let deletedBusinessesCount = 0;
+    if (deleteBusinesses !== false) {
+      const initialBizCount = businessesCache.length;
+      businessesCache = businessesCache.filter(b => {
+        const matchesOwner = 
+          (cleanEmail && (b.ownerEmail?.toLowerCase() === cleanEmail || b.email?.toLowerCase() === cleanEmail)) ||
+          (userId && b.ownerId === userId);
+        return !matchesOwner;
+      });
+      deletedBusinessesCount = initialBizCount - businessesCache.length;
+    }
+
+    // 4. If Supabase is configured, delete profile and businesses
+    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+
+    if (url && key && cleanEmail) {
+      try {
+        // Delete profile
+        await fetch(`${url}/rest/v1/profiles?email=eq.${encodeURIComponent(cleanEmail)}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+          },
+        });
+
+        // Delete owned businesses if requested
+        if (deleteBusinesses !== false) {
+          await fetch(`${url}/rest/v1/businesses?owner_email=eq.${encodeURIComponent(cleanEmail)}`, {
+            method: 'DELETE',
+            headers: {
+              'apikey': key,
+              'Authorization': `Bearer ${key}`,
+            },
+          });
+        }
+      } catch (supaErr) {
+        console.warn('[Supabase Server Account Deletion Warning]', supaErr);
+      }
+    }
+
+    res.json({
+      status: 'success',
+      message: `Account for ${cleanEmail || userId} and ${deletedBusinessesCount} businesses permanently deleted.`,
+      deletedBusinessesCount,
+    });
+  } catch (err: any) {
+    console.error('[Delete Account Error]', err);
+    res.status(500).json({ error: err.message || 'Account deletion failed' });
   }
 });
 

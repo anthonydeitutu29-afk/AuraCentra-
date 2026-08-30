@@ -19,7 +19,8 @@ import {
   Moon,
   Newspaper,
   DollarSign,
-  Info
+  Info,
+  Settings
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { Logo } from './Logo';
@@ -42,6 +43,7 @@ interface NavbarProps {
   onOpenInquiriesModal?: () => void;
   onOpenAdminDashboard: () => void;
   onOpenBusinessDashboard?: () => void;
+  onOpenAccountSettings?: () => void;
   onSignOut: () => void;
   onSharePlatform?: () => void;
 }
@@ -64,6 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenInquiriesModal,
   onOpenAdminDashboard,
   onOpenBusinessDashboard,
+  onOpenAccountSettings,
   onSignOut,
   onSharePlatform,
 }) => {
@@ -252,8 +255,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               <button
                 type="button"
+                id="nav-account-settings-btn"
+                onClick={onOpenAccountSettings}
+                className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Account & Security Settings / Delete Account"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
                 onClick={onSignOut}
-                className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -385,6 +398,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Plus className="w-4 h-4" />
               <span>List Your Business</span>
             </button>
+
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenAccountSettings?.();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5"
+              >
+                <Settings className="w-4 h-4 text-blue-600" />
+                <span>Account & Security Settings</span>
+              </button>
+            )}
 
             {!currentUser && (
               <button

@@ -273,6 +273,81 @@ export function saveRegisteredAccount(account: UserAccountRecord): void {
   }
 }
 
+/**
+ * Permanently deletes a user account record, all related session state,
+ * and optionally all businesses, reviews, and inquiries owned by that account.
+ */
+export function permanentlyDeleteAccountRecord(
+  userId: string,
+  email: string,
+  deleteBusinesses: boolean = true
+): { success: boolean; deletedBusinessIds: string[]; message: string } {
+  const deletedBusinessIds: string[] = [];
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  try {
+    // 1. Remove from registered accounts
+    const accounts = getRegisteredAccounts();
+    const updatedAccounts = accounts.filter(
+      (a) => a.id !== userId && a.email.toLowerCase() !== cleanEmail
+    );
+    localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(updatedAccounts));
+
+    // 2. Remove from active user session
+    const currentUser = getStoredCurrentUser();
+    if (currentUser && (currentUser.id === userId || currentUser.email.toLowerCase() === cleanEmail)) {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
+
+    // 3. If requested, remove businesses owned by this user
+    if (deleteBusinesses) {
+      const storedBiz = getStoredBusinesses();
+      const retainedBiz = storedBiz.filter((b) => {
+        const isOwner =
+          (b.ownerId && b.ownerId === userId) ||
+          (b.ownerEmail && b.ownerEmail.toLowerCase() === cleanEmail) ||
+          (b.email && b.email.toLowerCase() === cleanEmail);
+        if (isOwner) {
+          deletedBusinessIds.push(b.id);
+          return false;
+        }
+        return true;
+      });
+
+      saveBusinesses(retainedBiz);
+
+      // Clean up reviews and inquiries associated with the deleted businesses
+      if (deletedBusinessIds.length > 0) {
+        const reviews = getStoredReviews().filter((r) => !deletedBusinessIds.includes(r.businessId));
+        saveReviews(reviews);
+
+        const inquiries = getStoredInquiries().filter((inq) => !deletedBusinessIds.includes(inq.businessId));
+        saveInquiries(inquiries);
+      }
+    }
+
+    // 4. Clean up saved businesses and local cache
+    localStorage.removeItem(STORAGE_KEYS.SAVED_BUSINESSES);
+    localStorage.removeItem('auracentra_saved_ids');
+
+    // 5. Invalidate any persistent session tokens
+    validateAndClearSession().catch(() => {});
+
+    return {
+      success: true,
+      deletedBusinessIds,
+      message: 'Account and associated data permanently purged from AuraCentra.',
+    };
+  } catch (err: any) {
+    console.error('Failed to permanently delete account record:', err);
+    return {
+      success: false,
+      deletedBusinessIds,
+      message: err.message || 'Error occurred while purging account.',
+    };
+  }
+}
+
 export function normalizePhoneNumber(phone?: string): string {
   if (!phone) return '';
   let cleaned = phone.replace(/[\s\-\(\)\.]/g, '').trim();

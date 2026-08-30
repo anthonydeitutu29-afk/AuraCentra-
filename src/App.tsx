@@ -89,6 +89,7 @@ import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
 import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection';
 import { NewsArticleModal } from './components/NewsArticleModal';
 import { SecureLogoutModal } from './components/SecureLogoutModal';
+import { AccountSettingsModal } from './components/AccountSettingsModal';
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
 import { FirestoreSync } from './services/dbSync';
@@ -165,6 +166,7 @@ export default function App() {
   const [isSuggestCategoryOpen, setIsSuggestCategoryOpen] = useState(false);
   const [isCustomerFeedbackOpen, setIsCustomerFeedbackOpen] = useState(false);
   const [isSecureLogoutModalOpen, setIsSecureLogoutModalOpen] = useState(false);
+  const [isAccountSettingsModalOpen, setIsAccountSettingsModalOpen] = useState(false);
   const [selectedBusinessForReview, setSelectedBusinessForReview] = useState<Business | null>(null);
 
   // Filters & Location Auto-Detection State
@@ -647,6 +649,17 @@ export default function App() {
     showToast('Signed Out Safely', 'Your account session has been verified and securely terminated.', 'info');
   };
 
+  const handleAccountDeleted = useCallback(() => {
+    setCurrentUser(null);
+    setCurrentView('portal');
+    setIsAccountSettingsModalOpen(false);
+    // Reload local data stores to reflect deleted entities
+    setBusinesses(getStoredBusinesses());
+    setReviews(getStoredReviews());
+    setInquiries(getStoredInquiries());
+    setSavedBusinessIds([]);
+  }, []);
+
   // Feature Handlers
   const handleShareBusiness = useCallback((business: Business) => {
     const shareData = {
@@ -989,9 +1002,11 @@ export default function App() {
           businesses={businesses}
           categories={categories}
           inquiries={inquiries}
-          reviews={[]}
+          reviews={reviews}
           onUpdateBusiness={handleUpdateBusiness}
           onAddBusiness={handleAddBusinessDirect}
+          onDeleteBusiness={handleDeleteBusiness}
+          onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
           onShowToast={showToast}
           onBackToPortal={() => setCurrentView('portal')}
           onSignOut={handleSignOut}
@@ -1003,6 +1018,31 @@ export default function App() {
             setCertBusiness(b);
           }}
         />
+        <AccountSettingsModal
+          isOpen={isAccountSettingsModalOpen}
+          currentUser={currentUser}
+          businesses={businesses}
+          onClose={() => setIsAccountSettingsModalOpen(false)}
+          onAccountDeleted={handleAccountDeleted}
+          onShowToast={showToast}
+          onOpenBusiness={(b) => {
+            setSelectedBusiness(b);
+            setCurrentView('portal');
+          }}
+        />
+        <VerificationCertificateModal
+          business={certBusiness}
+          isOpen={!!certBusiness}
+          onClose={() => setCertBusiness(null)}
+          onShowToast={showToast}
+        />
+        <SecureLogoutModal
+          isOpen={isSecureLogoutModalOpen}
+          currentUser={currentUser}
+          onClose={() => setIsSecureLogoutModalOpen(false)}
+          onConfirmLogout={handleConfirmLogout}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       </div>
     );
   }
@@ -1037,6 +1077,7 @@ export default function App() {
         onOpenInquiriesModal={() => setIsInquiriesModalOpen(true)}
         onOpenAdminDashboard={() => setCurrentView('admin')}
         onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
+        onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
         onSignOut={handleSignOut}
         onSharePlatform={handleSharePlatform}
       />
@@ -1241,6 +1282,19 @@ export default function App() {
         onConfirmLogout={handleConfirmLogout}
       />
 
+      <AccountSettingsModal
+        isOpen={isAccountSettingsModalOpen}
+        currentUser={currentUser}
+        businesses={businesses}
+        onClose={() => setIsAccountSettingsModalOpen(false)}
+        onAccountDeleted={handleAccountDeleted}
+        onShowToast={showToast}
+        onOpenBusiness={(b) => {
+          setSelectedBusiness(b);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+
       {/* 9. Toast Notification Portal */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
@@ -1295,6 +1349,7 @@ export default function App() {
         onSignOut={handleSignOut}
         onOpenAdminDashboard={() => setCurrentView('admin')}
         onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
+        onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
         onSharePlatform={handleSharePlatform}
       />
     </div>

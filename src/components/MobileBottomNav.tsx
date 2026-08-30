@@ -15,7 +15,8 @@ import {
   ShieldCheck,
   Check,
   Sun,
-  Moon
+  Moon,
+  Settings
 } from 'lucide-react';
 import { UserProfile } from '../types';
 
@@ -37,6 +38,7 @@ interface MobileBottomNavProps {
   onSignOut: () => void;
   onOpenAdminDashboard?: () => void;
   onOpenBusinessDashboard?: () => void;
+  onOpenAccountSettings?: () => void;
   onSharePlatform?: () => void;
 }
 
@@ -58,6 +60,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onSignOut,
   onOpenAdminDashboard,
   onOpenBusinessDashboard,
+  onOpenAccountSettings,
   onSharePlatform,
 }) => {
   const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
@@ -376,20 +379,38 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             {/* Bottom Auth Buttons: Sign In / Log Out */}
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
               {currentUser ? (
-                <button
-                  type="button"
-                  id="mobile-sheet-logout-btn"
-                  onClick={() => {
-                    setIsAccountSheetOpen(false);
-                    onSignOut();
-                  }}
-                  className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 font-bold text-xs hover:bg-rose-100 transition-colors cursor-pointer shadow-xs"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Log Out of AuraCentra</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    id="mobile-sheet-settings-btn"
+                    onClick={() => {
+                      setIsAccountSheetOpen(false);
+                      onOpenAccountSettings?.();
+                    }}
+                    className="w-full flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-100 transition-colors cursor-pointer border border-slate-200/70 dark:border-slate-700/70"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Settings className="w-4 h-4 text-blue-600 dark:text-cyan-400" />
+                      <span className="font-bold text-xs">Account Settings & Deletion</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-bold">Manage</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="mobile-sheet-logout-btn"
+                    onClick={() => {
+                      setIsAccountSheetOpen(false);
+                      onSignOut();
+                    }}
+                    className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 font-bold text-xs hover:bg-rose-100 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Log Out of AuraCentra</span>
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
