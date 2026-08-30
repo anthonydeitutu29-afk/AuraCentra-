@@ -371,21 +371,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         businessName: accountType === 'business_owner' ? businessName : undefined,
       });
 
-      setPendingVerificationEmail(cleanEmail);
-      setPendingUserProfile(result.profile);
-      setLatestEmailData({
-        token: result.token,
-        code: result.code,
-        viewMailUrl: result.viewMailUrl,
-        provider: result.provider,
-        previewUrl: result.previewUrl,
-      });
-      setResendCooldown(60); // 60s cooldown
       setLoading(false);
-
-      // Transition to the Email Verification screen
-      setAuthMode('verify_email');
-      setSuccessMsg(result.message);
+      onLoginSuccess(result.profile);
+      onClose();
     } catch (err: any) {
       console.error('[Sign Up Error]', err);
       const errMsg = err.message || 'Registration failed. Please check your details and try again.';
@@ -829,7 +817,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setEmail(e.target.value);
                       setEmailConflict(null);
                     }}
-                    placeholder="Email Address (Verification link sent here)"
+                    placeholder="Email Address"
                     required
                     className={`w-full px-4 py-3 bg-slate-100/80 dark:bg-slate-800/80 border ${
                       emailConflict ? 'border-red-500 bg-red-50/20' : 'border-slate-200/70 dark:border-slate-700/70'
@@ -927,7 +915,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <span>Creating account...</span>
                     </>
                   ) : (
-                    <span>Create Account & Send Verification Link</span>
+                    <span>Create Account</span>
                   )}
                 </button>
               </form>

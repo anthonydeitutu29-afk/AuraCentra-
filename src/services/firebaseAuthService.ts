@@ -106,45 +106,9 @@ export const FirebaseAuthService = {
       ? `${cleanName} (${params.businessName.trim()})`
       : cleanName;
 
-    let emailSent = false;
     let userId = `usr-${Date.now()}`;
-    let backendToken: string | undefined;
-    let backendCode: string | undefined;
-    let backendVerificationLink: string | undefined;
-    let backendViewMailUrl: string | undefined;
-    let backendProvider: string | undefined;
-    let backendPreviewUrl: string | false | undefined;
 
-    // 1. Trigger the Outbound Email Engine
-    try {
-      const res = await fetch('/api/auth/send-verification-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          name: displayName,
-          username: cleanUsername,
-          role: params.role,
-          businessName: params.businessName,
-          appUrl: window.location.origin,
-        }),
-      });
-
-      if (res.ok) {
-        const mailData = await res.json();
-        emailSent = true;
-        backendToken = mailData.token;
-        backendCode = mailData.code;
-        backendVerificationLink = mailData.verificationLink;
-        backendViewMailUrl = mailData.viewMailUrl;
-        backendProvider = mailData.provider;
-        backendPreviewUrl = mailData.previewUrl;
-      }
-    } catch (apiErr) {
-      console.warn('[Backend send-verification-email warning]', apiErr);
-    }
-
-    // 2. Register with Supabase Auth if configured
+    // Register with Supabase Auth if configured (optional background sync)
     if (isSupabaseConfigured && supabase) {
       try {
         const supaResult = await SupabaseService.signUp(cleanEmail, params.password, {
@@ -166,7 +130,7 @@ export const FirebaseAuthService = {
       name: displayName,
       username: cleanUsername,
       email: cleanEmail,
-      emailVerified: false,
+      emailVerified: true,
       phone: cleanPhone || '+233 24 000 0000',
       phoneVerified: true,
       role: params.role as UserRole,
@@ -175,7 +139,7 @@ export const FirebaseAuthService = {
       createdAt: new Date().toISOString(),
     };
 
-    // 3. Save local persistent user account record
+    // Save local persistent user account record
     saveRegisteredAccount({
       id: profile.id,
       name: profile.name,
@@ -185,13 +149,13 @@ export const FirebaseAuthService = {
       role: profile.role,
       phone: profile.phone,
       phoneVerified: true,
-      emailVerified: false,
+      emailVerified: true,
       authProvider: 'email',
       businessName: params.businessName,
       createdAt: profile.createdAt,
     });
 
-    // 4. Push directly to Supabase & Backend server profiles
+    // Push directly to Supabase & Backend server profiles
     try {
       SupabaseService.saveProfile(profile).catch(() => {});
     } catch {
@@ -200,14 +164,8 @@ export const FirebaseAuthService = {
 
     return {
       profile,
-      emailSent: true,
-      message: `An official verification email has been dispatched to ${cleanEmail}.`,
-      token: backendToken,
-      code: backendCode,
-      verificationLink: backendVerificationLink,
-      viewMailUrl: backendViewMailUrl,
-      provider: backendProvider,
-      previewUrl: backendPreviewUrl,
+      emailSent: false,
+      message: 'Account created successfully! Welcome to AuraCentra Ghana.',
     };
   },
 
@@ -425,7 +383,7 @@ export const FirebaseAuthService = {
 
     const cleanEmail = targetAccount ? targetAccount.email.toLowerCase() : cleanInput.toLowerCase();
 
-    let isEmailVerified = false;
+    let isEmailVerified = true;
     let displayName = targetAccount ? targetAccount.name : cleanEmail.split('@')[0];
     let userId = targetAccount ? targetAccount.id : `usr-${Date.now()}`;
     let role: UserRole = targetAccount ? targetAccount.role : 'customer';

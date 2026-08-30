@@ -80,6 +80,7 @@ interface AdminDashboardProps {
   onUpdateFeedbackStatus?: (feedbackId: string, status: PlatformFeedback['status'], adminReply?: string) => void;
   onDeleteFeedback?: (feedbackId: string) => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  onOpenRegisterModal?: () => void;
   onSignOut: () => void;
   onBackToPortal: () => void;
 }
@@ -108,6 +109,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateFeedbackStatus,
   onDeleteFeedback,
   onShowToast,
+  onOpenRegisterModal,
   onSignOut,
   onBackToPortal,
 }) => {
@@ -1431,63 +1433,76 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingBusiness({
-                    id: '',
-                    name: '',
-                    tagline: '',
-                    slug: '',
-                    category: categories[0]?.id || 'restaurants',
-                    description: '',
-                    logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
-                    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-                    gallery: ['https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80'],
-                    phone: '0508203673',
-                    whatsapp: '233508203673',
-                    email: 'tonysdigitalmarketing@gmail.com',
-                    city: 'Accra',
-                    region: 'Greater Accra',
-                    address: 'Accra Central',
-                    digitalAddress: 'GA-019-4821',
-                    coordinates: { lat: 5.6037, lng: -0.1870 },
-                    priceLevel: '$$',
-                    rating: 5.0,
-                    reviewCount: 1,
-                    verificationStatus: 'verified',
-                    listingStatus: 'active',
-                    verificationDetails: {
-                      verifiedAt: new Date().toISOString(),
-                      tinNumber: 'TIN-GH-882194',
-                      businessRegNumber: 'BN-GH-2024-9128',
-                      badgeType: 'Gold Enterprise',
-                      verifiedByAdmin: 'Executive Desk',
-                      gpsVerified: true,
-                    },
-                    openingHours: {
-                      monday: '08:00 - 18:00',
-                      tuesday: '08:00 - 18:00',
-                      wednesday: '08:00 - 18:00',
-                      thursday: '08:00 - 18:00',
-                      friday: '08:00 - 18:00',
-                      saturday: '09:00 - 15:00',
-                      sunday: 'Closed',
-                    },
-                    services: ['General Consultation'],
-                    features: ['Verified Listing'],
-                    views: 0,
-                    leadsCount: 0,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  });
-                  setIsCreatingBusiness(true);
-                }}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add New Business Directly</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {onOpenRegisterModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenRegisterModal}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md cursor-pointer transition-all"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Register Business (Due Process Flow)</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingBusiness({
+                      id: '',
+                      name: '',
+                      tagline: '',
+                      slug: '',
+                      category: categories[0]?.id || 'restaurants',
+                      description: '',
+                      logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
+                      coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+                      gallery: ['https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80'],
+                      phone: '0508203673',
+                      whatsapp: '233508203673',
+                      email: 'tonysdigitalmarketing@gmail.com',
+                      city: 'Accra',
+                      region: 'Greater Accra',
+                      address: 'Accra Central',
+                      digitalAddress: 'GA-019-4821',
+                      coordinates: { lat: 5.6037, lng: -0.1870 },
+                      priceLevel: '$$',
+                      rating: 5.0,
+                      reviewCount: 1,
+                      verificationStatus: 'verified',
+                      listingStatus: 'active',
+                      verificationDetails: {
+                        verifiedAt: new Date().toISOString(),
+                        tinNumber: 'TIN-GH-882194',
+                        businessRegNumber: 'BN-GH-2024-9128',
+                        badgeType: 'Gold Enterprise',
+                        verifiedByAdmin: 'Executive Desk',
+                        gpsVerified: true,
+                      },
+                      openingHours: {
+                        monday: '08:00 - 18:00',
+                        tuesday: '08:00 - 18:00',
+                        wednesday: '08:00 - 18:00',
+                        thursday: '08:00 - 18:00',
+                        friday: '08:00 - 18:00',
+                        saturday: '09:00 - 15:00',
+                        sunday: 'Closed',
+                      },
+                      services: ['General Consultation'],
+                      features: ['Verified Listing'],
+                      views: 0,
+                      leadsCount: 0,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    });
+                    setIsCreatingBusiness(true);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Direct</span>
+                </button>
+              </div>
             </div>
 
             {/* Businesses Table */}
@@ -1506,7 +1521,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {filteredBusinesses.map((b) => {
+                    {filteredBusinesses.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <Building2 className="w-8 h-8 mx-auto mb-2 text-slate-500 opacity-60" />
+                          <div className="font-semibold text-slate-300">No businesses listed in system</div>
+                          <p className="text-xs text-slate-500 mt-1">Use the "Register Business (Due Process Flow)" or "Add Direct" button above to add the first enterprise.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredBusinesses.map((b) => {
                       const isPending = b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval';
                       const gpsInfo = verifyGhanaPostGPS(b.digitalAddress || '');
 

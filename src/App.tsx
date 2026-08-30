@@ -73,6 +73,7 @@ import { AuthModal } from './components/AuthModal';
 import { BusinessRegistrationModal } from './components/BusinessRegistrationModal';
 import { SavedBusinessesModal } from './components/SavedBusinessesModal';
 import { AdminDashboard } from './components/AdminDashboard';
+import { BusinessOwnerDashboard } from './components/BusinessOwnerDashboard';
 import { FloatingContactHub } from './components/FloatingContactHub';
 import { Footer } from './components/Footer';
 import { ToastContainer } from './components/Toast';
@@ -137,8 +138,8 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // View state: 'portal' or 'admin'
-  const [currentView, setCurrentView] = useState<'portal' | 'admin'>('portal');
+  // View state: 'portal', 'admin', or 'business_dashboard'
+  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard'>('portal');
 
   // Suggestions & Feedback State
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);

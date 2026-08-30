@@ -32,6 +32,7 @@ interface TriColumnMainLayoutProps {
   onSelectBusiness: (business: Business) => void;
   onOpenNewsTab: () => void;
   onOpenQuote?: (business: Business) => void;
+  onOpenRegister?: () => void;
 }
 
 export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
@@ -45,6 +46,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
   onSelectBusiness,
   onOpenNewsTab,
   onOpenQuote,
+  onOpenRegister,
 }) => {
   const [activeTab, setActiveTab] = useState<'trending' | 'near_you' | 'newly_verified'>('trending');
   const [visibleCount, setVisibleCount] = useState(6);
@@ -377,18 +379,36 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
           {/* Business Rows List */}
           <div className="space-y-3.5">
             {displayedList.length === 0 ? (
-              <div className="py-8 px-4 text-center space-y-3 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">No businesses match the selected filters</h4>
+              <div className="py-10 px-4 text-center space-y-3 bg-white dark:bg-black/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  {businesses.length === 0 ? 'No Listed Businesses Yet' : 'No businesses match the selected filters'}
+                </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                  Try resetting filters to explore all verified businesses across all regions and categories.
+                  {businesses.length === 0
+                    ? 'The directory is fresh. Once businesses complete the due process registration and GhanaPost GPS verification, they will be listed here.'
+                    : 'Try resetting your filter parameters or search term to discover all enterprises.'}
                 </p>
-                <button
-                  type="button"
-                  onClick={handleViewAllBusinessesClick}
-                  className="px-4 py-2 rounded-xl bg-[#155DFC] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-                >
-                  <span>Reset Filters & View All</span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  {businesses.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleViewAllBusinessesClick}
+                      className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                  {onOpenRegister && (
+                    <button
+                      type="button"
+                      onClick={onOpenRegister}
+                      className="px-4 py-2 rounded-xl bg-[#155DFC] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Register Business</span>
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               displayedList.map((biz) => {
