@@ -972,8 +972,36 @@ export default function App() {
           onUpdateFeedbackStatus={handleUpdateFeedbackStatus}
           onDeleteFeedback={handleDeleteFeedback}
           onShowToast={showToast}
+          onOpenRegisterModal={handleOpenRegisterModal}
           onSignOut={handleSignOut}
           onBackToPortal={() => setCurrentView('portal')}
+        />
+      </div>
+    );
+  }
+
+  // If in Business Owner Dashboard view
+  if (currentView === 'business_dashboard' && currentUser) {
+    return (
+      <div className={theme === 'dark' ? 'dark' : ''}>
+        <BusinessOwnerDashboard
+          currentUser={currentUser}
+          businesses={businesses}
+          categories={categories}
+          inquiries={inquiries}
+          reviews={[]}
+          onUpdateBusiness={handleUpdateBusiness}
+          onAddBusiness={handleAddBusinessDirect}
+          onShowToast={showToast}
+          onBackToPortal={() => setCurrentView('portal')}
+          onSignOut={handleSignOut}
+          onOpenLivePreview={(b) => {
+            setSelectedBusiness(b);
+            setCurrentView('portal');
+          }}
+          onOpenCertificateModal={(b) => {
+            setCertBusiness(b);
+          }}
         />
       </div>
     );
@@ -1008,6 +1036,7 @@ export default function App() {
         onOpenCompareModal={() => setIsCompareModalOpen(true)}
         onOpenInquiriesModal={() => setIsInquiriesModalOpen(true)}
         onOpenAdminDashboard={() => setCurrentView('admin')}
+        onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
         onSignOut={handleSignOut}
         onSharePlatform={handleSharePlatform}
       />
@@ -1073,6 +1102,7 @@ export default function App() {
               onSelectBusiness={(b) => setSelectedBusiness(b)}
               onOpenNewsTab={() => setCurrentNavTab('news')}
               onOpenQuote={handleOpenQuote}
+              onOpenRegister={handleOpenRegisterModal}
             />
 
           </main>
@@ -1182,6 +1212,7 @@ export default function App() {
         categories={categories}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
         onRegisterBusiness={(newBiz) => {
           handleRegisterBusiness(newBiz);
           showToast('Business Registered Successfully!', `${newBiz.name} is now listed on AuraCentra Ghana.`, 'success');
@@ -1263,6 +1294,7 @@ export default function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
         onOpenAdminDashboard={() => setCurrentView('admin')}
+        onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
         onSharePlatform={handleSharePlatform}
       />
     </div>
