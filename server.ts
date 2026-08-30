@@ -2,12 +2,43 @@ import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { createServer as createViteServer } from 'vite';
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Enable standard CORS & Request header handling for Vercel/proxies
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+
+  // If invoked via Vercel rewrite where /api prefix might be stripped, ensure /api prefix is normalized
+  if (!req.url.startsWith('/api') && !req.url.startsWith('/_')) {
+    const urlWithoutQuery = req.url.split('?')[0];
+    if (
+      urlWithoutQuery.startsWith('/auth') || 
+      urlWithoutQuery.startsWith('/businesses') || 
+      urlWithoutQuery.startsWith('/forex-rates') || 
+      urlWithoutQuery.startsWith('/ghana-news') || 
+      urlWithoutQuery.startsWith('/health') ||
+      urlWithoutQuery.startsWith('/sync-businesses') ||
+      urlWithoutQuery.startsWith('/user-locations') ||
+      urlWithoutQuery.startsWith('/newsletter') ||
+      urlWithoutQuery.startsWith('/inquiries') ||
+      urlWithoutQuery.startsWith('/reviews') ||
+      urlWithoutQuery.startsWith('/test-brevo-email')
+    ) {
+      req.url = '/api' + req.url;
+    }
+  }
+  next();
+});
 
 // In-memory persistent cache for server-side state
 let businessesCache: any[] = [];
@@ -82,6 +113,76 @@ const phoneOtpsCache = new Map<string, { code: string; expiresAt: number }>();
 const verifiedEmails = new Set<string>();
 const verifiedPhones = new Set<string>();
 const mailDispatchLogs: any[] = [];
+
+// Cryptographic token signing secret for stateless serverless functions (Vercel, AWS Lambda, Cloud Run)
+const TOKEN_SIGNING_SECRET = process.env.TOKEN_SECRET || process.env.SUPABASE_ANON_KEY || 'auracentra-ghana-secure-token-2026';
+
+function createSignedVerificationToken(payload: {
+  email: string;
+  name: string;
+  role: string;
+  code: string;
+  expiresAt: number;
+  businessName?: string;
+}): string {
+  const randomPrefix = crypto.randomBytes(12).toString('hex');
+  const cleanPayload = {
+    r: randomPrefix,
+    e: payload.email.toLowerCase(),
+    n: payload.name,
+    ro: payload.role,
+    c: payload.code,
+    exp: payload.expiresAt,
+    b: payload.businessName || '',
+  };
+  const b64 = Buffer.from(JSON.stringify(cleanPayload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', TOKEN_SIGNING_SECRET).update(b64).digest('base64url');
+  return `actk_${b64}.${sig}`;
+}
+
+function verifySignedToken(rawToken: string): VerificationTokenRecord | null {
+  if (!rawToken) return null;
+  const token = rawToken.trim();
+
+  // 1. Check in-memory cache first (if available in this process instance)
+  if (verificationTokensCache.has(token)) {
+    const cached = verificationTokensCache.get(token)!;
+    if (cached.expiresAt > Date.now()) {
+      return cached;
+    }
+  }
+
+  // 2. Decode self-contained cryptographic token for serverless/stateless invocation
+  try {
+    if (token.startsWith('actk_')) {
+      const parts = token.slice(5).split('.');
+      if (parts.length === 2) {
+        const [b64, sig] = parts;
+        const expectedSig = crypto.createHmac('sha256', TOKEN_SIGNING_SECRET).update(b64).digest('base64url');
+        if (sig === expectedSig) {
+          const data = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
+          if (data && data.e && data.exp && data.exp > Date.now()) {
+            const record: VerificationTokenRecord = {
+              token,
+              code: data.c || '',
+              email: data.e,
+              name: data.n || 'Member',
+              role: data.ro || 'customer',
+              businessName: data.b || undefined,
+              verified: verifiedEmails.has(data.e),
+              expiresAt: data.exp,
+              createdAt: new Date().toISOString(),
+            };
+            return record;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[Token Verification Parse Error]', e);
+  }
+  return null;
+}
 
 // Helper function to dispatch emails via Resend API, Brevo API, or SMTP
 async function dispatchOutboundEmail(options: {
@@ -654,9 +755,17 @@ app.post('/api/auth/send-verification-email', async (req, res) => {
     }
 
     // Generate 64-character crypto token + 6-digit numeric security code
-    const token = crypto.randomBytes(32).toString('hex');
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours validity
+
+    const token = createSignedVerificationToken({
+      email: cleanEmail,
+      name: cleanName,
+      role: userRole,
+      code,
+      expiresAt,
+      businessName: businessName?.trim(),
+    });
 
     const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
                      req.socket.remoteAddress || 
@@ -747,9 +856,9 @@ app.get('/api/auth/view-mail-html', (req, res) => {
   const token = (req.query.token as string || '').trim();
   const email = (req.query.email as string || '').trim().toLowerCase();
 
-  let record: VerificationTokenRecord | undefined;
+  let record: VerificationTokenRecord | undefined | null;
   if (token) {
-    record = verificationTokensCache.get(token);
+    record = verifySignedToken(token);
   } else if (email) {
     for (const rec of verificationTokensCache.values()) {
       if (rec.email === email) {
@@ -867,7 +976,7 @@ app.get('/api/auth/verify-email-link', (req, res) => {
     return;
   }
 
-  const record = verificationTokensCache.get(token);
+  const record = verifySignedToken(token);
 
   if (!record) {
     res.status(404).send(`
@@ -899,10 +1008,13 @@ app.get('/api/auth/verify-email-link', (req, res) => {
     return;
   }
 
-  // Mark as verified!
+  // Mark as verified in persistent set and cache
   record.verified = true;
   record.verifiedAt = new Date().toISOString();
   verifiedEmails.add(record.email);
+  if (verificationTokensCache.has(token)) {
+    verificationTokensCache.get(token)!.verified = true;
+  }
 
   const redirectUrl = `/?email_verified=true&email=${encodeURIComponent(record.email)}&name=${encodeURIComponent(record.name)}&role=${encodeURIComponent(record.role)}`;
 
@@ -953,8 +1065,8 @@ app.post('/api/auth/verify-email-token', (req, res) => {
     let isMatch = false;
 
     if (cleanToken) {
-      const record = verificationTokensCache.get(cleanToken);
-      if (record && record.email === cleanEmail && record.expiresAt > Date.now()) {
+      const record = verifySignedToken(cleanToken);
+      if (record && record.email.toLowerCase() === cleanEmail && record.expiresAt > Date.now()) {
         record.verified = true;
         record.verifiedAt = new Date().toISOString();
         isMatch = true;
@@ -1599,11 +1711,16 @@ app.delete('/api/businesses/:id', (req, res) => {
 // ============================================================================
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn('[Vite Dev Middleware Warning]', e);
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
@@ -1618,7 +1735,7 @@ async function startServer() {
 }
 
 // Only launch listening server in non-serverless container or local environment
-if (!process.env.VERCEL && !process.env.NOW_REGION) {
+if (!process.env.VERCEL && !process.env.NOW_REGION && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   startServer();
 }
 

@@ -1,5 +1,7 @@
-import express from 'express';
 import app from '../server';
 
-// Export the Express server as a Vercel Serverless Function handler
-export default app;
+// Export handler for Vercel Serverless Functions
+export default function handler(req: any, res: any) {
+  return app(req, res);
+}
+
