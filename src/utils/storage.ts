@@ -22,15 +22,60 @@ const STORAGE_KEYS = {
 };
 
 // Initial state getters and setters
+export const PERMANENTLY_DELETED_BUSINESS_IDS = [
+  'biz-buka-accra',
+  'biz-kempinski-accra',
+  'biz-nyaho-clinic',
+  'biz-vodam-kumasi',
+  'biz-zion-city',
+  'biz-veritas-motors',
+  'biz-buildright-supplies',
+  'biz-tonys-digital-marketing',
+  'biz-bonwire-kente',
+  'biz-apex-diagnostic',
+  'biz-pending-starbite-tema',
+  'biz-pending-northern-shea',
+  'biz-pending-technest-capecoast'
+];
+
+export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
+  'sweet gardens hotel',
+  'buka restaurant',
+  'nyaho medical',
+  'kempinski hotel'
+];
+
+export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
+  if (!b) return true;
+  if (b.id && PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id)) return true;
+  if (b.slug) {
+    const s = b.slug.toLowerCase();
+    if (
+      s.includes('sweet-gardens') ||
+      s.includes('buka-restaurant') ||
+      s.includes('nyaho-medical') ||
+      s.includes('kempinski-hotel')
+    ) {
+      return true;
+    }
+  }
+  if (b.name) {
+    const nameLower = b.name.toLowerCase();
+    if (PERMANENTLY_DELETED_BUSINESS_NAMES.some((term) => nameLower.includes(term))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function getStoredBusinesses(): Business[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        // Strip any residual legacy demo businesses if found
-        const demoIds = ['biz-zion-city', 'biz-veritas-motors', 'biz-buildright-supplies', 'biz-tonys-digital-marketing', 'biz-bonwire-kente', 'biz-apex-diagnostic', 'biz-pending-starbite-tema', 'biz-pending-northern-shea', 'biz-pending-technest-capecoast'];
-        const clean = parsed.filter((b) => b && b.id && !demoIds.includes(b.id));
+        // Strip any residual legacy or permanently deleted businesses
+        const clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
         if (clean.length !== parsed.length) {
           localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
         }
@@ -45,7 +90,8 @@ export function getStoredBusinesses(): Business[] {
 
 export function saveBusinesses(businesses: Business[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(businesses));
+    const clean = Array.isArray(businesses) ? businesses.filter((b) => !isDeletedBusiness(b)) : [];
+    localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
   } catch (e) {
     console.error('Failed to save businesses to storage', e);
   }
@@ -80,8 +126,14 @@ export function getStoredReviews(): BusinessReview[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        const demoIds = ['rev-zion-1', 'rev-veritas-1', 'rev-buildright-1', 'rev-tony-1'];
-        return parsed.filter((r) => r && r.id && !demoIds.includes(r.id));
+        const demoReviewIds = ['rev-buka-1', 'rev-kempinski-1', 'rev-zion-1', 'rev-veritas-1', 'rev-buildright-1', 'rev-tony-1'];
+        return parsed.filter(
+          (r) =>
+            r &&
+            r.id &&
+            !demoReviewIds.includes(r.id) &&
+            !PERMANENTLY_DELETED_BUSINESS_IDS.includes(r.businessId)
+        );
       }
     }
   } catch (e) {
@@ -524,7 +576,18 @@ export function getStoredInquiries(): BusinessInquiry[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.INQUIRIES);
     if (data) {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (inq) =>
+            inq &&
+            inq.businessId &&
+            !PERMANENTLY_DELETED_BUSINESS_IDS.includes(inq.businessId) &&
+            !PERMANENTLY_DELETED_BUSINESS_NAMES.some((term) =>
+              (inq.businessName || '').toLowerCase().includes(term)
+            )
+        );
+      }
     }
   } catch (e) {
     console.error('Failed to load inquiries from storage', e);

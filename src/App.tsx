@@ -53,7 +53,8 @@ import {
   saveFeedback,
   validateAndClearSession,
   saveRegisteredAccount,
-  findRegisteredAccountByEmail
+  findRegisteredAccountByEmail,
+  isDeletedBusiness
 } from './utils/storage';
 import { autoDetectUserLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
@@ -235,9 +236,11 @@ export default function App() {
         setBusinesses((prev) => {
           // Merge live businesses with state
           const map = new Map<string, Business>();
-          prev.forEach((b) => map.set(b.id, b));
-          liveBusinesses.forEach((b) => map.set(b.id, { ...map.get(b.id), ...b }));
-          return Array.from(map.values());
+          prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, b));
+          liveBusinesses.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, { ...map.get(b.id), ...b }));
+          const clean = Array.from(map.values()).filter((b) => !isDeletedBusiness(b));
+          saveBusinesses(clean);
+          return clean;
         });
       }
     });

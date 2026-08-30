@@ -41,6 +41,52 @@ app.use((req, res, next) => {
 });
 
 // In-memory persistent cache for server-side state
+const PERMANENTLY_DELETED_BUSINESS_IDS = [
+  'biz-buka-accra',
+  'biz-kempinski-accra',
+  'biz-nyaho-clinic',
+  'biz-vodam-kumasi',
+  'biz-zion-city',
+  'biz-veritas-motors',
+  'biz-buildright-supplies',
+  'biz-tonys-digital-marketing',
+  'biz-bonwire-kente',
+  'biz-apex-diagnostic',
+  'biz-pending-starbite-tema',
+  'biz-pending-northern-shea',
+  'biz-pending-technest-capecoast'
+];
+
+const PERMANENTLY_DELETED_BUSINESS_NAMES = [
+  'sweet gardens hotel',
+  'buka restaurant',
+  'nyaho medical',
+  'kempinski hotel'
+];
+
+function isDeletedBusinessRecord(b: any): boolean {
+  if (!b) return true;
+  if (b.id && PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id)) return true;
+  if (b.slug) {
+    const s = String(b.slug).toLowerCase();
+    if (
+      s.includes('sweet-gardens') ||
+      s.includes('buka-restaurant') ||
+      s.includes('nyaho-medical') ||
+      s.includes('kempinski-hotel')
+    ) {
+      return true;
+    }
+  }
+  if (b.name) {
+    const nameLower = String(b.name).toLowerCase();
+    if (PERMANENTLY_DELETED_BUSINESS_NAMES.some((term) => nameLower.includes(term))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 let businessesCache: any[] = [];
 let inquiriesCache: any[] = [];
 let reviewsCache: any[] = [];
@@ -1590,7 +1636,7 @@ app.post('/api/auth/delete-account', async (req, res) => {
 // 5. Query / Search Businesses
 app.get('/api/businesses', (req, res) => {
   const { category, region, city, search, verified, sort } = req.query;
-  let results = [...businessesCache];
+  let results = businessesCache.filter(b => !isDeletedBusinessRecord(b));
 
   if (category && typeof category === 'string') {
     results = results.filter(b => b.category?.toLowerCase() === category.toLowerCase());

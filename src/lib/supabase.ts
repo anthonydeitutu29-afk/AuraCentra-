@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Business, BusinessInquiry, BusinessReview, UserProfile, UserRole } from '../types';
 import { VerificationService, normalizeGhanaPhone } from '../services/verificationService';
+import { isDeletedBusiness } from '../utils/storage';
 
 /**
  * AuraCentra Ghana - Supabase Realtime Database & Authentication Client
@@ -609,7 +610,9 @@ export const SupabaseService = {
         }
 
         if (data && Array.isArray(data)) {
-          return data.map(mapSupabaseToBusiness);
+          return data
+            .map(mapSupabaseToBusiness)
+            .filter((b) => !isDeletedBusiness(b));
         }
       } catch (err) {
         console.warn('[Supabase fetchBusinesses]', err);
