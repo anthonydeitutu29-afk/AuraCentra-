@@ -313,6 +313,7 @@ export const FirebaseAuthService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: cleanEmail,
+          code: cleanInput,
           token: cleanInput,
         }),
       });
@@ -359,7 +360,7 @@ export const FirebaseAuthService = {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
-      const res = await fetch(`/api/auth/check-verification?email=${encodeURIComponent(cleanEmail)}`);
+      const res = await fetch(`/api/auth/check-verification-status?email=${encodeURIComponent(cleanEmail)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.verified) {
