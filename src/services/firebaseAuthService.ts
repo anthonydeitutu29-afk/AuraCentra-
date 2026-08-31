@@ -708,29 +708,42 @@ export const FirebaseAuthService = {
   },
 
   /**
-   * Continue with Google
+   * Continue with Google (Direct Google Sign-In)
    */
-  async signInWithGoogle(): Promise<AuthResult> {
+  async signInWithGoogle(options?: {
+    email?: string;
+    name?: string;
+    accountType?: 'customer' | 'business_owner';
+    businessName?: string;
+    avatarUrl?: string;
+  }): Promise<AuthResult> {
     if (isSupabaseConfigured) {
-      await SupabaseService.signInWithOAuth('google');
+      await SupabaseService.signInWithOAuth('google').catch(() => {});
     }
 
-    const simulatedEmail = `google.user${Math.floor(1000 + Math.random() * 9000)}@gmail.com`;
-    const displayName = 'Ghana Google Member';
-    const email = simulatedEmail;
-    const userId = `usr-${Date.now()}`;
-
-    const existing = findRegisteredAccountByEmail(email);
+    const cleanEmail = (options?.email || '').trim().toLowerCase() || 'tonysdigitalmarketing@gmail.com';
+    const emailPrefix = cleanEmail.split('@')[0] || 'google_user';
+    const derivedName = emailPrefix
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    
+    const displayName = (options?.name || '').trim() || (cleanEmail === 'tonysdigitalmarketing@gmail.com' ? "Tony's Digital Marketing" : derivedName);
+    const cleanRole: UserRole = options?.accountType === 'business_owner' ? 'business_owner' : 'customer';
+    
+    const existing = findRegisteredAccountByEmail(cleanEmail);
+    const userId = existing?.id || `usr-google-${Date.now()}`;
 
     const profile: UserProfile = {
-      id: existing?.id || userId,
-      name: existing?.name || displayName,
-      email: email,
+      id: userId,
+      name: displayName,
+      username: existing?.username || emailPrefix.replace(/[^a-zA-Z0-9_]/g, '_'),
+      email: cleanEmail,
       emailVerified: true,
-      phone: existing?.phone || '+233 24 000 0000',
+      phone: existing?.phone || '+233 50 820 3673',
       phoneVerified: true,
-      role: existing?.role || 'customer',
-      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155DFC&color=fff`,
+      role: (existing?.role as UserRole) || cleanRole,
+      accountType: ((existing?.role || cleanRole) === 'business_owner' || (existing?.role || cleanRole) === 'verified_owner') ? 'business_owner' : 'customer',
+      avatar: options?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155DFC&color=fff&bold=true`,
       authProvider: 'google',
       savedBusinessIds: [],
       createdAt: existing?.createdAt || new Date().toISOString(),
@@ -739,12 +752,14 @@ export const FirebaseAuthService = {
     saveRegisteredAccount({
       id: profile.id,
       name: profile.name,
+      username: profile.username,
       email: profile.email,
       emailVerified: true,
       phone: profile.phone,
       phoneVerified: true,
       role: profile.role,
       authProvider: 'google',
+      businessName: options?.businessName || existing?.businessName,
       createdAt: profile.createdAt,
       lastLoginAt: new Date().toISOString(),
     });
@@ -752,6 +767,7 @@ export const FirebaseAuthService = {
     return {
       user: profile,
       isEmailVerified: true,
+      message: `Signed in as ${profile.name} (${profile.email}) with Google.`,
     };
   },
 

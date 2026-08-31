@@ -3,23 +3,44 @@ import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v7',
-  CATEGORIES: 'auracentra_categories_clean_v7',
-  REVIEWS: 'auracentra_reviews_clean_v7',
-  CURRENT_USER: 'auracentra_user_clean_v7',
-  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v7',
-  SAVED_BUSINESSES: 'auracentra_saved_clean_v7',
-  SEARCH_HISTORY: 'auracentra_search_history_clean_v7',
-  THEME: 'auracentra_theme_clean_v7',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v7',
-  INQUIRIES: 'auracentra_inquiries_clean_v7',
-  PROMOTIONS: 'auracentra_promotions_clean_v7',
-  REPORTS: 'auracentra_reports_clean_v7',
-  SUGGESTIONS: 'auracentra_suggestions_clean_v7',
-  FEEDBACK: 'auracentra_feedback_clean_v7',
-  NEWS_LIKES: 'auracentra_news_likes_v2',
-  USER_NOTIFICATIONS: 'auracentra_user_notifications_v2',
+  BUSINESSES: 'auracentra_businesses_clean_v8',
+  CATEGORIES: 'auracentra_categories_clean_v8',
+  REVIEWS: 'auracentra_reviews_clean_v8',
+  CURRENT_USER: 'auracentra_user_clean_v8',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v8',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v8',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v8',
+  THEME: 'auracentra_theme_clean_v8',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v8',
+  INQUIRIES: 'auracentra_inquiries_clean_v8',
+  PROMOTIONS: 'auracentra_promotions_clean_v8',
+  REPORTS: 'auracentra_reports_clean_v8',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v8',
+  FEEDBACK: 'auracentra_feedback_clean_v8',
+  NEWS_LIKES: 'auracentra_news_likes_v3',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v3',
 };
+
+// Immediate purge of legacy accounts and business records
+try {
+  const legacyKeys = [
+    'auracentra_businesses',
+    'auracentra_businesses_clean_v7',
+    'auracentra_businesses_clean_v6',
+    'auracentra_businesses_clean_v5',
+    'auracentra_registered_accounts_v7',
+    'auracentra_registered_accounts_v6',
+    'auracentra_user_clean_v7',
+    'auracentra_user_clean_v6',
+    'auracentra_pending_submissions',
+    'auracentra_pending_signup',
+    'auracentra_saved_clean_v7',
+    'auracentra_saved_ids'
+  ];
+  legacyKeys.forEach(k => localStorage.removeItem(k));
+} catch {
+  // ignore in non-browser environments
+}
 
 // Initial state getters and setters
 export const PERMANENTLY_DELETED_BUSINESS_IDS = [

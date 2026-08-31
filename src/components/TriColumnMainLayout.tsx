@@ -398,16 +398,6 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                       Reset Filters
                     </button>
                   )}
-                  {onOpenRegister && (
-                    <button
-                      type="button"
-                      onClick={onOpenRegister}
-                      className="px-4 py-2 rounded-xl bg-[#155DFC] hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Register Business</span>
-                    </button>
-                  )}
                 </div>
               </div>
             ) : (

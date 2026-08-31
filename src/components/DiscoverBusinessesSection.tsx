@@ -156,16 +156,6 @@ export const DiscoverBusinessesSection: React.FC<DiscoverBusinessesSectionProps>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
             No businesses are currently listed. New businesses appear here only after completing due-process registration and GhanaPost GPS verification.
           </p>
-          {onOpenRegister && (
-            <button
-              type="button"
-              onClick={onOpenRegister}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Register First Enterprise</span>
-            </button>
-          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
