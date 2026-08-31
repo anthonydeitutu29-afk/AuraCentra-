@@ -16,7 +16,8 @@ import {
   Check,
   Sun,
   Moon,
-  Settings
+  Settings,
+  Building2
 } from 'lucide-react';
 import { UserProfile } from '../types';
 
@@ -307,14 +308,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     setIsAccountSheetOpen(false);
                     onOpenBusinessDashboard();
                   }}
-                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-blue-600 text-white font-bold transition-all shadow-sm shadow-blue-500/20 cursor-pointer"
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white font-bold transition-all shadow-sm shadow-amber-500/20 cursor-pointer"
                 >
                   <span className="flex items-center gap-2.5">
-                    <LayoutDashboard className="w-4 h-4 text-cyan-200" />
-                    <span>My Business Admin Desk</span>
+                    <Building2 className="w-4 h-4 text-amber-100" />
+                    <span>My Business Dashboard</span>
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white uppercase tracking-wider">
-                    Owner Desk
+                    Owner Portal
                   </span>
                 </button>
               )}

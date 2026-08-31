@@ -431,6 +431,42 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
             </div>
           ) : null}
 
+          {/* Active Business Announcements & Promos (Published by Business Owner) */}
+          {business.updates && business.updates.filter((u) => u.isActive).length > 0 && (
+            <div className="space-y-3">
+              {business.updates.filter((u) => u.isActive).map((upd) => (
+                <div
+                  key={upd.id}
+                  className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-yellow-50/70 to-amber-100/50 dark:from-amber-950/40 dark:via-yellow-950/20 dark:to-amber-900/30 border border-amber-300/80 dark:border-amber-700/60 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-600 text-white">
+                          {upd.badgeLabel || upd.type.replace('_', ' ').toUpperCase()}
+                        </span>
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                          {upd.title}
+                        </h4>
+                      </div>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                        {upd.content}
+                      </p>
+                    </div>
+                  </div>
+                  {upd.validUntil && (
+                    <div className="text-[11px] font-bold text-amber-800 dark:text-amber-300 bg-amber-200/60 dark:bg-amber-900/60 px-2.5 py-1 rounded-xl shrink-0">
+                      Valid until: {new Date(upd.validUntil).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* 3. Main Business Information Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Left 2 Cols: Description, Services, Highlights */}

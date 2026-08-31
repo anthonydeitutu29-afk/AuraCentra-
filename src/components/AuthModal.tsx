@@ -537,7 +537,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       onClick={handleForceReRegister}
                       className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/60 dark:hover:bg-rose-900 text-rose-800 dark:text-rose-200 font-bold rounded-xl text-xs cursor-pointer transition-all"
                     >
-                      <span>🔄 Update & Re-verify</span>
+                      <span>🔄 Re-register / Update</span>
                     </button>
                   </div>
                 )}

@@ -1330,7 +1330,15 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={(user) => {
           setCurrentUser(user);
-          showToast('Welcome Back!', `Signed in as ${user.name}`, 'success');
+          if (user.role === 'business_owner' || user.role === 'verified_owner' || (user.ownedBusinessIds && user.ownedBusinessIds.length > 0)) {
+            setCurrentView('business_dashboard');
+            showToast('Welcome to your Business Dashboard!', `Managing your business listings as ${user.name}`, 'success');
+          } else if (user.role === 'admin') {
+            setCurrentView('admin');
+            showToast('Admin Console Active', `Signed in as Platform Administrator ${user.name}`, 'info');
+          } else {
+            showToast('Welcome Back!', `Signed in as ${user.name}`, 'success');
+          }
         }}
       />
 

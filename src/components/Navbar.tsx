@@ -233,10 +233,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   id="nav-owner-dashboard-btn"
                   onClick={onOpenBusinessDashboard}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer shrink-0"
                   title="Open Business Owner Dashboard"
                 >
-                  <Building2 className="w-3.5 h-3.5 text-cyan-200 shrink-0" />
+                  <Building2 className="w-3.5 h-3.5 text-amber-100 shrink-0" />
                   <span>My Business</span>
                 </button>
               ) : (

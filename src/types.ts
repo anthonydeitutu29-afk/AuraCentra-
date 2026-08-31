@@ -18,6 +18,19 @@ export interface VerificationDocument {
   adminNotes?: string;
 }
 
+export interface BusinessUpdate {
+  id: string;
+  title: string;
+  content: string;
+  type: 'promo' | 'announcement' | 'event' | 'new_product' | 'discount';
+  badgeLabel?: string;
+  discountPercentage?: number;
+  imageUrl?: string;
+  validUntil?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export interface BusinessReview {
   id: string;
   businessId: string;
@@ -99,6 +112,12 @@ export interface Business {
   isPromoted?: boolean;
   views: number;
   leadsCount: number;
+  websiteClicks?: number;
+  phoneClicks?: number;
+  whatsappClicks?: number;
+  directionsClicks?: number;
+  savesCount?: number;
+  updates?: BusinessUpdate[];
   ownerId?: string;
   ownerEmail?: string;
   createdAt: string;

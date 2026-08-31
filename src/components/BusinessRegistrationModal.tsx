@@ -420,10 +420,10 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
                   handleCloseSubmitted();
                   onOpenBusinessDashboard();
                 }}
-                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-blue-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs sm:text-sm font-bold shadow-lg shadow-amber-600/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Building className="w-4 h-4" />
-                <span>Open Business Admin Dashboard</span>
+                <span>Open My Business Dashboard</span>
               </button>
             )}
 
