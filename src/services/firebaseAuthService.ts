@@ -733,6 +733,13 @@ export const FirebaseAuthService = {
     const existing = findRegisteredAccountByEmail(cleanEmail);
     const userId = existing?.id || `usr-google-${Date.now()}`;
 
+    const isPlatformAdmin = cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'anthonydeitutu29@gmail.com';
+    const computedRole: UserRole = isPlatformAdmin 
+      ? 'admin' 
+      : (options?.accountType === 'business_owner' || existing?.role === 'business_owner' || existing?.role === 'verified_owner')
+        ? (existing?.role as UserRole || 'business_owner')
+        : 'customer';
+    
     const profile: UserProfile = {
       id: userId,
       name: displayName,
@@ -741,8 +748,8 @@ export const FirebaseAuthService = {
       emailVerified: true,
       phone: existing?.phone || '+233 50 820 3673',
       phoneVerified: true,
-      role: (existing?.role as UserRole) || cleanRole,
-      accountType: ((existing?.role || cleanRole) === 'business_owner' || (existing?.role || cleanRole) === 'verified_owner') ? 'business_owner' : 'customer',
+      role: computedRole,
+      accountType: (computedRole === 'business_owner' || computedRole === 'verified_owner') ? 'business_owner' : 'customer',
       avatar: options?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=155DFC&color=fff&bold=true`,
       authProvider: 'google',
       savedBusinessIds: [],

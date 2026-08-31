@@ -355,7 +355,7 @@ export const SupabaseService = {
           .maybeSingle();
 
         if (!error && data) {
-          const isAdmin = data.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
+          const isAdmin = data.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com';
           return {
             id: data.id,
             name: data.name || cleanEmail.split('@')[0],
@@ -380,7 +380,7 @@ export const SupabaseService = {
       if (res.ok) {
         const data = await res.json();
         if (data?.profile) {
-          const isAdmin = data.profile.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
+          const isAdmin = data.profile.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com';
           return {
             id: data.profile.id,
             name: data.profile.name || cleanEmail.split('@')[0],

@@ -36,6 +36,7 @@ import {
 } from '../utils/storage';
 import { Logo } from './Logo';
 import { INITIAL_CATEGORIES } from '../data/initialData';
+import { decodeGoogleIdToken, convertGoogleDataToUserProfile, GOOGLE_CLIENT_ID } from '../services/googleIdentityService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -119,8 +120,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } catch (e) {
         console.error('Failed to load accounts for modal', e);
       }
+
+      // Initialize Google Identity Services if available in browser / phone
+      if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: (res: { credential?: string }) => {
+              if (res?.credential) {
+                const decoded = decodeGoogleIdToken(res.credential);
+                if (decoded?.email) {
+                  const profile = convertGoogleDataToUserProfile({
+                    email: decoded.email,
+                    name: decoded.name,
+                    picture: decoded.picture,
+                    sub: decoded.sub,
+                    accountType: accountType,
+                    businessName: businessName,
+                  });
+                  setSuccessMsg(`Welcome, ${profile.name}! Verified with Google.`);
+                  setTimeout(() => {
+                    onLoginSuccess(profile);
+                    onClose();
+                  }, 350);
+                }
+              }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+        } catch (err) {
+          console.warn('[GSI Init Notice]', err);
+        }
+      }
     }
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, accountType, businessName]);
 
   if (!isOpen) return null;
 
@@ -131,11 +165,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setAuthMode(newMode);
   };
 
-  // Google Social Sign In Trigger
+  // Google Social Sign In Trigger (Triggers phone's Google prompt or quick selector)
   const handleGoogleSignIn = async () => {
     setErrorMsg('');
     setSuccessMsg('');
-    
+
     // Pre-populate Google fields if already filled in primary form
     const initialEmail = email.trim() || 'tonysdigitalmarketing@gmail.com';
     const initialName = name.trim() || (initialEmail.includes('tony') ? "Tony's Digital Marketing" : initialEmail.split('@')[0]);
@@ -143,6 +177,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setGoogleName(initialName);
     setGoogleRole(accountType);
     setGoogleBizName(businessName);
+
+    // 1. Try to invoke Google Identity Services prompt (Native Google prompt on phone / Chrome)
+    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      try {
+        setGoogleLoading(true);
+        window.google.accounts.id.prompt((notification: any) => {
+          setGoogleLoading(false);
+          // If prompt cannot be displayed or is dismissed, show Google Direct Login modal
+          if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+            setAuthMode('google_prompt');
+          }
+        });
+        return;
+      } catch (err) {
+        console.warn('Google prompt fallback:', err);
+        setGoogleLoading(false);
+      }
+    }
+    
+    // 2. Direct seamless Google Sign-In Selector
     setAuthMode('google_prompt');
   };
 

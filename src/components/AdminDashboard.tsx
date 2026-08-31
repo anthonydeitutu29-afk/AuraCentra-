@@ -118,6 +118,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
   const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'pending' | 'verified' | 'unverified' | 'rejected'>('all');
   const [userFilterProvider, setUserFilterProvider] = useState<string>('all');
+
+  // Strict RBAC Guard: If not admin, completely block render
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
+        <ShieldAlert className="w-16 h-16 text-rose-500 mb-4" />
+        <h2 className="text-2xl font-black mb-2">Access Denied</h2>
+        <p className="text-slate-400 max-w-md mb-6">
+          You do not have administrator permissions to access this console. Customer accounts cannot access the Executive Administrative Console.
+        </p>
+        <button
+          type="button"
+          onClick={onBackToPortal}
+          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all cursor-pointer shadow-lg shadow-blue-500/25"
+        >
+          Return to AuraCentra Portal
+        </button>
+      </div>
+    );
+  }
   const [registeredUsers, setRegisteredUsers] = useState<UserAccountRecord[]>(() => getRegisteredAccounts());
   
   // Refresh accounts when opening users tab
