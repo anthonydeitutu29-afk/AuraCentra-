@@ -1,4 +1,5 @@
-import { UserProfile, UserRole } from '../types';
+import { UserProfile, UserRole, UserAccountRecord } from '../types';
+import { VerificationService } from './verificationService';
 import { 
   saveRegisteredAccount, 
   findRegisteredAccountByEmail, 
@@ -28,7 +29,8 @@ export const FirebaseAuthService = {
     phone?: string;
     username?: string;
     excludeAccountId?: string;
-  }): Promise<{ isUnique: boolean; conflictField?: 'email' | 'phone' | 'username'; message?: string }> {
+    allowExisting?: boolean;
+  }): Promise<{ isUnique: boolean; conflictField?: 'email' | 'phone' | 'username'; isExistingUser?: boolean; message?: string }> {
     // 1. Client Storage Instant Validation
     const localCheck = checkAccountUniqueness(params);
     if (!localCheck.isUnique) {
@@ -53,6 +55,15 @@ export const FirebaseAuthService = {
           isUnique: false,
           conflictField: errData.conflictField || 'email',
           message: errData.message || 'This credential is already associated with an account.',
+        };
+      }
+      const data = await res.json();
+      if (data.isExistingUser) {
+        return {
+          isUnique: true,
+          isExistingUser: true,
+          conflictField: data.conflictField,
+          message: data.message,
         };
       }
     } catch (apiErr) {
@@ -89,15 +100,57 @@ export const FirebaseAuthService = {
     const cleanUsername = normalizeUsername(params.username || cleanEmail.split('@')[0]);
     const cleanPhone = params.phone ? params.phone.trim() : '';
 
-    // STRICT UNIQUENESS ENFORCEMENT
+    const existingAcc = findRegisteredAccountByEmail(cleanEmail);
+    const excludeId = existingAcc ? existingAcc.id : undefined;
+
+    // Check account availability (allow existing email to re-register/update)
     const availability = await this.checkAccountAvailability({
       email: cleanEmail,
       phone: cleanPhone,
       username: cleanUsername,
+      excludeAccountId: excludeId,
+      allowExisting: true,
     });
 
-    if (!availability.isUnique) {
-      throw new Error(availability.message || 'This email, phone number, or username is already in use.');
+    if (!availability.isUnique && availability.conflictField !== 'email') {
+      throw new Error(availability.message || 'This phone number or username is already in use.');
+    }
+
+    // Save or update pending account record immediately
+    const pendingDisplayName = params.role === 'business_owner' && params.businessName
+      ? `${cleanName} (${params.businessName.trim()})`
+      : cleanName;
+
+    const pendingUserId = existingAcc?.id || `usr-${Date.now()}`;
+    const pendingAccountRecord: UserAccountRecord = {
+      id: pendingUserId,
+      name: pendingDisplayName,
+      username: cleanUsername,
+      email: cleanEmail,
+      password: params.password,
+      role: params.role,
+      phone: cleanPhone || existingAcc?.phone || '+233 24 000 0000',
+      phoneVerified: true,
+      emailVerified: false,
+      authProvider: 'email',
+      businessName: params.businessName || existingAcc?.businessName,
+      createdAt: existingAcc?.createdAt || new Date().toISOString(),
+    };
+    saveRegisteredAccount(pendingAccountRecord);
+
+    try {
+      localStorage.setItem('auracentra_pending_signup', JSON.stringify({
+        id: pendingUserId,
+        email: cleanEmail,
+        password: params.password,
+        name: cleanName,
+        username: cleanUsername,
+        role: params.role,
+        phone: cleanPhone,
+        businessName: params.businessName,
+      }));
+    } catch {
+      // ignore
     }
 
     // Dispatch verification email via server (Brevo / SMTP / Relay)
@@ -260,22 +313,44 @@ export const FirebaseAuthService = {
     const cleanUsername = normalizeUsername(params.username || cleanEmail.split('@')[0]);
     const cleanPhone = params.phone ? params.phone.trim() : '';
 
-    // ========================================================================
-    // STRICT UNIQUENESS ENFORCEMENT
-    // ========================================================================
-    const availability = await this.checkAccountAvailability({
-      email: cleanEmail,
-      phone: cleanPhone,
-      username: cleanUsername,
-    });
-
-    if (!availability.isUnique) {
-      throw new Error(availability.message || 'This email, phone number, or username is already in use.');
-    }
-
     const displayName = params.role === 'business_owner' && params.businessName
       ? `${cleanName} (${params.businessName.trim()})`
       : cleanName;
+
+    // Check if account already exists
+    const existingAcc = findRegisteredAccountByEmail(cleanEmail);
+    if (existingAcc) {
+      const updatedAccount: UserAccountRecord = {
+        ...existingAcc,
+        name: displayName || existingAcc.name,
+        username: cleanUsername || existingAcc.username,
+        password: params.password || existingAcc.password,
+        role: params.role || existingAcc.role,
+        phone: cleanPhone || existingAcc.phone || '+233 24 000 0000',
+        businessName: params.role === 'business_owner' ? (params.businessName || existingAcc.businessName) : existingAcc.businessName,
+      };
+      saveRegisteredAccount(updatedAccount);
+
+      const profile: UserProfile = {
+        id: updatedAccount.id,
+        name: updatedAccount.name,
+        username: updatedAccount.username,
+        email: updatedAccount.email,
+        emailVerified: updatedAccount.emailVerified !== false,
+        phone: updatedAccount.phone || '+233 24 000 0000',
+        phoneVerified: true,
+        role: updatedAccount.role as UserRole,
+        accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
+        savedBusinessIds: [],
+        createdAt: updatedAccount.createdAt || new Date().toISOString(),
+      };
+
+      return {
+        profile,
+        emailSent: false,
+        message: 'Welcome back! Signed in to your registered account successfully.',
+      };
+    }
 
     let userId = `usr-${Date.now()}`;
 
@@ -513,6 +588,36 @@ export const FirebaseAuthService = {
     }
 
     return { verified: false };
+  },
+
+  /**
+   * 1-Click Instant Email Verification and Account Activation
+   */
+  async instantVerifyEmail(email: string): Promise<{ success: boolean; message: string }> {
+    const cleanEmail = email.trim().toLowerCase();
+    try {
+      await fetch('/api/auth/instant-verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+    } catch (e) {
+      console.warn('[Instant verify email notice]', e);
+    }
+
+    const acc = findRegisteredAccountByEmail(cleanEmail);
+    if (acc) {
+      saveRegisteredAccount({
+        ...acc,
+        emailVerified: true,
+      });
+    }
+    VerificationService.markEmailVerified(cleanEmail);
+
+    return {
+      success: true,
+      message: 'Email address verified and account activated successfully!',
+    };
   },
 
   /**

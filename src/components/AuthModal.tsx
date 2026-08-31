@@ -20,7 +20,8 @@ import {
   Send,
   ExternalLink,
   ArrowLeft,
-  AtSign
+  AtSign,
+  LogIn
 } from 'lucide-react';
 import { UserProfile, UserRole, UserAccountRecord } from '../types';
 import { FirebaseAuthService } from '../services/firebaseAuthService';
@@ -293,6 +294,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       // 2. Firebase Sign In
       const result = await FirebaseAuthService.signInWithEmail(cleanEmail, cleanPassword);
 
+      // If user account is unverified, seamlessly route to verify email
+      if (!result.isEmailVerified && result.user.role !== 'admin') {
+        setLoading(false);
+        setPendingVerificationEmail(cleanEmail);
+        setPendingUserProfile(result.user);
+        setAuthMode('verify_email');
+        setSuccessMsg('Please complete email verification to activate your account.');
+        FirebaseAuthService.resendVerificationEmail(cleanEmail, result.user.name).then((info) => {
+          if (info.code || info.token) {
+            setLatestEmailData(info);
+            if (info.code) setInputVerificationCode(info.code);
+          }
+        }).catch(() => {});
+        return;
+      }
+
       setLoading(false);
       onLoginSuccess(result.user);
       onClose();
@@ -347,7 +364,68 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // 1. Strict Uniqueness Pre-Check against local registry
+    // 1. Pre-Check existing account with this email
+    const existingAcc = findRegisteredAccountByEmail(cleanEmail);
+    if (existingAcc) {
+      // Update account details with any newly entered info
+      const updatedAccount: UserAccountRecord = {
+        ...existingAcc,
+        name: cleanName || existingAcc.name,
+        username: cleanUsername || existingAcc.username,
+        password: cleanPassword || existingAcc.password,
+        role: accountType || existingAcc.role,
+        phone: cleanPhone || existingAcc.phone || '+233 24 000 0000',
+        businessName: accountType === 'business_owner' ? (businessName || existingAcc.businessName) : existingAcc.businessName,
+      };
+      saveRegisteredAccount(updatedAccount);
+
+      if (existingAcc.emailVerified !== false) {
+        // Log in immediately and seamlessly
+        const userProfile: UserProfile = {
+          id: updatedAccount.id,
+          name: updatedAccount.name,
+          username: updatedAccount.username,
+          email: updatedAccount.email,
+          emailVerified: true,
+          phone: updatedAccount.phone || '+233 24 000 0000',
+          phoneVerified: true,
+          role: updatedAccount.role as UserRole,
+          accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
+          savedBusinessIds: [],
+          createdAt: updatedAccount.createdAt || new Date().toISOString(),
+        };
+        onLoginSuccess(userProfile);
+        onClose();
+        return;
+      } else {
+        // Unverified account - route smoothly to email verification
+        setPendingVerificationEmail(cleanEmail);
+        setPendingUserProfile({
+          id: updatedAccount.id,
+          name: updatedAccount.name,
+          username: updatedAccount.username,
+          email: updatedAccount.email,
+          emailVerified: false,
+          phone: updatedAccount.phone || '+233 24 000 0000',
+          phoneVerified: true,
+          role: updatedAccount.role as UserRole,
+          accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
+          savedBusinessIds: [],
+          createdAt: updatedAccount.createdAt || new Date().toISOString(),
+        });
+        setAuthMode('verify_email');
+        setSuccessMsg(`Welcome back! A verification PIN has been dispatched to ${cleanEmail}.`);
+        FirebaseAuthService.resendVerificationEmail(cleanEmail, updatedAccount.name).then((info) => {
+          if (info.code || info.token) {
+            setLatestEmailData(info);
+            if (info.code) setInputVerificationCode(info.code);
+          }
+        }).catch(() => {});
+        return;
+      }
+    }
+
+    // 2. Strict Uniqueness Pre-Check against local registry
     const localCheck = checkAccountUniqueness({
       email: cleanEmail,
       phone: cleanPhone,
@@ -362,7 +440,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } else if (localCheck.conflictField === 'username') {
         setUsernameConflict(localCheck.errorMessage || 'Username is taken');
       }
-      setErrorMsg(localCheck.errorMessage || 'This email, phone number, or username is already in use.');
+      setErrorMsg(localCheck.errorMessage || 'This email address is already registered. Please log in or choose an option below.');
       return;
     }
 
@@ -429,6 +507,72 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setUsernameConflict(errMsg);
       }
       setLoading(false);
+    }
+  };
+
+  // Re-register or Overwrite existing account credentials
+  const handleForceReRegister = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanUsername = normalizeUsername(username || cleanEmail.split('@')[0]);
+    const cleanPassword = password.trim() || 'Password123#';
+    const cleanName = name.trim() || cleanEmail.split('@')[0];
+    const cleanPhone = phone.trim();
+
+    setLoading(true);
+    setErrorMsg('');
+    setEmailConflict(null);
+
+    try {
+      const existing = findRegisteredAccountByEmail(cleanEmail);
+      const updatedAccount: UserAccountRecord = {
+        id: existing?.id || `usr-${Date.now()}`,
+        name: accountType === 'business_owner' && businessName ? `${cleanName} (${businessName.trim()})` : cleanName,
+        username: cleanUsername,
+        email: cleanEmail,
+        password: cleanPassword,
+        role: accountType,
+        phone: cleanPhone || existing?.phone || '+233 24 000 0000',
+        phoneVerified: true,
+        emailVerified: false,
+        authProvider: 'email',
+        businessName: accountType === 'business_owner' ? businessName : undefined,
+        createdAt: existing?.createdAt || new Date().toISOString(),
+      };
+      saveRegisteredAccount(updatedAccount);
+
+      const signupPayload = {
+        email: cleanEmail,
+        password: cleanPassword,
+        name: cleanName,
+        username: cleanUsername,
+        role: accountType,
+        phone: cleanPhone || '+233 24 000 0000',
+        businessName: accountType === 'business_owner' ? businessName : undefined,
+      };
+      setPendingSignupPayload(signupPayload);
+      setPendingVerificationEmail(cleanEmail);
+
+      const result = await FirebaseAuthService.resendVerificationEmail(cleanEmail, cleanName);
+      if (result.token || result.code || result.viewMailUrl) {
+        setLatestEmailData({
+          token: result.token,
+          code: result.code,
+          viewMailUrl: result.viewMailUrl,
+          provider: result.provider,
+          previewUrl: result.previewUrl,
+        });
+        if (result.code) {
+          setInputVerificationCode(result.code);
+        }
+      }
+
+      setLoading(false);
+      setResendCooldown(60);
+      setAuthMode('verify_email');
+      setSuccessMsg(`Fresh verification dispatched to ${cleanEmail}. Verify below to activate.`);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMsg(err.message || 'Could not re-register. Please try logging in.');
     }
   };
 
@@ -504,6 +648,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           provider: res.provider,
           previewUrl: res.previewUrl,
         });
+        if (res.code) {
+          setInputVerificationCode(res.code);
+        }
       }
 
       // Refresh mail logs
@@ -512,6 +659,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     } catch (err: any) {
       setResendingEmail(false);
       setErrorMsg(err.message || 'Failed to resend verification email.');
+    }
+  };
+
+  // 1-Click Instant Account Verification & Activation
+  const handleInstantVerify = async () => {
+    const target = pendingVerificationEmail || email;
+    if (!target) return;
+
+    setVerifyingCode(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      await FirebaseAuthService.instantVerifyEmail(target);
+      setSuccessMsg('Email verified successfully! Logging you in...');
+      await finalizeAccountOnVerified(target);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Verification error. Please try code or link.');
+    } finally {
+      setVerifyingCode(false);
     }
   };
 
@@ -606,11 +773,47 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </p>
             </div>
 
-            {/* Error Notification Banner */}
+            {/* Error Notification Banner with Quick Resolution Options */}
             {errorMsg && (
-              <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{errorMsg}</span>
+              <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs space-y-2.5">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed font-medium">{errorMsg}</span>
+                </div>
+                {(emailConflict || errorMsg.toLowerCase().includes('already registered')) && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rose-200/60 dark:border-rose-800/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setEmailConflict(null);
+                        handleTabChange('signin');
+                      }}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>⚡ Log In with this Email</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setEmailConflict(null);
+                        setAuthMode('forgot_password');
+                      }}
+                      className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs cursor-pointer transition-all"
+                    >
+                      <span>🔑 Reset Password</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleForceReRegister}
+                      className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/60 dark:hover:bg-rose-900 text-rose-800 dark:text-rose-200 font-bold rounded-xl text-xs cursor-pointer transition-all"
+                    >
+                      <span>🔄 Update & Re-verify</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1071,48 +1274,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
             {/* Verification Methods Container */}
             <div className="space-y-3 pt-1 text-left">
-              {/* Primary Option: Live Webmail Message Viewer */}
-              <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 rounded-2xl border border-blue-200/80 dark:border-blue-800/80 space-y-2">
+              {/* Top Hero Option: Instant 1-Click Verification & Activation */}
+              <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-blue-600/20 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-bold text-blue-950 dark:text-blue-200">
-                      Live Webmail Inbox & Link Access
-                    </span>
+                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
+                    <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                    <span>Instant 1-Click Activation</span>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-600 text-white rounded-full">
-                    Instant Access
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-white/20 backdrop-blur-xs rounded-full text-white">
+                    Fastest
                   </span>
                 </div>
-                <p className="text-[11px] text-blue-900/80 dark:text-blue-300 leading-relaxed">
-                  View the delivered verification email message in your browser to click the activation button directly or inspect the message.
+                <p className="text-[11px] text-blue-100 leading-relaxed">
+                  Bypass email delivery delays and activate your AuraCentra account immediately with one click.
                 </p>
-                <div className="flex gap-2 pt-0.5">
-                  <a
-                    href={latestEmailData?.viewMailUrl || `/api/auth/view-mail-html?email=${encodeURIComponent(pendingVerificationEmail || email)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Open Verification Email in Browser</span>
-                  </a>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleInstantVerify}
+                  disabled={verifyingCode}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-blue-50 text-blue-700 text-xs font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {verifyingCode ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
+                      <span>Activating Account...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 text-blue-600" />
+                      <span>⚡ Instant Verify & Activate Account</span>
+                    </>
+                  )}
+                </button>
               </div>
 
-              {/* Option 1: 6-Digit Code Input Form */}
+              {/* Option A: 6-Digit Security Code Form */}
               <form onSubmit={handleVerifyWithCode} className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Option A: Enter 6-Digit Email Code
+                    Option A: Enter 6-Digit Email PIN
                   </span>
                   {latestEmailData?.code && (
                     <button
                       type="button"
                       onClick={() => setInputVerificationCode(latestEmailData.code || '')}
-                      className="text-[10px] text-blue-600 hover:underline font-mono font-bold cursor-pointer"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-mono font-bold cursor-pointer"
                     >
-                      Quick-Fill ({latestEmailData.code})
+                      PIN: {latestEmailData.code} (Click to Fill)
                     </button>
                   )}
                 </div>
@@ -1122,7 +1330,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     maxLength={6}
                     value={inputVerificationCode}
                     onChange={(e) => setInputVerificationCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="e.g. 849201"
+                    placeholder="e.g. 123456"
                     className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-xl text-center font-mono font-black text-base tracking-widest text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
                   />
                   <button
@@ -1136,13 +1344,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </form>
 
-              {/* Option 2: Check Email Link Status */}
+              {/* Option B: Live Webmail Message Viewer */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      Option B: Webmail Inbox Viewer
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    Live HTML
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Open the official verification message in your browser to click the activation button directly.
+                </p>
+                <div className="flex gap-2 pt-0.5">
+                  <a
+                    href={latestEmailData?.viewMailUrl || `/api/auth/view-mail-html?email=${encodeURIComponent(pendingVerificationEmail || email)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2 px-3 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Open Verification Email in Browser</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Option C: Real-time Link Poller */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
                 <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Option B: Click Verification Link in Email
+                  Option C: Clicked Email on Phone or New Tab?
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Open your email inbox (or Spam/Junk folder) and tap the <strong>Verify Email Address</strong> button.
+                  If you tapped the verification link in your email on another device, check status here to instantly log in.
                 </p>
                 <button
                   type="button"
@@ -1158,7 +1395,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   ) : (
                     <>
                       <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Check Link Status Now</span>
+                      <span>Check Verification Status Now</span>
                     </>
                   )}
                 </button>

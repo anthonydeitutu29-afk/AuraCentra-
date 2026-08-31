@@ -502,6 +502,37 @@ export const SupabaseService = {
     }
   },
 
+  // Get Current Active Supabase Session
+  async getSession() {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data.session) {
+          return data.session;
+        }
+      } catch (e) {
+        console.warn('[Supabase getSession]', e);
+      }
+    }
+    return null;
+  },
+
+  // Listen to Supabase Auth State Changes (LOGIN, LOGOUT, TOKEN_REFRESHED)
+  onAuthStateChange(callback: (event: string, session: any) => void) {
+    if (!supabase) return { unsubscribe: () => {} };
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        callback(event, session);
+      });
+      return {
+        unsubscribe: () => subscription.unsubscribe(),
+      };
+    } catch (err) {
+      console.warn('[Supabase onAuthStateChange]', err);
+      return { unsubscribe: () => {} };
+    }
+  },
+
   // Password Verification Check (Crucial for user-mandated secure logout)
   async verifyPassword(email: string, password: string): Promise<boolean> {
     if (!password) return false;

@@ -21,6 +21,7 @@ import {
   Category, 
   BusinessReview, 
   UserProfile, 
+  UserRole,
   FilterState,
   BusinessInquiry,
   ToastNotification,
@@ -266,8 +267,42 @@ export default function App() {
     localStorage.setItem('auracentra_theme', theme);
   }, [theme]);
 
-  // Synchronize Live Profile and Admin Role from Supabase
+  // Synchronize Live Profile and Admin Role from Supabase + Subscribe to Supabase Auth State
   useEffect(() => {
+    // 1. Listen to Supabase Auth State Changes (OAuth logins, Session refreshes, Signouts)
+    const { unsubscribe } = SupabaseService.onAuthStateChange(async (event, session) => {
+      console.log('[Supabase Auth Event]', event, session?.user?.email);
+      if (session?.user?.email) {
+        const email = session.user.email.toLowerCase();
+        const liveProfile = await SupabaseService.getProfile(email);
+        const isAdmin = liveProfile?.role === 'admin' || 
+          email === 'anthonydeitutu29@gmail.com' || 
+          email === 'admindashboard@gmail.com' || 
+          email === 'tonysdigitalmarketing@gmail.com';
+
+        const updated: UserProfile = {
+          id: session.user.id || liveProfile?.id || `usr-${Date.now()}`,
+          name: liveProfile?.name || session.user.user_metadata?.name || email.split('@')[0],
+          username: liveProfile?.username || session.user.user_metadata?.username || email.split('@')[0],
+          email: email,
+          emailVerified: true,
+          phone: liveProfile?.phone || session.user.phone || '+233 24 000 0000',
+          phoneVerified: true,
+          role: isAdmin ? 'admin' : (liveProfile?.role || 'customer'),
+          accountType: (liveProfile?.role === 'business_owner' || liveProfile?.role === 'verified_owner') ? 'business_owner' : 'customer',
+          savedBusinessIds: liveProfile?.savedBusinessIds || [],
+          avatar: liveProfile?.avatar || session.user.user_metadata?.avatar_url,
+          authProvider: session.user.app_metadata?.provider || 'supabase',
+          createdAt: liveProfile?.createdAt || session.user.created_at || new Date().toISOString(),
+        };
+        saveCurrentUser(updated);
+        setCurrentUser(updated);
+      } else if (event === 'SIGNED_OUT') {
+        // Only clear if auth was strictly via Supabase
+      }
+    });
+
+    // 2. Fetch live profile for current user
     if (currentUser?.email) {
       SupabaseService.getProfile(currentUser.email)
         .then((live) => {
@@ -293,6 +328,10 @@ export default function App() {
         })
         .catch(() => {});
     }
+
+    return () => {
+      unsubscribe();
+    };
   }, [currentUser?.email, currentUser?.role]);
 
   // Check URL query parameters for email verification link landing
@@ -309,23 +348,68 @@ export default function App() {
             : 'Your email address is verified and active.',
           'success'
         );
-        // If current user is logged in with this email, mark as verified in state & storage
+        // If email verified, update account and automatically log user in
         if (verifiedEmail) {
-          const acc = findRegisteredAccountByEmail(verifiedEmail);
+          const cleanEmail = verifiedEmail.trim().toLowerCase();
+          let acc = findRegisteredAccountByEmail(cleanEmail);
+          
+          if (!acc) {
+            try {
+              const pendingRaw = localStorage.getItem('auracentra_pending_signup');
+              if (pendingRaw) {
+                const pending = JSON.parse(pendingRaw);
+                if (pending.email && pending.email.toLowerCase() === cleanEmail) {
+                  acc = {
+                    id: pending.id || `usr-${Date.now()}`,
+                    name: pending.name || cleanEmail.split('@')[0],
+                    username: pending.username || cleanEmail.split('@')[0],
+                    email: cleanEmail,
+                    password: pending.password,
+                    role: pending.role || 'customer',
+                    phone: pending.phone || '+233 24 000 0000',
+                    phoneVerified: true,
+                    emailVerified: true,
+                    authProvider: 'email',
+                    businessName: pending.businessName,
+                    createdAt: new Date().toISOString(),
+                  };
+                  saveRegisteredAccount(acc);
+                }
+              }
+            } catch {
+              // ignore
+            }
+          }
+
           if (acc) {
-            saveRegisteredAccount({
-              ...acc,
+            const verifiedAcc = { ...acc, emailVerified: true };
+            saveRegisteredAccount(verifiedAcc);
+            
+            const userProfile: UserProfile = {
+              id: verifiedAcc.id,
+              name: verifiedAcc.name,
+              username: verifiedAcc.username,
+              email: verifiedAcc.email,
               emailVerified: true,
+              phone: verifiedAcc.phone || '+233 24 000 0000',
+              phoneVerified: true,
+              role: verifiedAcc.role as UserRole,
+              accountType: (verifiedAcc.role === 'business_owner' || verifiedAcc.role === 'verified_owner') ? 'business_owner' : 'customer',
+              savedBusinessIds: [],
+              createdAt: verifiedAcc.createdAt || new Date().toISOString(),
+            };
+            setCurrentUser(userProfile);
+            localStorage.setItem('auracentra_user_clean_v7', JSON.stringify(userProfile));
+          } else {
+            setCurrentUser((prev) => {
+              if (prev && prev.email.toLowerCase() === cleanEmail) {
+                const updated = { ...prev, emailVerified: true };
+                localStorage.setItem('auracentra_user_clean_v7', JSON.stringify(updated));
+                return updated;
+              }
+              return prev;
             });
           }
-          setCurrentUser((prev) => {
-            if (prev && prev.email.toLowerCase() === verifiedEmail.toLowerCase()) {
-              const updated = { ...prev, emailVerified: true };
-              localStorage.setItem('auracentra_user_clean_v7', JSON.stringify(updated));
-              return updated;
-            }
-            return prev;
-          });
         }
         // Clean URL query parameter without page reload
         const newUrl = window.location.pathname;

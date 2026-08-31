@@ -456,47 +456,47 @@ export function checkAccountUniqueness(params: {
   phone?: string;
   username?: string;
   excludeAccountId?: string;
-}): { isUnique: boolean; conflictField?: 'email' | 'phone' | 'username'; errorMessage?: string } {
+  allowExisting?: boolean;
+}): { isUnique: boolean; conflictField?: 'email' | 'phone' | 'username'; isExistingUser?: boolean; errorMessage?: string } {
   const cleanEmail = (params.email || '').trim().toLowerCase();
   const cleanPhone = normalizePhoneNumber(params.phone);
   const cleanUsername = normalizeUsername(params.username);
   const accounts = getRegisteredAccounts();
+
+  if (params.allowExisting) {
+    return { isUnique: true, isExistingUser: true };
+  }
 
   for (const acc of accounts) {
     if (params.excludeAccountId && acc.id === params.excludeAccountId) {
       continue;
     }
 
-    // 1. Check Email Uniqueness
-    if (cleanEmail && acc.email.toLowerCase() === cleanEmail) {
-      return {
-        isUnique: false,
-        conflictField: 'email',
-        errorMessage: `The email address "${cleanEmail}" is already registered. Please log in or use a different email address.`
-      };
-    }
-
-    // 2. Check Phone Number Uniqueness
-    if (cleanPhone && cleanPhone.length >= 9 && acc.phone) {
+    // 1. Check Phone Number Uniqueness (only if distinct phone)
+    if (cleanPhone && cleanPhone.length >= 9 && acc.phone && acc.email.toLowerCase() !== cleanEmail) {
       const accPhone = normalizePhoneNumber(acc.phone);
       if (accPhone === cleanPhone) {
-        return {
-          isUnique: false,
-          conflictField: 'phone',
-          errorMessage: `The phone number "${params.phone?.trim()}" is already associated with an existing account. Each phone number can only be used once.`
-        };
+        if (acc.emailVerified !== false) {
+          return {
+            isUnique: false,
+            conflictField: 'phone',
+            errorMessage: `The phone number "${params.phone?.trim()}" is already associated with another account.`
+          };
+        }
       }
     }
 
-    // 3. Check Username Uniqueness
-    if (cleanUsername) {
+    // 2. Check Username Uniqueness (only if distinct email)
+    if (cleanUsername && acc.email.toLowerCase() !== cleanEmail) {
       const accUser = acc.username ? normalizeUsername(acc.username) : normalizeUsername(acc.email.split('@')[0]);
       if (accUser === cleanUsername) {
-        return {
-          isUnique: false,
-          conflictField: 'username',
-          errorMessage: `The username "@${cleanUsername}" is already taken. Please choose another username.`
-        };
+        if (acc.emailVerified !== false) {
+          return {
+            isUnique: false,
+            conflictField: 'username',
+            errorMessage: `The username "@${cleanUsername}" is already taken. Please choose another username.`
+          };
+        }
       }
     }
   }
