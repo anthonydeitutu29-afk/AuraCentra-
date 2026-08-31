@@ -86,6 +86,8 @@ export const FirebaseAuthService = {
     phone?: string;
     businessName?: string;
   }): Promise<{ 
+    profile: UserProfile;
+    success: boolean;
     emailSent: boolean; 
     message: string;
     token?: string;
@@ -116,86 +118,73 @@ export const FirebaseAuthService = {
       throw new Error(availability.message || 'This phone number or username is already in use.');
     }
 
-    // Save or update pending account record immediately
-    const pendingDisplayName = params.role === 'business_owner' && params.businessName
+    const displayName = params.role === 'business_owner' && params.businessName
       ? `${cleanName} (${params.businessName.trim()})`
       : cleanName;
 
-    const pendingUserId = existingAcc?.id || `usr-${Date.now()}`;
-    const pendingAccountRecord: UserAccountRecord = {
-      id: pendingUserId,
-      name: pendingDisplayName,
+    let userId = existingAcc?.id || `usr-${Date.now()}`;
+
+    // Register with Supabase Auth if configured
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const supaResult = await SupabaseService.signUp(cleanEmail, params.password, {
+          name: displayName,
+          username: cleanUsername,
+          role: params.role as UserRole,
+          phone: cleanPhone,
+        });
+        if (supaResult.user?.id) {
+          userId = supaResult.user.id;
+        }
+      } catch (supaErr: any) {
+        console.warn('[Supabase Auth SignUp notice]', supaErr.message);
+      }
+    }
+
+    const profile: UserProfile = {
+      id: userId,
+      name: displayName,
       username: cleanUsername,
       email: cleanEmail,
-      password: params.password,
-      role: params.role,
-      phone: cleanPhone || existingAcc?.phone || '+233 24 000 0000',
+      emailVerified: true,
+      phone: cleanPhone || '+233 24 000 0000',
       phoneVerified: true,
-      emailVerified: false,
-      authProvider: 'email',
-      businessName: params.businessName || existingAcc?.businessName,
+      role: params.role as UserRole,
+      accountType: params.role,
+      savedBusinessIds: [],
       createdAt: existingAcc?.createdAt || new Date().toISOString(),
     };
-    saveRegisteredAccount(pendingAccountRecord);
 
+    // Save local persistent user account record
+    saveRegisteredAccount({
+      id: profile.id,
+      name: profile.name,
+      username: cleanUsername,
+      email: profile.email,
+      password: params.password,
+      role: profile.role,
+      phone: profile.phone,
+      phoneVerified: true,
+      emailVerified: true,
+      authProvider: 'email',
+      businessName: params.businessName,
+      createdAt: profile.createdAt,
+    });
+
+    // Push directly to Supabase & Backend server profiles
     try {
-      localStorage.setItem('auracentra_pending_signup', JSON.stringify({
-        id: pendingUserId,
-        email: cleanEmail,
-        password: params.password,
-        name: cleanName,
-        username: cleanUsername,
-        role: params.role,
-        phone: cleanPhone,
-        businessName: params.businessName,
-      }));
+      SupabaseService.saveProfile(profile).catch(() => {});
     } catch {
       // ignore
     }
 
-    // Dispatch verification email via server (Brevo / SMTP / Relay)
-    let token: string | undefined;
-    let code: string | undefined;
-    let verificationLink: string | undefined;
-    let viewMailUrl: string | undefined;
-    let provider: string | undefined;
-    let previewUrl: string | false | undefined;
-
-    try {
-      const res = await fetch('/api/auth/send-verification-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          name: cleanName,
-          role: params.role,
-          businessName: params.businessName,
-          appUrl: window.location.origin,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        token = data.token;
-        code = data.code;
-        verificationLink = data.verificationLink;
-        viewMailUrl = data.viewMailUrl;
-        provider = data.provider;
-        previewUrl = data.previewUrl;
-      }
-    } catch (e) {
-      console.warn('[initiateSignUpWithEmail email dispatch notice]', e);
-    }
+    VerificationService.markEmailVerified(cleanEmail);
 
     return {
-      emailSent: true,
-      message: `A verification email with a 1-click activation button and a 6-digit code has been dispatched to ${cleanEmail}.`,
-      token,
-      code,
-      verificationLink,
-      viewMailUrl,
-      provider,
-      previewUrl,
+      profile,
+      success: true,
+      emailSent: false,
+      message: 'Account created successfully! Welcome to AuraCentra Ghana.',
     };
   },
 
@@ -562,32 +551,15 @@ export const FirebaseAuthService = {
    */
   async checkVerificationStatus(email: string): Promise<{ verified: boolean; message?: string }> {
     const cleanEmail = email.trim().toLowerCase();
-
-    try {
-      const res = await fetch(`/api/auth/check-verification-status?email=${encodeURIComponent(cleanEmail)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.verified) {
-          const acc = findRegisteredAccountByEmail(cleanEmail);
-          if (acc) {
-            saveRegisteredAccount({
-              ...acc,
-              emailVerified: true,
-            });
-          }
-          return { verified: true, message: 'Email confirmed.' };
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-
     const localRecord = findRegisteredAccountByEmail(cleanEmail);
-    if (localRecord && localRecord.emailVerified) {
-      return { verified: true, message: 'Email confirmed locally.' };
+    if (localRecord) {
+      saveRegisteredAccount({
+        ...localRecord,
+        emailVerified: true,
+      });
     }
-
-    return { verified: false };
+    VerificationService.markEmailVerified(cleanEmail);
+    return { verified: true, message: 'Account active and verified.' };
   },
 
   /**
@@ -703,7 +675,6 @@ export const FirebaseAuthService = {
     }
 
     if (targetAccount) {
-      isEmailVerified = Boolean(targetAccount.emailVerified || isEmailVerified);
       role = targetAccount.role || role;
       userId = targetAccount.id || userId;
       displayName = targetAccount.name || displayName;
@@ -712,15 +683,16 @@ export const FirebaseAuthService = {
     const isAdmin = cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
     if (isAdmin) {
       role = 'admin';
-      isEmailVerified = true;
     }
+
+    isEmailVerified = true;
 
     const user: UserProfile = {
       id: userId,
       name: displayName,
       username: targetAccount?.username || (cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanInput),
       email: cleanEmail,
-      emailVerified: isEmailVerified,
+      emailVerified: true,
       phone: targetAccount?.phone || '+233 24 000 0000',
       phoneVerified: true,
       role: role,
@@ -730,7 +702,7 @@ export const FirebaseAuthService = {
 
     return {
       user,
-      isEmailVerified,
+      isEmailVerified: true,
       message: 'Login successful.',
     };
   },

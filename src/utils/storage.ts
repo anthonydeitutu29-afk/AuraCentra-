@@ -155,6 +155,9 @@ export function getStoredCurrentUser(): UserProfile | null {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (data) {
       const user: UserProfile = JSON.parse(data);
+      if (user) {
+        user.emailVerified = true;
+      }
       if (user?.email) {
         const clean = user.email.trim().toLowerCase();
         if (clean === 'anthonydeitutu29@gmail.com' || clean === 'admindashboard@gmail.com' || clean === 'tonysdigitalmarketing@gmail.com') {

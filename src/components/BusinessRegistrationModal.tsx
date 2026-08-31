@@ -307,25 +307,6 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
     setSubmittedBusiness(newBiz);
     setIsSubmitted(true);
 
-    // Dispatch official verification email to business email address
-    if (cleanEmail && cleanEmail.includes('@')) {
-      try {
-        fetch('/api/auth/send-verification-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: cleanEmail,
-            name: holderName || newBiz.name,
-            role: 'business_owner',
-            businessName: newBiz.name,
-            appUrl: window.location.origin,
-          }),
-        }).catch((err) => console.warn('[Business Email Dispatch notice]', err));
-      } catch (e) {
-        // silent
-      }
-    }
-
     // 2. Silent background storage & synchronization
 
     try {

@@ -54,7 +54,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   customTitle,
   customSubtitle,
 }) => {
-  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'verify_email' | 'forgot_password'>(initialMode);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'forgot_password'>(initialMode === 'signup' ? 'signup' : 'signin');
   
   // Registration Flow Role Selection
   const [accountType, setAccountType] = useState<'customer' | 'business_owner'>('customer');
@@ -87,34 +87,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Email Verification State
-  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
-  const [pendingUserProfile, setPendingUserProfile] = useState<UserProfile | null>(null);
-  const [pendingSignupPayload, setPendingSignupPayload] = useState<{
-    email: string;
-    password: string;
-    name: string;
-    username?: string;
-    role: 'customer' | 'business_owner';
-    phone?: string;
-    businessName?: string;
-  } | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [resendingEmail, setResendingEmail] = useState(false);
-  const [checkingStatus, setCheckingStatus] = useState(false);
-  const [inputVerificationCode, setInputVerificationCode] = useState('');
-  const [verifyingCode, setVerifyingCode] = useState(false);
-  const [showMailInspector, setShowMailInspector] = useState(false);
-  const [mailLogs, setMailLogs] = useState<any[]>([]);
-  const [latestEmailData, setLatestEmailData] = useState<{
-    token?: string;
-    code?: string;
-    viewMailUrl?: string;
-    provider?: string;
-    previewUrl?: string | false;
-  } | null>(null);
-  const [showWebmailModal, setShowWebmailModal] = useState(false);
-
   // 2FA state for Admin login
   const [mfaPending, setMfaPending] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
@@ -123,54 +95,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Saved accounts list on this device
   const [savedAccounts, setSavedAccounts] = useState<UserAccountRecord[]>([]);
 
-  // Helper to finalize account setup upon verified email
-  const finalizeAccountOnVerified = async (targetEmail: string) => {
-    try {
-      if (pendingSignupPayload) {
-        const result = await FirebaseAuthService.completeSignUpAfterVerification(pendingSignupPayload);
-        setSuccessMsg('Email verified! Account created successfully. Logging you in...');
-        setTimeout(() => {
-          onLoginSuccess(result.profile);
-          onClose();
-        }, 800);
-      } else if (pendingUserProfile) {
-        const verifiedUser: UserProfile = {
-          ...pendingUserProfile,
-          emailVerified: true,
-        };
-        saveRegisteredAccount({
-          ...verifiedUser,
-          emailVerified: true,
-        });
-        setSuccessMsg('Email verified! Logging you in...');
-        setTimeout(() => {
-          onLoginSuccess(verifiedUser);
-          onClose();
-        }, 800);
-      } else {
-        setSuccessMsg('Email verified successfully! You can now log in.');
-        setTimeout(() => {
-          setAuthMode('signin');
-        }, 1200);
-      }
-    } catch (finalizeErr: any) {
-      setErrorMsg(finalizeErr.message || 'Error finalizing account creation');
-    }
-  };
-
   useEffect(() => {
     if (isOpen) {
       setErrorMsg('');
       setSuccessMsg('');
       setMfaPending(false);
       setPendingAdminUser(null);
-      setCheckingStatus(false);
-      setResendingEmail(false);
-      setInputVerificationCode('');
-      setShowMailInspector(false);
-      setShowWebmailModal(false);
 
-      if (initialMode) {
+      if (initialMode === 'signup' || initialMode === 'signin') {
         setAuthMode(initialMode);
       }
       try {
@@ -183,46 +115,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     }
   }, [isOpen, initialMode]);
-
-  // Real-time automatic polling and email info fetching when in verify_email mode
-  useEffect(() => {
-    let interval: any = null;
-    if (isOpen && authMode === 'verify_email' && (pendingVerificationEmail || email)) {
-      const target = pendingVerificationEmail || email;
-      
-      // Load initial mail logs and latest email data
-      FirebaseAuthService.getMailLogs(target).then(logs => setMailLogs(logs));
-      FirebaseAuthService.getLatestEmailInfo(target).then(info => {
-        if (info) {
-          setLatestEmailData(info);
-        }
-      });
-
-      interval = setInterval(async () => {
-        try {
-          const status = await FirebaseAuthService.checkEmailVerificationStatus(target);
-          if (status.isVerified) {
-            clearInterval(interval);
-            finalizeAccountOnVerified(target);
-          }
-        } catch {
-          // ignore background check errors
-        }
-      }, 2500);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isOpen, authMode, pendingVerificationEmail, email, pendingUserProfile, pendingSignupPayload, onLoginSuccess, onClose]);
-
-
-  // Resend cooldown timer
-  useEffect(() => {
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCooldown]);
 
   if (!isOpen) return null;
 
@@ -291,28 +183,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      // 2. Firebase Sign In
+      // 2. Sign In
       const result = await FirebaseAuthService.signInWithEmail(cleanEmail, cleanPassword);
-
-      // If user account is unverified, seamlessly route to verify email
-      if (!result.isEmailVerified && result.user.role !== 'admin') {
-        setLoading(false);
-        setPendingVerificationEmail(cleanEmail);
-        setPendingUserProfile(result.user);
-        setAuthMode('verify_email');
-        setSuccessMsg('Please complete email verification to activate your account.');
-        FirebaseAuthService.resendVerificationEmail(cleanEmail, result.user.name).then((info) => {
-          if (info.code || info.token) {
-            setLatestEmailData(info);
-            if (info.code) setInputVerificationCode(info.code);
-          }
-        }).catch(() => {});
-        return;
-      }
-
       setLoading(false);
-      onLoginSuccess(result.user);
-      onClose();
+      setSuccessMsg('Signed in successfully! Welcome back.');
+      setTimeout(() => {
+        onLoginSuccess(result.user);
+        onClose();
+      }, 400);
     } catch (err: any) {
       console.error('[Sign In Error]', err);
       setErrorMsg(err.message || 'Invalid email or password. Please verify your credentials.');
@@ -338,7 +216,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Handle Registration & Dispatch Firebase Email Verification Link
+  // Handle Direct Instant Registration
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -367,7 +245,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     // 1. Pre-Check existing account with this email
     const existingAcc = findRegisteredAccountByEmail(cleanEmail);
     if (existingAcc) {
-      // Update account details with any newly entered info
+      // Update account details with newly entered info
       const updatedAccount: UserAccountRecord = {
         ...existingAcc,
         name: cleanName || existingAcc.name,
@@ -375,54 +253,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         password: cleanPassword || existingAcc.password,
         role: accountType || existingAcc.role,
         phone: cleanPhone || existingAcc.phone || '+233 24 000 0000',
+        phoneVerified: true,
+        emailVerified: true,
         businessName: accountType === 'business_owner' ? (businessName || existingAcc.businessName) : existingAcc.businessName,
       };
       saveRegisteredAccount(updatedAccount);
 
-      if (existingAcc.emailVerified !== false) {
-        // Log in immediately and seamlessly
-        const userProfile: UserProfile = {
-          id: updatedAccount.id,
-          name: updatedAccount.name,
-          username: updatedAccount.username,
-          email: updatedAccount.email,
-          emailVerified: true,
-          phone: updatedAccount.phone || '+233 24 000 0000',
-          phoneVerified: true,
-          role: updatedAccount.role as UserRole,
-          accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
-          savedBusinessIds: [],
-          createdAt: updatedAccount.createdAt || new Date().toISOString(),
-        };
+      const userProfile: UserProfile = {
+        id: updatedAccount.id,
+        name: updatedAccount.name,
+        username: updatedAccount.username,
+        email: updatedAccount.email,
+        emailVerified: true,
+        phone: updatedAccount.phone || '+233 24 000 0000',
+        phoneVerified: true,
+        role: updatedAccount.role as UserRole,
+        accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
+        savedBusinessIds: [],
+        createdAt: updatedAccount.createdAt || new Date().toISOString(),
+      };
+      setSuccessMsg('Account updated and signed in successfully!');
+      setTimeout(() => {
         onLoginSuccess(userProfile);
         onClose();
-        return;
-      } else {
-        // Unverified account - route smoothly to email verification
-        setPendingVerificationEmail(cleanEmail);
-        setPendingUserProfile({
-          id: updatedAccount.id,
-          name: updatedAccount.name,
-          username: updatedAccount.username,
-          email: updatedAccount.email,
-          emailVerified: false,
-          phone: updatedAccount.phone || '+233 24 000 0000',
-          phoneVerified: true,
-          role: updatedAccount.role as UserRole,
-          accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
-          savedBusinessIds: [],
-          createdAt: updatedAccount.createdAt || new Date().toISOString(),
-        });
-        setAuthMode('verify_email');
-        setSuccessMsg(`Welcome back! A verification PIN has been dispatched to ${cleanEmail}.`);
-        FirebaseAuthService.resendVerificationEmail(cleanEmail, updatedAccount.name).then((info) => {
-          if (info.code || info.token) {
-            setLatestEmailData(info);
-            if (info.code) setInputVerificationCode(info.code);
-          }
-        }).catch(() => {});
-        return;
-      }
+      }, 400);
+      return;
     }
 
     // 2. Strict Uniqueness Pre-Check against local registry
@@ -479,22 +334,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       const result = await FirebaseAuthService.initiateSignUpWithEmail(signupPayload);
 
-      setPendingSignupPayload(signupPayload);
-      setPendingVerificationEmail(cleanEmail);
-      if (result.token || result.code || result.viewMailUrl) {
-        setLatestEmailData({
-          token: result.token,
-          code: result.code,
-          viewMailUrl: result.viewMailUrl,
-          provider: result.provider,
-          previewUrl: result.previewUrl,
-        });
-      }
-
       setLoading(false);
-      setResendCooldown(60);
-      setAuthMode('verify_email');
-      setSuccessMsg(`Verification email dispatched to ${cleanEmail}. Please verify your email to create your account.`);
+      setSuccessMsg('Account created successfully! Welcome to AuraCentra Ghana.');
+      setTimeout(() => {
+        onLoginSuccess(result.profile);
+        onClose();
+      }, 500);
     } catch (err: any) {
       console.error('[Sign Up Error]', err);
       const errMsg = err.message || 'Registration failed. Please check your details and try again.';
@@ -533,156 +378,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         role: accountType,
         phone: cleanPhone || existing?.phone || '+233 24 000 0000',
         phoneVerified: true,
-        emailVerified: false,
+        emailVerified: true,
         authProvider: 'email',
         businessName: accountType === 'business_owner' ? businessName : undefined,
         createdAt: existing?.createdAt || new Date().toISOString(),
       };
       saveRegisteredAccount(updatedAccount);
 
-      const signupPayload = {
-        email: cleanEmail,
-        password: cleanPassword,
-        name: cleanName,
-        username: cleanUsername,
-        role: accountType,
-        phone: cleanPhone || '+233 24 000 0000',
-        businessName: accountType === 'business_owner' ? businessName : undefined,
+      const userProfile: UserProfile = {
+        id: updatedAccount.id,
+        name: updatedAccount.name,
+        username: updatedAccount.username,
+        email: updatedAccount.email,
+        emailVerified: true,
+        phone: updatedAccount.phone || '+233 24 000 0000',
+        phoneVerified: true,
+        role: updatedAccount.role as UserRole,
+        accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
+        savedBusinessIds: [],
+        createdAt: updatedAccount.createdAt || new Date().toISOString(),
       };
-      setPendingSignupPayload(signupPayload);
-      setPendingVerificationEmail(cleanEmail);
-
-      const result = await FirebaseAuthService.resendVerificationEmail(cleanEmail, cleanName);
-      if (result.token || result.code || result.viewMailUrl) {
-        setLatestEmailData({
-          token: result.token,
-          code: result.code,
-          viewMailUrl: result.viewMailUrl,
-          provider: result.provider,
-          previewUrl: result.previewUrl,
-        });
-        if (result.code) {
-          setInputVerificationCode(result.code);
-        }
-      }
 
       setLoading(false);
-      setResendCooldown(60);
-      setAuthMode('verify_email');
-      setSuccessMsg(`Fresh verification dispatched to ${cleanEmail}. Verify below to activate.`);
+      setSuccessMsg('Account updated and logged in successfully!');
+      setTimeout(() => {
+        onLoginSuccess(userProfile);
+        onClose();
+      }, 500);
     } catch (err: any) {
       setLoading(false);
-      setErrorMsg(err.message || 'Could not re-register. Please try logging in.');
+      setErrorMsg(err.message || 'Failed to update account.');
     }
   };
-
-  // Check if user clicked email verification link in Firebase or backend link
-  const handleCheckEmailVerified = async () => {
-    setCheckingStatus(true);
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    const target = pendingVerificationEmail || email;
-
-    try {
-      const status = await FirebaseAuthService.checkEmailVerificationStatus(target);
-      setCheckingStatus(false);
-
-      if (status.isVerified) {
-        await finalizeAccountOnVerified(target);
-      } else {
-        setErrorMsg('Email verification not detected yet. Please click the link in your email, use the Webmail viewer below, or enter the 6-digit code.');
-      }
-    } catch (err: any) {
-      setCheckingStatus(false);
-      setErrorMsg(err.message || 'Could not verify status. Please try again.');
-    }
-  };
-
-  // Verify using the 6-digit code received in email
-  const handleVerifyWithCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanCode = inputVerificationCode.trim();
-    if (!cleanCode || cleanCode.length < 6) {
-      setErrorMsg('Please enter the 6-digit verification code received in your email.');
-      return;
-    }
-
-    setVerifyingCode(true);
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    const target = pendingVerificationEmail || email;
-
-    try {
-      const result = await FirebaseAuthService.verifyWithCodeOrToken(target, cleanCode);
-      setVerifyingCode(false);
-      setSuccessMsg(result.message);
-      await finalizeAccountOnVerified(target);
-    } catch (err: any) {
-      setVerifyingCode(false);
-      setErrorMsg(err.message || 'Invalid or expired verification code. Please check your email.');
-    }
-  };
-
-  // Resend Firebase verification email link
-  const handleResendVerification = async () => {
-    if (resendCooldown > 0) return;
-    setResendingEmail(true);
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    const target = pendingVerificationEmail || email;
-
-    try {
-      const res = await FirebaseAuthService.resendVerificationEmail(target, name);
-      setResendingEmail(false);
-      setResendCooldown(60);
-      setSuccessMsg(res.message);
-      
-      if (res.code || res.token || res.viewMailUrl) {
-        setLatestEmailData({
-          token: res.token,
-          code: res.code,
-          viewMailUrl: res.viewMailUrl,
-          provider: res.provider,
-          previewUrl: res.previewUrl,
-        });
-        if (res.code) {
-          setInputVerificationCode(res.code);
-        }
-      }
-
-      // Refresh mail logs
-      const updatedLogs = await FirebaseAuthService.getMailLogs(target);
-      setMailLogs(updatedLogs);
-    } catch (err: any) {
-      setResendingEmail(false);
-      setErrorMsg(err.message || 'Failed to resend verification email.');
-    }
-  };
-
-  // 1-Click Instant Account Verification & Activation
-  const handleInstantVerify = async () => {
-    const target = pendingVerificationEmail || email;
-    if (!target) return;
-
-    setVerifyingCode(true);
-    setErrorMsg('');
-    setSuccessMsg('');
-
-    try {
-      await FirebaseAuthService.instantVerifyEmail(target);
-      setSuccessMsg('Email verified successfully! Logging you in...');
-      await finalizeAccountOnVerified(target);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Verification error. Please try code or link.');
-    } finally {
-      setVerifyingCode(false);
-    }
-  };
-
-
 
   // Handle Forgot Password
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -1224,249 +951,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {/* ------------------------------------------------------------------ */}
-        {/* VIEW 2: EMAIL VERIFICATION PENDING (Official Verification Engine)  */}
-        {/* ------------------------------------------------------------------ */}
-        {authMode === 'verify_email' && (
-          <div className="text-center py-1 space-y-4">
-            {/* Animated Shield Badge */}
-            <div className="relative w-14 h-14 mx-auto rounded-3xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-md shadow-blue-500/10">
-              <ShieldCheck className="w-7 h-7" />
-              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-blue-600"></span>
-              </span>
-            </div>
-
-            <div>
-              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                Verify Your Email Address
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
-                A secure verification email has been dispatched to:
-              </p>
-              <div className="mt-1.5 inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-xl font-mono font-bold text-xs text-blue-600 dark:text-blue-300 border border-slate-200/60 dark:border-slate-700/60">
-                <Mail className="w-3.5 h-3.5 shrink-0" />
-                <span className="break-all">{pendingVerificationEmail || email}</span>
-              </div>
-            </div>
-
-            {/* Live Real-Time Listener Banner */}
-            <div className="px-3.5 py-2.5 bg-blue-50/70 dark:bg-blue-950/40 rounded-2xl border border-blue-200/60 dark:border-blue-800/60 text-left flex items-start gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse mt-1.5 shrink-0" />
-              <div className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-                <span className="font-bold">Real-Time Verification Active:</span> Click the activation button inside the email on your phone or computer. This page will automatically log you in when verified.
-              </div>
-            </div>
-
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2 text-left">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {successMsg && (
-              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/70 text-emerald-700 dark:text-emerald-300 text-xs flex items-start gap-2 text-left">
-                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            {/* Verification Methods Container */}
-            <div className="space-y-3 pt-1 text-left">
-              {/* Top Hero Option: Instant 1-Click Verification & Activation */}
-              <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-blue-600/20 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm">
-                    <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-                    <span>Instant 1-Click Activation</span>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-white/20 backdrop-blur-xs rounded-full text-white">
-                    Fastest
-                  </span>
-                </div>
-                <p className="text-[11px] text-blue-100 leading-relaxed">
-                  Bypass email delivery delays and activate your AuraCentra account immediately with one click.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleInstantVerify}
-                  disabled={verifyingCode}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-blue-50 text-blue-700 text-xs font-black shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
-                >
-                  {verifyingCode ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                      <span>Activating Account...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4 text-blue-600" />
-                      <span>⚡ Instant Verify & Activate Account</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Option A: 6-Digit Security Code Form */}
-              <form onSubmit={handleVerifyWithCode} className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Option A: Enter 6-Digit Email PIN
-                  </span>
-                  {latestEmailData?.code && (
-                    <button
-                      type="button"
-                      onClick={() => setInputVerificationCode(latestEmailData.code || '')}
-                      className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-mono font-bold cursor-pointer"
-                    >
-                      PIN: {latestEmailData.code} (Click to Fill)
-                    </button>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={inputVerificationCode}
-                    onChange={(e) => setInputVerificationCode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="e.g. 123456"
-                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-blue-500 rounded-xl text-center font-mono font-black text-base tracking-widest text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={verifyingCode || inputVerificationCode.length < 6}
-                    className="py-2 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
-                  >
-                    {verifyingCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    <span>Verify Code</span>
-                  </button>
-                </div>
-              </form>
-
-              {/* Option B: Live Webmail Message Viewer */}
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      Option B: Webmail Inbox Viewer
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    Live HTML
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Open the official verification message in your browser to click the activation button directly.
-                </p>
-                <div className="flex gap-2 pt-0.5">
-                  <a
-                    href={latestEmailData?.viewMailUrl || `/api/auth/view-mail-html?email=${encodeURIComponent(pendingVerificationEmail || email)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-2 px-3 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all text-center"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Open Verification Email in Browser</span>
-                  </a>
-                </div>
-              </div>
-
-              {/* Option C: Real-time Link Poller */}
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Option C: Clicked Email on Phone or New Tab?
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  If you tapped the verification link in your email on another device, check status here to instantly log in.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleCheckEmailVerified}
-                  disabled={checkingStatus}
-                  className="w-full py-2.5 px-4 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {checkingStatus ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" />
-                      <span>Checking verification status...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Check Verification Status Now</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Outbound Email Transmission Diagnostic / Inspector */}
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={() => setShowMailInspector(!showMailInspector)}
-                className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors cursor-pointer"
-              >
-                <ExternalLink className="w-3 h-3" />
-                <span>{showMailInspector ? 'Hide Dispatch Diagnostic' : 'View Outbound Email Dispatch Details'}</span>
-              </button>
-
-              {showMailInspector && (
-                <div className="mt-2 p-3 bg-slate-900 text-slate-200 rounded-2xl text-[11px] font-mono text-left space-y-1.5 border border-slate-800 animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 border-b border-slate-800 pb-1">
-                    <span>SERVER DISPATCH LOG</span>
-                    <span className="text-emerald-400 font-bold">STATUS: DISPATCHED</span>
-                  </div>
-                  <div>Recipient: <span className="text-blue-400">{pendingVerificationEmail || email}</span></div>
-                  <div>Delivery Provider: <span className="text-emerald-400">{latestEmailData?.provider || 'AuraCentra Webmail Relay'}</span></div>
-                  <div>Subject: <span className="text-slate-300">Verify Your AuraCentra Ghana Account</span></div>
-                  <div>Security: <span className="text-slate-300">SHA-256 Link Token + 6-Digit One-Time PIN</span></div>
-                  <div>Timestamp: <span className="text-slate-400">{new Date().toLocaleTimeString()}</span></div>
-                  <div className="pt-1 text-[10px] text-slate-400 border-t border-slate-800">
-                    <span>Production Outbound Setup:</span> Add <code className="text-blue-300">RESEND_API_KEY</code> or <code className="text-blue-300">SMTP_PASS</code> in <code className="text-slate-300">.env</code> for custom external SMTP delivery.
-                  </div>
-                </div>
-              )}
-            </div>
-
-
-            {/* Footer Buttons */}
-            <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={resendCooldown > 0 || resendingEmail}
-                  className="py-2 px-3 rounded-xl text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  {resendingEmail ? (
-                    <span className="flex items-center gap-1.5">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Sending...
-                    </span>
-                  ) : resendCooldown > 0 ? (
-                    <span>Resend email in {resendCooldown}s</span>
-                  ) : (
-                    <span>Resend Verification Email</span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('signin')}
-                  className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Log in</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ------------------------------------------------------------------ */}
-        {/* VIEW 3: FORGOT PASSWORD (Firebase Password Reset Flow)              */}
+        {/* VIEW 2: FORGOT PASSWORD (Password Reset Flow)                      */}
         {/* ------------------------------------------------------------------ */}
         {authMode === 'forgot_password' && (
           <div className="space-y-5">

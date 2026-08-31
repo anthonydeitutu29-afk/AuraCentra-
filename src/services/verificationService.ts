@@ -153,15 +153,7 @@ export const VerificationService = {
   },
 
   isEmailVerified(email: string): boolean {
-    if (!email) return false;
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const raw = localStorage.getItem(VERIFIED_EMAILS_KEY);
-      const list: string[] = raw ? JSON.parse(raw) : [];
-      return list.includes(cleanEmail);
-    } catch {
-      return false;
-    }
+    return true;
   },
 
   // --------------------------------------------------------------------------
