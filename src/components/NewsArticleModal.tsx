@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Calendar,
   User,
-  Sparkles,
   Bookmark,
   MessageCircle
 } from 'lucide-react';
@@ -63,7 +62,7 @@ export const NewsArticleModal: React.FC<NewsArticleModalProps> = ({
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/95 dark:bg-slate-900/95 backdrop-blur sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-blue-600" />
+              <TrendingUp className="w-3 h-3 text-blue-600" />
               <span>{article.categoryLabel}</span>
             </span>
             <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">

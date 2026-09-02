@@ -3,7 +3,6 @@ import {
   ArrowRight, 
   ChevronLeft, 
   ChevronRight, 
-  Sparkles, 
   Star, 
   CheckCircle2, 
   MapPin, 

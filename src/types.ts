@@ -147,11 +147,14 @@ export interface UserProfile {
   role: UserRole;
   accountType?: 'customer' | 'business_owner';
   avatar?: string;
+  bio?: string;
+  region?: string;
   authProvider?: 'google' | 'apple' | 'email';
   savedBusinessIds: string[];
   ownedBusinessIds?: string[];
   twoFactorEnabled?: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface UserAccountRecord {
@@ -164,12 +167,16 @@ export interface UserAccountRecord {
   phoneVerified?: boolean;
   role: UserRole;
   avatar?: string;
+  bio?: string;
+  region?: string;
+  savedBusinessIds?: string[];
   authProvider?: 'google' | 'apple' | 'email';
   passwordHash?: string;
   password?: string;
   businessName?: string;
   createdAt: string;
   lastLoginAt?: string;
+  updatedAt?: string;
 }
 
 export interface BusinessInquiry {

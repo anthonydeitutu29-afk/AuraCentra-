@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   MapPin, 
-  Sparkles, 
   ArrowRight,
   ChevronDown,
   Building2

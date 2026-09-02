@@ -4,7 +4,6 @@ import {
   Clock, 
   TrendingUp, 
   TrendingDown, 
-  Sparkles, 
   Building2, 
   Calendar, 
   Award, 

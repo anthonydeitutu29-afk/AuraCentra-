@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   X, 
   ShieldCheck, 
-  Sparkles, 
+  TrendingUp, 
   Building2, 
   MapPin, 
   Phone, 
@@ -132,7 +132,7 @@ export const AboutUsModal: React.FC<AboutUsModalProps> = ({
 
                 <div className="p-4 rounded-2xl bg-purple-50/60 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/60 space-y-2">
                   <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
+                    <TrendingUp className="w-4 h-4" />
                   </div>
                   <h4 className="text-xs font-bold text-slate-900 dark:text-white">Digital Marketing Hub</h4>
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">

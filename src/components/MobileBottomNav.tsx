@@ -11,7 +11,6 @@ import {
   Layers,
   Share2,
   X,
-  Sparkles,
   ShieldCheck,
   Check,
   Sun,
@@ -39,6 +38,7 @@ interface MobileBottomNavProps {
   onSignOut: () => void;
   onOpenAdminDashboard?: () => void;
   onOpenBusinessDashboard?: () => void;
+  onOpenPersonalDashboard?: () => void;
   onOpenAccountSettings?: () => void;
   onSharePlatform?: () => void;
 }
@@ -61,6 +61,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onSignOut,
   onOpenAdminDashboard,
   onOpenBusinessDashboard,
+  onOpenPersonalDashboard,
   onOpenAccountSettings,
   onSharePlatform,
 }) => {
@@ -316,6 +317,26 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white uppercase tracking-wider">
                     Owner Portal
+                  </span>
+                </button>
+              )}
+
+              {/* Personal User Dashboard (if Customer) */}
+              {currentUser && currentUser.role === 'customer' && onOpenPersonalDashboard && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAccountSheetOpen(false);
+                    onOpenPersonalDashboard();
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-2xl bg-blue-600 text-white font-bold transition-all shadow-sm shadow-blue-500/20 cursor-pointer"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <User className="w-4 h-4 text-blue-100" />
+                    <span>My Personal Dashboard</span>
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white uppercase tracking-wider">
+                    Portal
                   </span>
                 </button>
               )}

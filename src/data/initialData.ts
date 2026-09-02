@@ -32,7 +32,7 @@ export const INITIAL_CATEGORIES: Category[] = [
     id: 'digital-marketing',
     name: 'Digital Marketing & Growth',
     slug: 'digital-marketing',
-    iconName: 'Sparkles',
+    iconName: 'TrendingUp',
     description: 'Digital marketing, SEO optimization, social media advertising, custom web development, and business acceleration.',
     itemCount: 0,
     featuredImageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80'

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Building2, Search, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Building2, Search, CheckCircle2 } from 'lucide-react';
 
 interface DualCtaBannerProps {
   onExploreBusinesses: () => void;

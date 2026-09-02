@@ -17,7 +17,6 @@ import {
   Info,
   Maximize2,
   X,
-  Sparkles,
   ExternalLink,
   Layers
 } from 'lucide-react';

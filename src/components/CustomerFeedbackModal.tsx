@@ -8,7 +8,6 @@ import {
   Mail,
   Send,
   CheckCircle2,
-  Sparkles,
   Heart,
   ThumbsUp
 } from 'lucide-react';

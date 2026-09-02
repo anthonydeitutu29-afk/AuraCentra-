@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Building2, 
-  Sparkles, 
+  Megaphone, 
   MapPin, 
   Phone, 
   Mail, 
@@ -33,12 +33,12 @@ import {
   Camera,
   Navigation,
   Smartphone,
-  ChevronRight,
-  TrendingUp,
+  Tag,
   Sliders,
+  TrendingUp,
+  ChevronRight,
   DollarSign,
   Calendar,
-  Tag,
   BarChart3,
   MousePointer,
   Bookmark,
@@ -615,7 +615,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               <div className="hidden sm:block h-6 w-px bg-slate-800" />
               <div className="hidden sm:flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
+                  <Megaphone className="w-3 h-3 text-amber-400" />
                   <span>Business Owner Portal</span>
                 </span>
               </div>
@@ -787,7 +787,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
             {[
               { id: 'overview', label: 'Overview & Performance', icon: TrendingUp },
               { id: 'profile', label: 'Edit Profile & Story', icon: Sliders },
-              { id: 'updates', label: `Live Updates & Promos (${updates.length})`, icon: Sparkles },
+              { id: 'updates', label: `Live Updates & Promos (${updates.length})`, icon: Megaphone },
               { id: 'media', label: 'Photos & Gallery', icon: ImageIcon },
               { id: 'contact', label: 'Contact & Socials', icon: Phone },
               { id: 'location', label: 'Location & GPS', icon: MapPin },
@@ -1016,7 +1016,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                 className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-amber-500 dark:hover:border-amber-500 text-left transition-all group cursor-pointer shadow-xs"
               >
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
-                  <Sparkles className="w-5 h-5" />
+                  <Megaphone className="w-5 h-5" />
                 </div>
                 <h3 className="text-sm font-black text-slate-900 dark:text-white">Live Updates & Promos</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -1244,7 +1244,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <Megaphone className="w-5 h-5 text-amber-500" />
                   <span>Live Announcements & Promotional Offers</span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -1428,7 +1428,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               </div>
             ) : (
               <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl space-y-3">
-                <Sparkles className="w-10 h-10 mx-auto text-amber-400" />
+                <Megaphone className="w-10 h-10 mx-auto text-amber-400" />
                 <div className="text-sm font-bold text-slate-700 dark:text-slate-300">No Announcements Published Yet</div>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   Keep your customers updated with seasonal discounts, announcements, or fresh products.

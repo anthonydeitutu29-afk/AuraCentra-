@@ -6,7 +6,6 @@ import {
   Phone, 
   Mail, 
   CheckCircle2, 
-  Sparkles, 
   ShieldCheck,
   Building2,
   Calendar,

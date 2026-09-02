@@ -9,7 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  Sparkles,
+  Activity,
   Lock
 } from 'lucide-react';
 import { CookieConsentPreferences } from '../types';
@@ -201,7 +201,7 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({ onAcce
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                    <Activity className="w-4 h-4 text-emerald-500" />
                     <span className="font-bold text-slate-900 dark:text-white text-sm">Visitor Analytics & Intelligence</span>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">

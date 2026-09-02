@@ -18,7 +18,6 @@ import {
   LogOut, 
   Settings, 
   Activity, 
-  Sparkles, 
   TrendingUp, 
   Users, 
   Layers,
@@ -26,6 +25,7 @@ import {
   ExternalLink,
   Upload,
   AlertTriangle,
+  Award,
   Clock,
   Flag,
   ShieldAlert,
@@ -438,7 +438,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <FolderPlus className="w-4 h-4 text-cyan-400" />
             <span>Category Suggestions</span>
             {suggestions.filter(s => s.status === 'pending').length > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-black">
@@ -961,7 +961,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-cyan-400" />
+                  <FolderPlus className="w-5 h-5 text-cyan-400" />
                   <span>Category Expansion Suggestions</span>
                 </h3>
                 <p className="text-xs text-slate-400">
@@ -972,7 +972,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {suggestions.length === 0 ? (
               <div className="p-12 text-center rounded-2xl bg-slate-800/40 border border-slate-700/60 text-slate-400 space-y-2">
-                <Sparkles className="w-8 h-8 mx-auto text-slate-500" />
+                <FolderPlus className="w-8 h-8 mx-auto text-slate-500" />
                 <div className="font-bold text-white">No Category Suggestions Pending</div>
                 <div className="text-xs">All submitted suggestions have been moderated or approved.</div>
               </div>
@@ -1734,7 +1734,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-blue-400" />
+                    <Award className="w-4 h-4 text-blue-400" />
                     <span>Executive Featured Businesses Section</span>
                   </h4>
                   <p className="text-xs text-slate-400">

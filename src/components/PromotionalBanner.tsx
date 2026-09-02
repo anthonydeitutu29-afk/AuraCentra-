@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Sparkles, 
+  Megaphone, 
   Flame, 
   Calendar, 
   AlertTriangle, 
@@ -203,7 +203,7 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({
   let containerBg = 'bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white border-blue-700/60 shadow-blue-950/20';
   let badgeStyle = 'bg-blue-500/30 text-cyan-300 border-blue-400/30';
   let accentButton = 'bg-cyan-400 hover:bg-cyan-300 text-blue-950';
-  let iconComponent = <Sparkles className="w-5 h-5 text-cyan-300" />;
+  let iconComponent = <Megaphone className="w-5 h-5 text-cyan-300" />;
 
   if (isUrgent) {
     containerBg = 'bg-gradient-to-r from-amber-950 via-rose-950 to-slate-950 text-white border-amber-600/40 shadow-amber-950/20';

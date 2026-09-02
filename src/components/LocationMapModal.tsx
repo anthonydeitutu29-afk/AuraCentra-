@@ -10,7 +10,6 @@ import {
   Layers,
   Flame,
   Building2,
-  Sparkles,
   Compass,
   Star,
   Search,

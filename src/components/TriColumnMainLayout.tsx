@@ -10,7 +10,6 @@ import {
   Bookmark, 
   BookmarkCheck, 
   MessageSquare, 
-  Sparkles, 
   CheckCircle2, 
   DollarSign,
   TrendingUp,

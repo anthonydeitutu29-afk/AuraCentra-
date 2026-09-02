@@ -6,7 +6,7 @@ import {
   Building, 
   GraduationCap, 
   Car, 
-  Sparkles, 
+  Shirt, 
   Wrench, 
   MoreHorizontal, 
   ArrowRight,
@@ -41,8 +41,8 @@ export const CategoryExploreRow: React.FC<CategoryExploreRowProps> = ({
     education: { label: 'Education', icon: GraduationCap },
     automotive: { label: 'Automotive', icon: Car },
     auto: { label: 'Automotive', icon: Car },
-    fashion: { label: 'Fashion & Beauty', icon: Sparkles },
-    'fashion-beauty': { label: 'Fashion & Beauty', icon: Sparkles },
+    fashion: { label: 'Fashion & Beauty', icon: Shirt },
+    'fashion-beauty': { label: 'Fashion & Beauty', icon: Shirt },
     'home-services': { label: 'Home Services', icon: Wrench },
     services: { label: 'Home Services', icon: Wrench },
   };
@@ -54,7 +54,7 @@ export const CategoryExploreRow: React.FC<CategoryExploreRowProps> = ({
     { id: 'real-estate', name: 'Real Estate', icon: Building },
     { id: 'education', name: 'Education', icon: GraduationCap },
     { id: 'automotive', name: 'Automotive', icon: Car },
-    { id: 'fashion-beauty', name: 'Fashion & Beauty', icon: Sparkles },
+    { id: 'fashion-beauty', name: 'Fashion & Beauty', icon: Shirt },
     { id: 'home-services', name: 'Home Services', icon: Wrench },
   ];
 

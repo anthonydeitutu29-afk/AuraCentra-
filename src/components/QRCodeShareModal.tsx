@@ -8,8 +8,7 @@ import {
   MessageSquare, 
   ExternalLink, 
   QrCode, 
-  ShieldCheck,
-  Sparkles
+  ShieldCheck
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Business } from '../types';

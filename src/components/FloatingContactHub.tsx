@@ -5,7 +5,6 @@ import {
   Send, 
   Mail, 
   Phone, 
-  Sparkles, 
   CheckCircle2, 
   Headphones, 
   ArrowUpRight,

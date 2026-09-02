@@ -18,7 +18,6 @@ import {
   PhoneCall,
   MessageCircle,
   Clock,
-  Sparkles,
   Navigation,
   Check,
   CheckCheck,

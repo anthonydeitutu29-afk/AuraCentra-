@@ -7,7 +7,6 @@ import {
   MessageSquare, 
   Trash2, 
   ShieldCheck, 
-  Sparkles,
   ExternalLink,
   Globe
 } from 'lucide-react';

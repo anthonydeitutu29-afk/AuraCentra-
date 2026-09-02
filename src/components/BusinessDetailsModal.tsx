@@ -18,7 +18,7 @@ import {
   ExternalLink as ExtLink,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
+  Megaphone,
   QrCode,
   Award,
   FileText,
@@ -441,7 +441,7 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
                 >
                   <div className="flex items-start sm:items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-                      <Sparkles className="w-5 h-5" />
+                      <Megaphone className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -513,7 +513,7 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
                         key={idx}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium border border-blue-100 dark:border-blue-800/40"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-500" />
                         <span>{feat}</span>
                       </span>
                     ))}

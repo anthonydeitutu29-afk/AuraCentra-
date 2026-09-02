@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Building2, 
-  Sparkles, 
   ShieldCheck, 
   MapPin, 
   Star, 
@@ -76,6 +75,7 @@ import { BusinessRegistrationModal } from './components/BusinessRegistrationModa
 import { SavedBusinessesModal } from './components/SavedBusinessesModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { BusinessOwnerDashboard } from './components/BusinessOwnerDashboard';
+import { PersonalAccountDashboard } from './components/PersonalAccountDashboard';
 import { FloatingContactHub } from './components/FloatingContactHub';
 import { Footer } from './components/Footer';
 import { ToastContainer } from './components/Toast';
@@ -141,8 +141,8 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // View state: 'portal', 'admin', or 'business_dashboard'
-  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard'>('portal');
+  // View state: 'portal', 'admin', 'business_dashboard', or 'personal_dashboard'
+  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard' | 'personal_dashboard'>('portal');
 
   // Suggestions & Feedback State
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
@@ -1140,6 +1140,72 @@ export default function App() {
     );
   }
 
+  // If in Personal Account Dashboard view
+  if (currentView === 'personal_dashboard' && currentUser) {
+    return (
+      <div className={theme === 'dark' ? 'dark' : ''}>
+        <PersonalAccountDashboard
+          currentUser={currentUser}
+          businesses={businesses}
+          categories={categories}
+          savedBusinessIds={savedBusinessIds}
+          onUpdateProfile={(updated) => {
+            const next = { ...currentUser, ...updated };
+            setCurrentUser(next);
+            saveCurrentUser(next);
+            showToast('Profile Updated', 'Your profile details have been saved.', 'success');
+          }}
+          onToggleSaveBusiness={handleToggleSave}
+          onOpenBusinessDetails={(biz) => {
+            setSelectedBusiness(biz);
+          }}
+          onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
+          onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
+          onBackToPortal={() => setCurrentView('portal')}
+          onSignOut={handleSignOut}
+          onShowToast={showToast}
+        />
+        {selectedBusiness && (
+          <BusinessDetailsModal
+            business={selectedBusiness}
+            isOpen={!!selectedBusiness}
+            onClose={() => setSelectedBusiness(null)}
+            isSaved={savedBusinessIds.includes(selectedBusiness.id)}
+            onToggleSave={handleToggleSave}
+            isCompared={comparedBusinessIds.includes(selectedBusiness.id)}
+            onToggleCompare={handleToggleCompare}
+            onOpenMap={(b) => setMapBusiness(b)}
+            onOpenQuote={handleOpenQuote}
+            onOpenQR={handleOpenQR}
+            onOpenCertificate={handleOpenCert}
+            onReportBusiness={handleReportBusiness}
+            currentUser={currentUser}
+            onShowToast={showToast}
+          />
+        )}
+        <AccountSettingsModal
+          isOpen={isAccountSettingsModalOpen}
+          currentUser={currentUser}
+          businesses={businesses}
+          onClose={() => setIsAccountSettingsModalOpen(false)}
+          onAccountDeleted={handleAccountDeleted}
+          onShowToast={showToast}
+          onOpenBusiness={(b) => {
+            setSelectedBusiness(b);
+            setCurrentView('portal');
+          }}
+        />
+        <SecureLogoutModal
+          isOpen={isSecureLogoutModalOpen}
+          currentUser={currentUser}
+          onClose={() => setIsSecureLogoutModalOpen(false)}
+          onConfirmLogout={handleConfirmLogout}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-x-hidden ${theme === 'dark' ? 'dark' : ''}`} id="auracentra-app-root">
       {/* 0. Subtle Exploration Progress Bar at the Very Top of Screen */}
@@ -1170,6 +1236,7 @@ export default function App() {
         onOpenInquiriesModal={() => setIsInquiriesModalOpen(true)}
         onOpenAdminDashboard={() => setCurrentView('admin')}
         onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
+        onOpenPersonalDashboard={() => setCurrentView('personal_dashboard')}
         onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
         onSignOut={handleSignOut}
         onSharePlatform={handleSharePlatform}
@@ -1343,6 +1410,7 @@ export default function App() {
             setCurrentView('admin');
             showToast('Admin Console Active', `Signed in as Platform Administrator ${user.name}`, 'info');
           } else {
+            setCurrentView('personal_dashboard');
             showToast('Welcome Back!', `Signed in as ${user.name}`, 'success');
           }
         }}
@@ -1450,6 +1518,7 @@ export default function App() {
         onSignOut={handleSignOut}
         onOpenAdminDashboard={() => setCurrentView('admin')}
         onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
+        onOpenPersonalDashboard={() => setCurrentView('personal_dashboard')}
         onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
         onSharePlatform={handleSharePlatform}
       />

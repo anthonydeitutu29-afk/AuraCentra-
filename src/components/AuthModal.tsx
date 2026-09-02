@@ -14,14 +14,14 @@ import {
   Building2, 
   User, 
   RotateCcw, 
-  Sparkles, 
   KeyRound,
   Check,
   Send,
   ExternalLink,
   ArrowLeft,
   AtSign,
-  LogIn
+  LogIn,
+  CheckCircle
 } from 'lucide-react';
 import { UserProfile, UserRole, UserAccountRecord } from '../types';
 import { FirebaseAuthService } from '../services/firebaseAuthService';
@@ -36,7 +36,7 @@ import {
 } from '../utils/storage';
 import { Logo } from './Logo';
 import { INITIAL_CATEGORIES } from '../data/initialData';
-import { decodeGoogleIdToken, convertGoogleDataToUserProfile, GOOGLE_CLIENT_ID } from '../services/googleIdentityService';
+import { decodeGoogleIdToken, convertGoogleDataToUserProfile, GOOGLE_CLIENT_ID, isGoogleClientConfigured } from '../services/googleIdentityService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -121,8 +121,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         console.error('Failed to load accounts for modal', e);
       }
 
-      // Initialize Google Identity Services if available in browser / phone
-      if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+      // Initialize Google Identity Services if properly configured and available
+      if (isGoogleClientConfigured() && typeof window !== 'undefined' && window.google?.accounts?.id) {
         try {
           window.google.accounts.id.initialize({
             client_id: GOOGLE_CLIENT_ID,
@@ -178,13 +178,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setGoogleRole(accountType);
     setGoogleBizName(businessName);
 
-    // 1. Try to invoke Google Identity Services prompt (Native Google prompt on phone / Chrome)
-    if (typeof window !== 'undefined' && window.google?.accounts?.id) {
+    // 1. If real Google Client ID is configured, try Google Identity Services
+    if (isGoogleClientConfigured() && typeof window !== 'undefined' && window.google?.accounts?.id) {
       try {
         setGoogleLoading(true);
         window.google.accounts.id.prompt((notification: any) => {
           setGoogleLoading(false);
-          // If prompt cannot be displayed or is dismissed, show Google Direct Login modal
           if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
             setAuthMode('google_prompt');
           }

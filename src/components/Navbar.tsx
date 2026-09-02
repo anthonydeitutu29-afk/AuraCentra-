@@ -11,7 +11,6 @@ import {
   Search,
   Menu,
   X,
-  Sparkles,
   MessageSquare,
   Share2,
   Check,
@@ -43,6 +42,7 @@ interface NavbarProps {
   onOpenInquiriesModal?: () => void;
   onOpenAdminDashboard: () => void;
   onOpenBusinessDashboard?: () => void;
+  onOpenPersonalDashboard?: () => void;
   onOpenAccountSettings?: () => void;
   onSignOut: () => void;
   onSharePlatform?: () => void;
@@ -66,6 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenInquiriesModal,
   onOpenAdminDashboard,
   onOpenBusinessDashboard,
+  onOpenPersonalDashboard,
   onOpenAccountSettings,
   onSignOut,
   onSharePlatform,
@@ -240,9 +241,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>My Business</span>
                 </button>
               ) : (
-                <div 
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-blue-100 border border-blue-200/70 dark:border-slate-700 shrink-0"
-                  title={`Signed in as ${currentUser.name}`}
+                <button 
+                  type="button"
+                  id="nav-personal-dashboard-btn"
+                  onClick={onOpenPersonalDashboard}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-blue-100 border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
+                  title={`Signed in as ${currentUser.name} - Open Personal Dashboard`}
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
                     {currentUser.name.charAt(0).toUpperCase()}
@@ -250,7 +254,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="max-w-[90px] truncate text-xs font-semibold">
                     {currentUser.name.split(' ')[0]}
                   </span>
-                </div>
+                </button>
               )}
 
               <button
@@ -384,6 +388,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Building2 className="w-4 h-4 text-cyan-200" />
                 <span>My Business Dashboard</span>
+              </button>
+            )}
+
+            {currentUser && currentUser.role === 'customer' && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenPersonalDashboard?.();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+              >
+                <User className="w-4 h-4 text-cyan-200" />
+                <span>My Personal Dashboard</span>
               </button>
             )}
 
