@@ -277,7 +277,8 @@ export default function App() {
         const liveProfile = await SupabaseService.getProfile(email);
         const isAdmin = liveProfile?.role === 'admin' || 
           email === 'anthonydeitutu29@gmail.com' || 
-          email === 'admindashboard@gmail.com';
+          email === 'admindashboard@gmail.com' ||
+          email === 'tonysdigitalmarketing@gmail.com';
 
         const updated: UserProfile = {
           id: session.user.id || liveProfile?.id || `usr-${Date.now()}`,
@@ -306,7 +307,10 @@ export default function App() {
       SupabaseService.getProfile(currentUser.email)
         .then((live) => {
           if (live) {
-            const isAdmin = live.role === 'admin' || currentUser.email.toLowerCase() === 'anthonydeitutu29@gmail.com' || currentUser.email.toLowerCase() === 'admindashboard@gmail.com';
+            const isAdmin = live.role === 'admin' || 
+              currentUser.email.toLowerCase() === 'anthonydeitutu29@gmail.com' || 
+              currentUser.email.toLowerCase() === 'admindashboard@gmail.com' ||
+              currentUser.email.toLowerCase() === 'tonysdigitalmarketing@gmail.com';
             const targetRole = isAdmin ? 'admin' : (live.role || 'customer');
 
             if (currentUser.role !== targetRole) {

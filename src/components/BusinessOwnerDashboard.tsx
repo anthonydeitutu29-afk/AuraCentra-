@@ -44,7 +44,10 @@ import {
   Bookmark,
   Bell,
   RefreshCw,
-  Edit3
+  Edit3,
+  Radio,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { 
   Business, 
@@ -55,9 +58,14 @@ import {
   DocumentType, 
   VerificationDocument, 
   OpeningHours,
-  BusinessUpdate
+  BusinessUpdate,
+  DirectMessage,
+  DirectMessageThread,
+  InteractionEvent
 } from '../types';
 import { verifyGhanaPostGPS, GPSVerificationResult } from '../utils/gpsVerification';
+import { TelemetryService } from '../services/telemetryService';
+import { DirectMessagingService } from '../services/directMessagingService';
 import { Logo } from './Logo';
 import confetti from 'canvas-confetti';
 
@@ -122,11 +130,19 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
 
   // Navigation tab
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'profile' | 'updates' | 'media' | 'contact' | 'location' | 'hours' | 'inquiries' | 'reviews' | 'verification' | 'settings'
+    'overview' | 'messages' | 'profile' | 'updates' | 'media' | 'contact' | 'location' | 'hours' | 'inquiries' | 'reviews' | 'verification' | 'settings'
   >('overview');
 
   // Performance timeframe filter
   const [performanceTimeframe, setPerformanceTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
+
+  // Real-Time Telemetry & Direct Messaging State
+  const [telemetryTick, setTelemetryTick] = useState(0);
+  const [liveSecondsCounter, setLiveSecondsCounter] = useState(0);
+  const [directMessageThreads, setDirectMessageThreads] = useState<DirectMessageThread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [replyMessageText, setReplyMessageText] = useState('');
+  const [isSendingReply, setIsSendingReply] = useState(false);
 
   // Form states for active business
   const [name, setName] = useState('');
@@ -200,6 +216,43 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // Real-time Telemetry & Messages synchronization (updates every second + reactive triggers)
+  useEffect(() => {
+    if (!activeBusiness?.id) return;
+
+    // Load initial messages and tick
+    const threads = DirectMessagingService.getThreadsForBusiness(activeBusiness.id);
+    setDirectMessageThreads(threads);
+    if (threads.length > 0 && !activeThreadId) {
+      setActiveThreadId(threads[0].threadId);
+    }
+    setTelemetryTick((prev) => prev + 1);
+
+    // Live second-by-second ticker
+    const timer = setInterval(() => {
+      setLiveSecondsCounter((s) => s + 1);
+      setTelemetryTick((prev) => prev + 1);
+    }, 1000);
+
+    // Subscribe to real-time telemetry events
+    const unsubTelemetry = TelemetryService.subscribeToTelemetry(activeBusiness.id, () => {
+      setTelemetryTick((prev) => prev + 1);
+    });
+
+    // Subscribe to direct messages
+    const unsubMessages = DirectMessagingService.subscribeToMessages(() => {
+      const updatedThreads = DirectMessagingService.getThreadsForBusiness(activeBusiness.id);
+      setDirectMessageThreads(updatedThreads);
+      setTelemetryTick((prev) => prev + 1);
+    });
+
+    return () => {
+      clearInterval(timer);
+      unsubTelemetry();
+      unsubMessages();
+    };
+  }, [activeBusiness?.id]);
 
   // Sync state when active business changes
   useEffect(() => {
@@ -275,35 +328,87 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
     return reviews.filter((r) => r.businessId === activeBusiness.id);
   }, [reviews, activeBusiness]);
 
-  // Dynamic Performance Metrics calculations based on timeframe
-  const performanceMultiplier = useMemo(() => {
-    switch (performanceTimeframe) {
-      case '7d': return 0.28;
-      case '30d': return 1;
-      case '90d': return 2.6;
-      case 'all': return 4.2;
+  // Real-Time Verified Business Metrics & Accurate Telemetry Events (No fixed/simulated numbers)
+  const realMetrics = useMemo(() => {
+    if (!activeBusiness) {
+      return {
+        views: 0,
+        phoneCalls: 0,
+        whatsappClicks: 0,
+        directMessages: 0,
+        inquiries: 0,
+        websiteClicks: 0,
+        directionsClicks: 0,
+        saves: 0,
+        shares: 0,
+        totalLeads: 0,
+        recentEvents: [] as InteractionEvent[],
+      };
     }
-  }, [performanceTimeframe]);
 
-  const stats = useMemo(() => {
-    const baseViews = activeBusiness?.views || 128;
-    const baseLeads = activeBusiness?.leadsCount || (businessInquiries.length + 8);
-    const baseWebClicks = activeBusiness?.websiteClicks || Math.round(baseViews * 0.35);
-    const basePhoneClicks = activeBusiness?.phoneClicks || Math.round(baseLeads * 0.6);
-    const baseWhatsAppClicks = activeBusiness?.whatsappClicks || Math.round(baseLeads * 0.85);
-    const baseDirectionsClicks = activeBusiness?.directionsClicks || Math.round(baseViews * 0.22);
-    const baseSaves = activeBusiness?.savesCount || Math.round(baseViews * 0.15);
+    const telemetry = TelemetryService.getRealMetricsForBusiness(activeBusiness.id, performanceTimeframe);
+    const totalInquiries = businessInquiries.length + telemetry.inquiries;
+    const totalDirectMsgs = directMessageThreads.reduce((acc, t) => acc + t.messages.length, 0);
 
     return {
-      views: Math.max(1, Math.round(baseViews * performanceMultiplier)),
-      leads: Math.max(businessInquiries.length, Math.round(baseLeads * performanceMultiplier)),
-      websiteClicks: Math.round(baseWebClicks * performanceMultiplier),
-      phoneClicks: Math.round(basePhoneClicks * performanceMultiplier),
-      whatsappClicks: Math.round(baseWhatsAppClicks * performanceMultiplier),
-      directionsClicks: Math.round(baseDirectionsClicks * performanceMultiplier),
-      savesCount: Math.round(baseSaves * performanceMultiplier),
+      views: (activeBusiness.views || 0) + telemetry.views,
+      phoneCalls: (activeBusiness.phoneClicks || 0) + telemetry.phoneCalls,
+      whatsappClicks: (activeBusiness.whatsappClicks || 0) + telemetry.whatsappClicks,
+      directMessages: totalDirectMsgs > 0 ? totalDirectMsgs : telemetry.directMessages,
+      inquiries: totalInquiries,
+      websiteClicks: (activeBusiness.websiteClicks || 0) + telemetry.websiteClicks,
+      directionsClicks: (activeBusiness.directionsClicks || 0) + telemetry.directionsClicks,
+      saves: (activeBusiness.savesCount || 0) + telemetry.saves,
+      shares: telemetry.shares,
+      totalLeads: (activeBusiness.phoneClicks || 0) + (activeBusiness.whatsappClicks || 0) + telemetry.totalLeads + totalInquiries + totalDirectMsgs,
+      recentEvents: telemetry.recentEvents,
     };
-  }, [activeBusiness, businessInquiries.length, performanceMultiplier]);
+  }, [activeBusiness, performanceTimeframe, telemetryTick, businessInquiries.length, directMessageThreads]);
+
+  // Total unread messages across all customer threads
+  const unreadMessagesCount = useMemo(() => {
+    return directMessageThreads.reduce((sum, t) => sum + t.unreadCountBusiness, 0);
+  }, [directMessageThreads]);
+
+  // Currently active chat thread
+  const activeThread = useMemo(() => {
+    return directMessageThreads.find((t) => t.threadId === activeThreadId) || directMessageThreads[0] || null;
+  }, [directMessageThreads, activeThreadId]);
+
+  // Handler for sending reply to customer in Direct Messages
+  const handleSendDirectReply = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyMessageText.trim() || !activeThread || !activeBusiness) return;
+
+    setIsSendingReply(true);
+    try {
+      DirectMessagingService.sendMessage({
+        businessId: activeBusiness.id,
+        businessName: activeBusiness.name,
+        customerName: activeThread.customerName,
+        customerEmail: activeThread.customerEmail,
+        customerPhone: activeThread.customerPhone,
+        sender: 'business',
+        message: replyMessageText.trim(),
+      });
+
+      // Clear input and mark thread as read for business
+      setReplyMessageText('');
+      DirectMessagingService.markThreadAsRead(activeThread.threadId, 'business');
+      setDirectMessageThreads(DirectMessagingService.getThreadsForBusiness(activeBusiness.id));
+      setIsSendingReply(false);
+
+      onShowToast(
+        'Reply Sent to Customer',
+        `Your message was delivered in real-time to ${activeThread.customerName}.`,
+        'success'
+      );
+    } catch (err) {
+      setIsSendingReply(false);
+      onShowToast('Error', 'Failed to transmit message. Please try again.', 'error');
+    }
+  };
+
 
   // Calculate Profile Completeness Score
   const completeness = useMemo(() => {

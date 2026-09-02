@@ -420,3 +420,62 @@ export interface VisitorTrackingData {
   pagesViewed: string[];
   consentStatus: 'accepted_all' | 'essential_only' | 'custom' | 'pending';
 }
+
+export type InteractionEventType = 
+  | 'view' 
+  | 'phone_call' 
+  | 'whatsapp_click' 
+  | 'direct_message' 
+  | 'inquiry' 
+  | 'website_click' 
+  | 'directions_click' 
+  | 'save' 
+  | 'share';
+
+export interface InteractionEvent {
+  id: string;
+  businessId: string;
+  businessName?: string;
+  type: InteractionEventType;
+  timestamp: string;
+  actorName?: string;
+  actorEmail?: string;
+  actorPhone?: string;
+  actorRole?: string;
+  actorLocation?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface DirectMessage {
+  id: string;
+  threadId: string;
+  businessId: string;
+  businessName: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  sender: 'customer' | 'business';
+  senderName: string;
+  message: string;
+  createdAt: string;
+  readByBusiness: boolean;
+  readByCustomer: boolean;
+}
+
+export interface DirectMessageThread {
+  threadId: string;
+  businessId: string;
+  businessName: string;
+  businessLogo?: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  lastSender: 'customer' | 'business';
+  unreadCountForBusiness: number;
+  unreadCountForCustomer: number;
+  messages: DirectMessage[];
+}

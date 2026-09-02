@@ -200,7 +200,54 @@ export function initGoogleIdentityServices(onSuccess: (profile: UserProfile) => 
 }
 
 /**
- * Trigger OAuth 2.0 Token Client Popup for user consent
+ * Render official Google Sign-In Button inside a container element
+ */
+export function renderGoogleButton(
+  container: HTMLElement,
+  onSuccess: (profile: UserProfile) => void,
+  options?: { accountType?: 'customer' | 'business_owner'; businessName?: string }
+) {
+  if (typeof window === 'undefined' || !window.google?.accounts?.id) return;
+  if (!isGoogleClientConfigured()) return;
+
+  try {
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: (res: { credential?: string }) => {
+        if (res?.credential) {
+          const decoded = decodeGoogleIdToken(res.credential);
+          if (decoded?.email) {
+            const profile = convertGoogleDataToUserProfile({
+              email: decoded.email,
+              name: decoded.name,
+              picture: decoded.picture,
+              sub: decoded.sub,
+              accountType: options?.accountType,
+              businessName: options?.businessName,
+            });
+            onSuccess(profile);
+          }
+        }
+      },
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    });
+
+    window.google.accounts.id.renderButton(container, {
+      theme: 'outline',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'pill',
+      logo_alignment: 'left',
+      width: '100%',
+    });
+  } catch (err) {
+    console.warn('[GSI Render Button Notice]', err);
+  }
+}
+
+/**
+ * Trigger OAuth 2.0 Token Client Popup for user consent (Pops up Google Account Chooser)
  */
 export function triggerGoogleOAuthFlow(
   onSuccess: (profile: UserProfile) => void,
@@ -212,13 +259,8 @@ export function triggerGoogleOAuthFlow(
     return;
   }
 
-  if (!isGoogleClientConfigured()) {
-    onFailure('gsi_not_configured');
-    return;
-  }
-
-  // 1. If Google OAuth2 client is initialized
-  if (window.google?.accounts?.oauth2) {
+  // 1. If Google OAuth2 client is initialized and configured
+  if (isGoogleClientConfigured() && window.google?.accounts?.oauth2) {
     try {
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
@@ -247,6 +289,7 @@ export function triggerGoogleOAuthFlow(
         },
       });
 
+      // Forces Google Account Chooser popup with all registered Google accounts on the phone/device
       client.requestAccessToken({ prompt: 'select_account' });
       return;
     } catch (err: any) {
@@ -255,7 +298,7 @@ export function triggerGoogleOAuthFlow(
   }
 
   // 2. If GIS One Tap is present
-  if (window.google?.accounts?.id) {
+  if (isGoogleClientConfigured() && window.google?.accounts?.id) {
     try {
       window.google.accounts.id.prompt((notification: any) => {
         if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {

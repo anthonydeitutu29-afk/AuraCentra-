@@ -44,7 +44,10 @@ import {
   MapPin,
   Radio,
   Crosshair,
-  Globe
+  Globe,
+  Database,
+  Copy,
+  Terminal
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
 import { getRegisteredAccounts } from '../utils/storage';
@@ -54,6 +57,7 @@ import { AdminVerificationModal } from './AdminVerificationModal';
 import { BusinessRejectionModal } from './BusinessRejectionModal';
 import { AdminLocationTracker } from './AdminLocationTracker';
 import { dispatchApprovalNotification } from '../utils/notificationService';
+import { SupabaseService, SUPABASE_SQL_SCHEMA, isSupabaseConfigured } from '../lib/supabase';
 import confetti from 'canvas-confetti';
 
 interface AdminDashboardProps {
@@ -174,6 +178,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [brevoTesting, setBrevoTesting] = useState(false);
   const [brevoTestResult, setBrevoTestResult] = useState<any>(null);
 
+  // Supabase Testing & Diagnostics State
+  const [supabaseTesting, setSupabaseTesting] = useState(false);
+  const [supabaseHealth, setSupabaseHealth] = useState<any>(null);
+  const [copiedSchema, setCopiedSchema] = useState(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
+
   // Stats Calculations
   const verifiedCount = businesses.filter((b) => b.verificationStatus === 'verified').length;
   const pendingCount = businesses.filter((b) => b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval').length;
@@ -185,6 +195,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const filteredBusinesses = businesses.filter((b) => {
     if (bizStatusFilter === 'pending' && b.verificationStatus !== 'pending' && b.listingStatus !== 'pending_approval') return false;
     if (bizStatusFilter === 'verified' && b.verificationStatus !== 'verified') return false;
+    if (bizStatusFilter === 'featured' && !b.isFeatured) return false;
     if (bizStatusFilter === 'rejected' && b.verificationStatus !== 'rejected' && b.listingStatus !== 'rejected') return false;
     if (bizStatusFilter === 'unverified' && (b.verificationStatus === 'verified' || b.verificationStatus === 'pending' || b.verificationStatus === 'rejected' || b.listingStatus === 'rejected')) return false;
 
@@ -1417,6 +1428,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <button
                 type="button"
+                onClick={() => setBizStatusFilter('featured')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  bizStatusFilter === 'featured'
+                    ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow font-extrabold'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>Featured VIP Spotlight ({businesses.filter((b) => b.isFeatured).length})</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setBizStatusFilter('rejected')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   bizStatusFilter === 'rejected'
@@ -1535,6 +1559,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <th className="p-3.5">Category</th>
                       <th className="p-3.5">City & Region</th>
                       <th className="p-3.5">GPS Address</th>
+                      <th className="p-3.5">Placement / Featured VIP</th>
                       <th className="p-3.5">Status</th>
                       <th className="p-3.5">Rating</th>
                       <th className="p-3.5 text-right">Actions</th>
@@ -1543,7 +1568,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <tbody className="divide-y divide-slate-800">
                     {filteredBusinesses.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                        <td colSpan={8} className="p-8 text-center text-slate-400">
                           <Building2 className="w-8 h-8 mx-auto mb-2 text-slate-500 opacity-60" />
                           <div className="font-semibold text-slate-300">No businesses listed in system</div>
                           <p className="text-xs text-slate-500 mt-1">Use the "Register Business (Due Process Flow)" or "Add Direct" button above to add the first enterprise.</p>
@@ -1576,6 +1601,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="p-3.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextFeatured = !b.isFeatured;
+                                onUpdateBusiness({ ...b, isFeatured: nextFeatured });
+                                if (nextFeatured) {
+                                  confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
+                                }
+                              }}
+                              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                                b.isFeatured
+                                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-extrabold hover:brightness-110 shadow-amber-500/20'
+                                  : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700'
+                              }`}
+                              title={b.isFeatured ? 'Currently Featured in VIP Spotlight. Click to revert to Standard Listing.' : 'Click to enlist in Featured Businesses VIP Spotlight.'}
+                            >
+                              <Star className={`w-3.5 h-3.5 ${b.isFeatured ? 'fill-slate-950 text-slate-950' : 'text-slate-400'}`} />
+                              <span>{b.isFeatured ? 'Featured VIP' : 'Standard Listed'}</span>
+                            </button>
                           </td>
                           <td className="p-3.5">
                             {b.verificationStatus === 'verified' ? (
@@ -1828,6 +1874,109 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
+            {/* Supabase Real-Time Database Management & Diagnostics */}
+            <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Database className="w-4 h-4 text-emerald-400" />
+                    <span>Supabase Real-Time PostgreSQL Database</span>
+                  </h4>
+                  <p className="text-xs text-slate-400">
+                    Dual-write synchronization engine with live subscription channels and RLS security.
+                  </p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                  isSupabaseConfigured
+                    ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
+                    : 'bg-amber-950 text-amber-300 border-amber-800'
+                }`}>
+                  {isSupabaseConfigured ? 'Supabase Connected' : 'Local Fallback Active'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  disabled={supabaseTesting}
+                  onClick={async () => {
+                    setSupabaseTesting(true);
+                    try {
+                      const health = await SupabaseService.checkHealth();
+                      setSupabaseHealth(health);
+                      if (health.connected) {
+                        onShowToast?.('Supabase Live!', 'All database queries and tables responded successfully.', 'success');
+                      } else {
+                        onShowToast?.('Supabase Notice', health.error || 'Some tables may need initialization. Check SQL schema.', 'info');
+                      }
+                    } catch (err: any) {
+                      setSupabaseHealth({ configured: false, connected: false, error: err.message, tables: {} });
+                      onShowToast?.('Diagnostic Error', err.message, 'error');
+                    } finally {
+                      setSupabaseTesting(false);
+                    }
+                  }}
+                  className="p-3 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-emerald-500/50 text-left transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                      Run Database Health Check
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">{supabaseTesting ? 'Checking...' : 'Execute'}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Verifies connectivity for profiles, businesses, reviews, and inquiries.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSqlModal(true)}
+                  className="p-3 rounded-xl bg-slate-900/80 border border-slate-700 hover:border-blue-500/50 text-left transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5 text-blue-400" />
+                      View & Copy Supabase SQL Schema
+                    </span>
+                    <span className="text-[10px] font-mono text-blue-400">SQL Script</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Production SQL with RLS policies, indexes, and real-time triggers.
+                  </p>
+                </button>
+              </div>
+
+              {supabaseHealth && (
+                <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-300">Database Diagnostic Result:</span>
+                    <span className={`font-mono text-[10px] px-2 py-0.5 rounded ${
+                      supabaseHealth.connected ? 'bg-emerald-900 text-emerald-200' : 'bg-rose-900 text-rose-200'
+                    }`}>
+                      {supabaseHealth.connected ? 'ONLINE & SYNCED' : 'INITIALIZATION REQUIRED'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] pt-1">
+                    {Object.entries(supabaseHealth.tables || {}).map(([tbl, ok]) => (
+                      <div key={tbl} className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                        <span className="font-mono text-slate-400 truncate">{tbl}</span>
+                        {ok ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        ) : (
+                          <XCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {supabaseHealth.error && (
+                    <p className="text-[11px] text-amber-300 pt-1">{supabaseHealth.error}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Direct Admin Contact Routing Details */}
             <div className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3">
               <h4 className="text-sm font-bold text-white">Direct Admin Contact Integrations</h4>
@@ -1996,6 +2145,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Homepage Spotlight Placement (Admin Featured Control) */}
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  <span>Homepage Spotlight Placement (Featured vs Listed)</span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Determine whether this enterprise is prominently featured in the Top VIP Carousel and priority spotlight, or listed normally in the general directory.
+                </p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-slate-900/60 border border-amber-500/30">
+                    <input
+                      type="radio"
+                      name="isFeaturedChoice"
+                      checked={Boolean(editingBusiness.isFeatured)}
+                      onChange={() => setEditingBusiness({ ...editingBusiness, isFeatured: true })}
+                      className="text-amber-500 focus:ring-amber-500"
+                    />
+                    <span className="font-bold text-amber-300 text-xs">🌟 Featured VIP Spotlight (Hero & Carousel)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer p-2 rounded-xl bg-slate-900/60 border border-slate-700">
+                    <input
+                      type="radio"
+                      name="isFeaturedChoice"
+                      checked={!editingBusiness.isFeatured}
+                      onChange={() => setEditingBusiness({ ...editingBusiness, isFeatured: false })}
+                      className="text-slate-500 focus:ring-slate-500"
+                    />
+                    <span className="text-slate-300 text-xs">📋 Standard Directory Listing</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2 pt-3">
                 <button
                   type="button"
@@ -2093,6 +2275,75 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setRejectingBusiness(null);
           }}
         />
+      )}
+
+      {/* Supabase Production SQL Schema Copy & Instructions Modal */}
+      {showSqlModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="relative w-full max-w-3xl max-h-[85vh] flex flex-col bg-slate-900 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-950 border border-emerald-800 flex items-center justify-center text-emerald-400">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Supabase SQL Database Blueprint</h3>
+                  <p className="text-xs text-slate-400">Copy and run in your Supabase Dashboard SQL Editor</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSqlModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              <div className="p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-800/60 text-xs text-emerald-300">
+                <p className="font-semibold">How to setup in 30 seconds:</p>
+                <ol className="list-decimal list-inside space-y-1 mt-1 text-slate-300">
+                  <li>Open your <strong className="text-white">Supabase Dashboard</strong> and choose your project.</li>
+                  <li>Go to the <strong className="text-white">SQL Editor</strong> tab on the left sidebar.</li>
+                  <li>Click <strong className="text-white">New Query</strong>, paste this entire script, and click <strong className="text-emerald-400">Run</strong>.</li>
+                </ol>
+              </div>
+
+              <div className="relative">
+                <div className="flex items-center justify-between pb-2">
+                  <span className="text-xs font-mono text-slate-400">Schema with RLS & Realtime publication:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA.trim());
+                      setCopiedSchema(true);
+                      setTimeout(() => setCopiedSchema(false), 2500);
+                      onShowToast?.('Copied to Clipboard!', 'Supabase SQL schema copied.', 'success');
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    {copiedSchema ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedSchema ? 'Copied!' : 'Copy SQL Script'}
+                  </button>
+                </div>
+                <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-300/90 overflow-x-auto max-h-96 select-all">
+                  {SUPABASE_SQL_SCHEMA.trim()}
+                </pre>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSqlModal(false)}
+                className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

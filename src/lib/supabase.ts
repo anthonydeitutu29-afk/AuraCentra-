@@ -46,11 +46,12 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 export const SUPABASE_SQL_SCHEMA = `
 -- ============================================================================
 -- AURACENTRA GHANA - PRODUCTION SUPABASE DATABASE SCHEMA
+-- Run this in your Supabase Dashboard -> SQL Editor
 -- ============================================================================
 
 -- 1. Profiles Table
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   phone TEXT,
@@ -98,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.businesses (
   features JSONB DEFAULT '[]'::jsonb,
   views INT DEFAULT 0,
   leads_count INT DEFAULT 0,
-  owner_id UUID REFERENCES auth.users ON DELETE SET NULL,
+  owner_id TEXT,
   owner_email TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -143,11 +144,47 @@ CREATE TABLE IF NOT EXISTS public.phone_verifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Row Level Security (RLS) Configuration
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.businesses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.phone_verifications ENABLE ROW LEVEL SECURITY;
+
+-- Permissive Security Policies for Web Client & Backend
+DROP POLICY IF EXISTS "Public Profiles Access" ON public.profiles;
+CREATE POLICY "Public Profiles Access" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Businesses Access" ON public.businesses;
+CREATE POLICY "Public Businesses Access" ON public.businesses FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Reviews Access" ON public.reviews;
+CREATE POLICY "Public Reviews Access" ON public.reviews FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Inquiries Access" ON public.inquiries;
+CREATE POLICY "Public Inquiries Access" ON public.inquiries FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Phone Verifications Access" ON public.phone_verifications;
+CREATE POLICY "Public Phone Verifications Access" ON public.phone_verifications FOR ALL USING (true) WITH CHECK (true);
+
 -- Realtime Setup
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+END $$;
+
 ALTER PUBLICATION supabase_realtime ADD TABLE public.businesses;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.reviews;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.inquiries;
 `;
+
+// Helper to check if a string is a valid PostgreSQL UUID
+export function isValidUuid(id?: string | null): boolean {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
 
 // Helper mapper between Supabase DB snake_case and UI camelCase
 export function mapSupabaseToBusiness(row: any): Business {
@@ -233,7 +270,7 @@ export function mapBusinessToSupabase(business: Business): any {
     features: business.features,
     views: business.views,
     leads_count: business.leadsCount,
-    owner_id: business.ownerId || null,
+    owner_id: isValidUuid(business.ownerId) ? business.ownerId : null,
     owner_email: business.ownerEmail || null,
     created_at: business.createdAt,
     updated_at: new Date().toISOString(),
@@ -279,7 +316,7 @@ export const SupabaseService = {
             auth_provider: 'email',
             phone_verified: false,
             created_at: new Date().toISOString(),
-          });
+          }, { onConflict: 'email' });
         } catch (err) {
           console.warn('[Supabase Profiles]', err);
         }
@@ -420,23 +457,33 @@ export const SupabaseService = {
   // Save / Sync Profile in Supabase
   async saveProfile(profile: Partial<UserProfile>): Promise<boolean> {
     if (!profile.email) return false;
+    const cleanEmail = profile.email.toLowerCase().trim();
     
     let saved = false;
     if (supabase) {
       try {
-        const { error } = await supabase.from('profiles').upsert({
-          id: profile.id || undefined,
-          name: profile.name,
-          email: profile.email.toLowerCase(),
+        const payload: any = {
+          name: profile.name || cleanEmail.split('@')[0],
+          email: cleanEmail,
           phone: profile.phone || null,
           role: profile.role || 'customer',
           avatar: profile.avatar || null,
-          auth_provider: 'email',
+          auth_provider: profile.authProvider || 'email',
           phone_verified: Boolean(profile.phoneVerified),
           saved_business_ids: profile.savedBusinessIds || [],
           updated_at: new Date().toISOString(),
-        });
-        if (!error) saved = true;
+        };
+
+        if (isValidUuid(profile.id)) {
+          payload.id = profile.id;
+        }
+
+        const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'email' });
+        if (!error) {
+          saved = true;
+        } else {
+          console.warn('[Supabase saveProfile warning]', error.message);
+        }
       } catch (err) {
         console.warn('[Supabase saveProfile warning]', err);
       }
@@ -449,7 +496,7 @@ export const SupabaseService = {
         body: JSON.stringify({
           id: profile.id,
           name: profile.name,
-          email: profile.email.toLowerCase(),
+          email: cleanEmail,
           phone: profile.phone,
           role: profile.role,
           phone_verified: profile.phoneVerified,
@@ -479,14 +526,26 @@ export const SupabaseService = {
   // Sign in with OAuth (Google or Apple)
   async signInWithOAuth(provider: 'google' | 'apple') {
     if (supabase) {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+        if (error) {
+          if (error.message?.includes('not enabled') || (error as any).code === 400) {
+            throw new Error(`The ${provider} provider is not enabled in your Supabase project. You can sign in using direct Google verification or email/password.`);
+          }
+          throw error;
+        }
+        return data;
+      } catch (err: any) {
+        if (err.message?.includes('not enabled')) {
+          throw new Error(`Google Sign-In via Supabase OAuth is not enabled in your Supabase dashboard settings. Please sign in directly or with email.`);
+        }
+        throw err;
+      }
     }
     throw new Error('Supabase client not initialized. Please configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
   },
@@ -769,5 +828,69 @@ export const SupabaseService = {
       console.warn('[Supabase subscribeBusinesses]', err);
       return () => {};
     }
+  },
+
+  // Database Connection Health Check & Diagnostics
+  async checkHealth(): Promise<{
+    configured: boolean;
+    connected: boolean;
+    tables: {
+      profiles: boolean;
+      businesses: boolean;
+      reviews: boolean;
+      inquiries: boolean;
+      phone_verifications: boolean;
+    };
+    error?: string;
+  }> {
+    if (!supabase) {
+      return {
+        configured: false,
+        connected: false,
+        tables: {
+          profiles: false,
+          businesses: false,
+          reviews: false,
+          inquiries: false,
+          phone_verifications: false,
+        },
+        error: 'Supabase URL or Anon Key not configured in environment variables.',
+      };
+    }
+
+    const result = {
+      configured: true,
+      connected: false,
+      tables: {
+        profiles: false,
+        businesses: false,
+        reviews: false,
+        inquiries: false,
+        phone_verifications: false,
+      },
+      error: undefined as string | undefined,
+    };
+
+    try {
+      const [pRes, bRes, rRes, iRes, vRes] = await Promise.all([
+        supabase.from('profiles').select('id').limit(1),
+        supabase.from('businesses').select('id').limit(1),
+        supabase.from('reviews').select('id').limit(1),
+        supabase.from('inquiries').select('id').limit(1),
+        supabase.from('phone_verifications').select('id').limit(1),
+      ]);
+
+      result.tables.profiles = !pRes.error;
+      result.tables.businesses = !bRes.error;
+      result.tables.reviews = !rRes.error;
+      result.tables.inquiries = !iRes.error;
+      result.tables.phone_verifications = !vRes.error;
+
+      result.connected = !pRes.error || !bRes.error || !rRes.error;
+    } catch (e: any) {
+      result.error = e.message;
+    }
+
+    return result;
   },
 };

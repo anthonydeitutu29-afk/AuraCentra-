@@ -717,23 +717,41 @@ export const FirebaseAuthService = {
     businessName?: string;
     avatarUrl?: string;
   }): Promise<AuthResult> {
-    if (isSupabaseConfigured) {
-      await SupabaseService.signInWithOAuth('google').catch(() => {});
+    // If Supabase is connected, sync user profile directly into database without breaking OAuth redirects
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await SupabaseService.saveProfile({
+          id: (options as any)?.userId || `usr-google-${Date.now()}`,
+          name: options?.name || 'Google User',
+          email: (options?.email || '').trim().toLowerCase(),
+          role: options?.accountType === 'business_owner' ? 'business_owner' : 'customer',
+          savedBusinessIds: [],
+          createdAt: new Date().toISOString(),
+        });
+      } catch (supaErr) {
+        console.warn('[Supabase Profile Sync]', supaErr);
+      }
     }
 
-    const cleanEmail = (options?.email || '').trim().toLowerCase() || 'tonysdigitalmarketing@gmail.com';
+    const rawEmail = (options?.email || '').trim().toLowerCase();
+    if (!rawEmail || !rawEmail.includes('@')) {
+      throw new Error('Please enter a valid Google account email address.');
+    }
+    const cleanEmail = rawEmail;
     const emailPrefix = cleanEmail.split('@')[0] || 'google_user';
     const derivedName = emailPrefix
       .replace(/[._-]/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
     
-    const displayName = (options?.name || '').trim() || (cleanEmail === 'tonysdigitalmarketing@gmail.com' ? "Tony's Digital Marketing" : derivedName);
+    const displayName = (options?.name || '').trim() || derivedName;
     const cleanRole: UserRole = options?.accountType === 'business_owner' ? 'business_owner' : 'customer';
     
     const existing = findRegisteredAccountByEmail(cleanEmail);
     const userId = existing?.id || `usr-google-${Date.now()}`;
 
-    const isPlatformAdmin = cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'anthonydeitutu29@gmail.com';
+    const isPlatformAdmin = cleanEmail === 'admindashboard@gmail.com' || 
+      cleanEmail === 'anthonydeitutu29@gmail.com' || 
+      cleanEmail === 'tonysdigitalmarketing@gmail.com';
     const computedRole: UserRole = isPlatformAdmin 
       ? 'admin' 
       : (options?.accountType === 'business_owner' || existing?.role === 'business_owner' || existing?.role === 'verified_owner')
