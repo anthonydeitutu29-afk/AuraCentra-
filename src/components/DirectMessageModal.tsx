@@ -160,7 +160,9 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
               <div className="flex items-center gap-1.5">
                 <h3 className="font-bold text-sm sm:text-base text-white truncate">{business.name}</h3>
                 {business.verificationStatus === 'verified' && (
-                  <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" title="Verified Business" />
+                  <span title="Verified Business">
+                    <ShieldCheck className="w-4 h-4 text-emerald-300 shrink-0" />
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-2 text-xs text-blue-100">

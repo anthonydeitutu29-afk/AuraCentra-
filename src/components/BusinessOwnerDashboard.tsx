@@ -367,7 +367,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
 
   // Total unread messages across all customer threads
   const unreadMessagesCount = useMemo(() => {
-    return directMessageThreads.reduce((sum, t) => sum + t.unreadCountBusiness, 0);
+    return directMessageThreads.reduce((sum, t) => sum + t.unreadCountForBusiness, 0);
   }, [directMessageThreads]);
 
   // Currently active chat thread
@@ -385,10 +385,12 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
       DirectMessagingService.sendMessage({
         businessId: activeBusiness.id,
         businessName: activeBusiness.name,
+        customerId: activeThread.customerId,
         customerName: activeThread.customerName,
         customerEmail: activeThread.customerEmail,
         customerPhone: activeThread.customerPhone,
         sender: 'business',
+        senderName: activeBusiness.name,
         message: replyMessageText.trim(),
       });
 
@@ -856,7 +858,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Eye className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{stats.views} views</span>
+                    <span>{realMetrics.views} views</span>
                   </span>
                 </div>
               </div>
@@ -890,14 +892,15 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
           {/* 3. Navigation Tabs Styled in Brand Colors */}
           <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pt-6 mt-4 border-t border-slate-100 dark:border-slate-800 scrollbar-none">
             {[
-              { id: 'overview', label: 'Overview & Performance', icon: TrendingUp },
+              { id: 'overview', label: 'Overview & Real-Time Performance', icon: TrendingUp },
+              { id: 'messages', label: `Live Messages (${unreadMessagesCount > 0 ? `${unreadMessagesCount} unread` : directMessageThreads.length})`, icon: MessageSquare },
               { id: 'profile', label: 'Edit Profile & Story', icon: Sliders },
               { id: 'updates', label: `Live Updates & Promos (${updates.length})`, icon: Megaphone },
               { id: 'media', label: 'Photos & Gallery', icon: ImageIcon },
               { id: 'contact', label: 'Contact & Socials', icon: Phone },
               { id: 'location', label: 'Location & GPS', icon: MapPin },
               { id: 'hours', label: 'Opening Hours', icon: Clock },
-              { id: 'inquiries', label: `Inquiries & Leads (${businessInquiries.length})`, icon: MessageSquare },
+              { id: 'inquiries', label: `Inquiries & Leads (${businessInquiries.length})`, icon: MessageCircle },
               { id: 'reviews', label: `Reviews (${businessReviews.length})`, icon: Star },
               { id: 'verification', label: 'Verification Center', icon: ShieldCheck },
               { id: 'settings', label: 'Settings', icon: Trash2 },
@@ -905,6 +908,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               const isDanger = tab.id === 'settings';
+              const isLiveMsg = tab.id === 'messages' && unreadMessagesCount > 0;
               return (
                 <button
                   key={tab.id}
@@ -915,6 +919,8 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                       ? isDanger 
                         ? 'bg-rose-600 text-white shadow-xs' 
                         : 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/20'
+                      : isLiveMsg
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 animate-pulse'
                       : isDanger
                       ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -937,15 +943,34 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             
+            {/* Live Telemetry Status Banner */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-transparent border border-emerald-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <div>
+                  <span className="font-bold text-slate-900 dark:text-white">Real-Time Telemetry Engine: Active</span>
+                  <span className="text-slate-500 dark:text-slate-400 ml-1.5">
+                    • Syncing live visitor actions every second (Tick #{liveSecondsCounter})
+                  </span>
+                </div>
+              </div>
+              <div className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                {realMetrics.recentEvents.length} recorded events in window
+              </div>
+            </div>
+
             {/* Timeframe Selector */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
               <div>
                 <h2 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-amber-500" />
-                  <span>Website Performance Analytics</span>
+                  <span>Real Interaction Records & Performance Analytics</span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Track real customer traffic, direct phone calls, WhatsApp leads, and map route requests on AuraCentra Ghana.
+                  Track genuine customer traffic, verified phone calls placed, WhatsApp chats, and direct messages in real time.
                 </p>
               </div>
 
@@ -977,11 +1002,11 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                  {stats.views.toLocaleString()}
+                  {realMetrics.views.toLocaleString()}
                 </div>
                 <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
                   <TrendingUp className="w-3 h-3" />
-                  <span>+18% discovery surge</span>
+                  <span>Real visitor page openings</span>
                 </div>
               </div>
 
@@ -993,7 +1018,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                  {stats.whatsappClicks.toLocaleString()}
+                  {realMetrics.whatsappClicks.toLocaleString()}
                 </div>
                 <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
                   Direct WhatsApp chats started
@@ -1002,31 +1027,31 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
 
               <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
                 <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">Phone Calls Initiated</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Direct Calls Placed</span>
                   <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
                     <Phone className="w-4 h-4" />
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                  {stats.phoneClicks.toLocaleString()}
+                  {realMetrics.phoneCalls.toLocaleString()}
                 </div>
                 <div className="text-[11px] text-slate-500 font-bold mt-1">
-                  Calls placed from listing
+                  Verified caller phone clicks
                 </div>
               </div>
 
               <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
                 <div className="flex items-center justify-between text-slate-400 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider">GPS Route Requests</span>
-                  <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
-                    <Navigation className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Live Direct Messages</span>
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4" />
                   </div>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-                  {stats.directionsClicks.toLocaleString()}
+                  {realMetrics.directMessages.toLocaleString()}
                 </div>
-                <div className="text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1">
-                  GPS navigation clicks
+                <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold mt-1">
+                  Website direct chat messages
                 </div>
               </div>
             </div>
@@ -1035,15 +1060,15 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
                 <span className="text-slate-400 font-bold block mb-1">Official Website Clicks</span>
-                <span className="text-lg font-black text-slate-900 dark:text-white">{stats.websiteClicks}</span>
+                <span className="text-lg font-black text-slate-900 dark:text-white">{realMetrics.websiteClicks}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
+                <span className="text-slate-400 font-bold block mb-1">GPS Route Requests</span>
+                <span className="text-lg font-black text-slate-900 dark:text-white">{realMetrics.directionsClicks}</span>
               </div>
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
                 <span className="text-slate-400 font-bold block mb-1">Customer Bookmarks</span>
-                <span className="text-lg font-black text-slate-900 dark:text-white">{stats.savesCount} saves</span>
-              </div>
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
-                <span className="text-slate-400 font-bold block mb-1">Quote Inquiries</span>
-                <span className="text-lg font-black text-slate-900 dark:text-white">{businessInquiries.length} requests</span>
+                <span className="text-lg font-black text-slate-900 dark:text-white">{realMetrics.saves} saves</span>
               </div>
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
                 <span className="text-slate-400 font-bold block mb-1">Average Star Rating</span>
@@ -1144,6 +1169,283 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               </button>
             </div>
 
+          </div>
+        )}
+
+        {/* TAB: LIVE CUSTOMER DIRECT MESSAGES */}
+        {activeTab === 'messages' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Header info */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white">
+                    Live Customer Direct Messages
+                  </h2>
+                  <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Instant Dispatch
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Customers messaging your business directly through AuraCentra appear here. Replies notify customers in real-time.
+                </p>
+              </div>
+
+              {unreadMessagesCount > 0 && (
+                <div className="px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center gap-1.5 shrink-0">
+                  <Bell className="w-3.5 h-3.5 animate-bounce" />
+                  <span>{unreadMessagesCount} unread customer {unreadMessagesCount === 1 ? 'message' : 'messages'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Main Chat Interface */}
+            {directMessageThreads.length === 0 ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-12 text-center border border-slate-200/80 dark:border-slate-800 shadow-xs max-w-2xl mx-auto space-y-4">
+                <div className="w-16 h-16 rounded-3xl bg-blue-500/10 text-blue-600 flex items-center justify-center mx-auto">
+                  <MessageSquare className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  No Direct Messages Yet
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  When visitors browse your business profile on AuraCentra Ghana and click the <strong>"Direct Message"</strong> button, their chats and contact details will appear here instantly with live sound notifications.
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!activeBusiness) return;
+                      // Generate a demo customer message so the owner can test the real-time flow immediately
+                      DirectMessagingService.sendMessage({
+                        businessId: activeBusiness.id,
+                        businessName: activeBusiness.name,
+                        customerId: 'demo_customer_accra',
+                        customerName: 'Kwame Asante',
+                        customerEmail: 'kwame.asante@example.com',
+                        customerPhone: '+233 24 123 4567',
+                        sender: 'customer',
+                        senderName: 'Kwame Asante',
+                        message: `Hello ${activeBusiness.name}! I saw your listing on AuraCentra Ghana and would like to ask about your availability and pricing for this week. Thank you!`,
+                      });
+                      const threads = DirectMessagingService.getThreadsForBusiness(activeBusiness.id);
+                      setDirectMessageThreads(threads);
+                      if (threads.length > 0) setActiveThreadId(threads[0].threadId);
+                      onShowToast(
+                        'Demo Customer Message Received',
+                        'A sample customer inquiry was routed to your inbox. You can test replying now!',
+                        'info'
+                      );
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Send Test Customer Message</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[560px]">
+                
+                {/* Left Sidebar: Threads List */}
+                <div className="md:col-span-5 lg:col-span-4 border-r border-slate-100 dark:border-slate-800 flex flex-col">
+                  <div className="p-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Customer Inquiries ({directMessageThreads.length})
+                    </span>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 max-h-[500px]">
+                    {directMessageThreads.map((thread) => {
+                      const isSelected = activeThread?.threadId === thread.threadId;
+                      const hasUnread = thread.unreadCountForBusiness > 0;
+                      return (
+                        <button
+                          key={thread.threadId}
+                          type="button"
+                          onClick={() => {
+                            setActiveThreadId(thread.threadId);
+                            DirectMessagingService.markThreadAsRead(thread.threadId, 'business');
+                            setDirectMessageThreads(DirectMessagingService.getThreadsForBusiness(activeBusiness?.id || ''));
+                          }}
+                          className={`w-full text-left p-3.5 sm:p-4 transition-colors flex items-start gap-3 cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-500/10 dark:bg-amber-500/15 border-l-4 border-amber-500'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+                            {thread.customerName.charAt(0).toUpperCase()}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {thread.customerName}
+                              </span>
+                              <span className="text-[10px] text-slate-400 shrink-0">
+                                {new Date(thread.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                              {thread.lastMessage}
+                            </p>
+
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {thread.customerPhone && (
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                  <Phone className="w-2.5 h-2.5" />
+                                  <span className="truncate">{thread.customerPhone}</span>
+                                </span>
+                              )}
+                              {hasUnread && (
+                                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black">
+                                  {thread.unreadCountForBusiness} new
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Right Area: Active Chat Thread */}
+                {activeThread ? (
+                  <div className="md:col-span-7 lg:col-span-8 flex flex-col h-full min-h-[560px]">
+                    
+                    {/* Chat Header */}
+                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                          {activeThread.customerName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                            <span>{activeThread.customerName}</span>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          </h4>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                            {activeThread.customerEmail && (
+                              <a 
+                                href={`mailto:${activeThread.customerEmail}`}
+                                className="hover:text-blue-500 truncate"
+                              >
+                                {activeThread.customerEmail}
+                              </a>
+                            )}
+                            {activeThread.customerPhone && (
+                              <>
+                                <span>•</span>
+                                <a 
+                                  href={`tel:${activeThread.customerPhone}`}
+                                  className="hover:text-emerald-500 truncate"
+                                >
+                                  {activeThread.customerPhone}
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        <span>Live Sync Active</span>
+                      </div>
+                    </div>
+
+                    {/* Messages Scroll Area */}
+                    <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-3 bg-slate-50/20 dark:bg-slate-950/20 max-h-[400px]">
+                      {activeThread.messages.map((msg) => {
+                        const isBusiness = msg.sender === 'business';
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col ${isBusiness ? 'items-end' : 'items-start'}`}
+                          >
+                            <span className="text-[10px] text-slate-400 font-semibold mb-1 px-1">
+                              {isBusiness ? `You (${activeBusiness?.name || 'Owner'})` : msg.senderName}
+                            </span>
+
+                            <div
+                              className={`max-w-[85%] sm:max-w-[75%] p-3.5 rounded-2xl text-xs leading-relaxed ${
+                                isBusiness
+                                  ? 'bg-amber-500 text-white rounded-br-xs shadow-xs'
+                                  : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 rounded-bl-xs shadow-xs'
+                              }`}
+                            >
+                              <p className="whitespace-pre-wrap">{msg.message}</p>
+                            </div>
+
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1 px-1">
+                              <Clock className="w-2.5 h-2.5" />
+                              <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              {isBusiness && (
+                                <span className="text-emerald-500 ml-1 font-bold">✓ Dispatched</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Response Suggestion Chips */}
+                    <div className="px-4 py-2 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-none">
+                      <span className="text-[10px] font-bold text-slate-400 shrink-0">Quick reply:</span>
+                      {[
+                        'Hello! We are open and available today.',
+                        'Thank you for reaching out! We can share a price quote.',
+                        'Please call our direct phone line for instant booking.',
+                      ].map((quickText, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setReplyMessageText(quickText)}
+                          className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-[11px] text-slate-600 dark:text-slate-300 hover:text-amber-600 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition-colors cursor-pointer shrink-0"
+                        >
+                          {quickText}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Reply Input Form */}
+                    <form
+                      onSubmit={handleSendDirectReply}
+                      className="p-3.5 sm:p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2"
+                    >
+                      <input
+                        type="text"
+                        value={replyMessageText}
+                        onChange={(e) => setReplyMessageText(e.target.value)}
+                        placeholder={`Reply to ${activeThread.customerName}...`}
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-transparent focus:border-amber-500 focus:bg-white dark:focus:bg-slate-900 text-xs text-slate-900 dark:text-white outline-hidden transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSendingReply || !replyMessageText.trim()}
+                        className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer shrink-0"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{isSendingReply ? 'Sending...' : 'Send Reply'}</span>
+                      </button>
+                    </form>
+
+                  </div>
+                ) : (
+                  <div className="md:col-span-7 lg:col-span-8 flex items-center justify-center p-12 text-slate-400 text-xs">
+                    Select a conversation from the left to view messages.
+                  </div>
+                )}
+
+              </div>
+            )}
           </div>
         )}
 

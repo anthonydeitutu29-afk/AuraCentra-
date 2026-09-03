@@ -47,7 +47,8 @@ import {
   Globe,
   Database,
   Copy,
-  Terminal
+  Terminal,
+  Star
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
 import { getRegisteredAccounts } from '../utils/storage';
@@ -120,7 +121,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'verification' | 'location_tracker' | 'reports' | 'suggestions' | 'feedback' | 'users' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
-  const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'pending' | 'verified' | 'unverified' | 'rejected'>('all');
+  const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'pending' | 'verified' | 'unverified' | 'rejected' | 'featured'>('all');
   const [userFilterProvider, setUserFilterProvider] = useState<string>('all');
 
   // Strict RBAC Guard: If not admin, completely block render

@@ -61,24 +61,25 @@ export const TelemetryService = {
     window.dispatchEvent(new CustomEvent(TELEMETRY_CHANGE_EVENT, { detail: newEvent }));
 
     // Asynchronously sync to Supabase if configured
-    if (isSupabaseConfigured() && supabase) {
-      supabase
-        .from('analytics_events')
-        .insert([{
-          id: newEvent.id,
-          business_id: newEvent.businessId,
-          event_type: newEvent.type,
-          actor_name: newEvent.actorName,
-          actor_email: newEvent.actorEmail,
-          actor_phone: newEvent.actorPhone,
-          actor_location: newEvent.actorLocation,
-          metadata: newEvent.metadata || {},
-          created_at: newEvent.timestamp,
-        }])
-        .then(({ error }) => {
-          if (error) {
-            // Silently handle if table not yet created
-            console.debug('[TelemetryService Supabase Sync]', error.message);
+    if (isSupabaseConfigured && supabase) {
+      Promise.resolve(
+        supabase
+          .from('analytics_events')
+          .insert([{
+            id: newEvent.id,
+            business_id: newEvent.businessId,
+            event_type: newEvent.type,
+            actor_name: newEvent.actorName,
+            actor_email: newEvent.actorEmail,
+            actor_phone: newEvent.actorPhone,
+            actor_location: newEvent.actorLocation,
+            metadata: newEvent.metadata || {},
+            created_at: newEvent.timestamp,
+          }])
+      )
+        .then((res: any) => {
+          if (res?.error) {
+            console.debug('[TelemetryService Supabase Sync]', res.error.message);
           }
         })
         .catch(() => {});

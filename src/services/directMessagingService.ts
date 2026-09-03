@@ -135,27 +135,29 @@ export const DirectMessagingService = {
     }
 
     // Sync to Supabase if configured
-    if (isSupabaseConfigured() && supabase) {
-      supabase
-        .from('direct_messages')
-        .insert([{
-          id: newMessage.id,
-          thread_id: newMessage.threadId,
-          business_id: newMessage.businessId,
-          business_name: newMessage.businessName,
-          customer_id: newMessage.customerId,
-          customer_name: newMessage.customerName,
-          customer_email: newMessage.customerEmail,
-          customer_phone: newMessage.customerPhone,
-          sender: newMessage.sender,
-          sender_name: newMessage.senderName,
-          message: newMessage.message,
-          created_at: newMessage.createdAt,
-          read_by_business: newMessage.readByBusiness,
-          read_by_customer: newMessage.readByCustomer,
-        }])
-        .then(({ error }) => {
-          if (error) console.debug('[DirectMessaging Supabase Sync]', error.message);
+    if (isSupabaseConfigured && supabase) {
+      Promise.resolve(
+        supabase
+          .from('direct_messages')
+          .insert([{
+            id: newMessage.id,
+            thread_id: newMessage.threadId,
+            business_id: newMessage.businessId,
+            business_name: newMessage.businessName,
+            customer_id: newMessage.customerId,
+            customer_name: newMessage.customerName,
+            customer_email: newMessage.customerEmail,
+            customer_phone: newMessage.customerPhone,
+            sender: newMessage.sender,
+            sender_name: newMessage.senderName,
+            message: newMessage.message,
+            created_at: newMessage.createdAt,
+            read_by_business: newMessage.readByBusiness,
+            read_by_customer: newMessage.readByCustomer,
+          }])
+      )
+        .then((res: any) => {
+          if (res?.error) console.debug('[DirectMessaging Supabase Sync]', res.error.message);
         })
         .catch(() => {});
     }
