@@ -15,7 +15,9 @@ import {
   Compass, 
   Info,
   Check,
-  AlertCircle
+  AlertCircle,
+  Star,
+  Sparkles
 } from 'lucide-react';
 import { Business } from '../types';
 import { 
@@ -29,7 +31,7 @@ interface AdminVerificationModalProps {
   business: Business;
   isOpen: boolean;
   onClose: () => void;
-  onApprove: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }) => void;
+  onApprove: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }, isFeatured?: boolean) => void;
   onReject?: (businessId: string, reason: string) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
@@ -45,6 +47,7 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [alignmentReport, setAlignmentReport] = useState<LocationAlignmentReport | null>(null);
   const [selectedBadge, setSelectedBadge] = useState<string>('Gold Enterprise');
+  const [isFeaturedChoice, setIsFeaturedChoice] = useState<boolean>(business.isFeatured ?? true);
   const [customReason, setCustomReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
 
@@ -88,10 +91,10 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({
 
   const handleApproveWithGPS = () => {
     const coordsToSave = alignmentReport?.geocoded?.coordinates || business.coordinates;
-    onApprove(business.id, selectedBadge, coordsToSave);
+    onApprove(business.id, selectedBadge, coordsToSave, isFeaturedChoice);
     onShowToast?.(
       'Business Verified with GPS',
-      `"${business.name}" has been approved with verified Google Maps coordinates.`,
+      `"${business.name}" has been approved ${isFeaturedChoice ? 'under Featured Categories' : 'as standard listing'} with verified coordinates.`,
       'success'
     );
     onClose();
@@ -420,6 +423,68 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({
                   </div>
                   <p className="text-[10px] text-slate-400 leading-tight">
                     Verified neighborhood SME provider.
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* FEATURED BUSINESS CATEGORY STATUS SELECTION */}
+          {!showRejectForm && (
+            <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>Featured Business Categories Status</span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/60 border border-amber-700/60 text-amber-300 font-bold">
+                  Admin Placement
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Choose whether this approved business should be placed under the <strong>Featured business categories</strong> and VIP homepage spotlights.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsFeaturedChoice(true)}
+                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isFeaturedChoice
+                      ? 'bg-amber-950/60 border-amber-500 text-amber-100 ring-1 ring-amber-500/60 shadow-md'
+                      : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs flex items-center gap-1.5 text-amber-300">
+                      <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                      Include in Featured Categories
+                    </span>
+                    {isFeaturedChoice && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-snug mt-1">
+                    Placed under Featured Business Categories, VIP Spotlight, Trending priority, and search highlights.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFeaturedChoice(false)}
+                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    !isFeaturedChoice
+                      ? 'bg-blue-950/60 border-blue-500 text-blue-100 ring-1 ring-blue-500/60 shadow-md'
+                      : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs flex items-center gap-1.5 text-blue-300">
+                      <Building2 className="w-4 h-4 text-blue-400" />
+                      Standard Category Listing
+                    </span>
+                    {!isFeaturedChoice && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-snug mt-1">
+                    Enlisted under its standard primary category and general categories (Trending, Newly Verified, All Categories).
                   </p>
                 </button>
               </div>

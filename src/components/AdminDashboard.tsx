@@ -5,6 +5,7 @@ import {
   FolderPlus, 
   CheckCircle2, 
   XCircle, 
+  X,
   Trash2, 
   Edit3, 
   Plus, 
@@ -73,7 +74,7 @@ interface AdminDashboardProps {
   onUpdateBusiness: (business: Business) => void;
   onAddBusiness: (business: Business) => void;
   onDeleteBusiness: (businessId: string) => void;
-  onApproveVerification: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }) => void;
+  onApproveVerification: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }, isFeatured?: boolean) => void;
   onRejectVerification: (businessId: string, reason: string, resolutionGuide?: string, adminNotes?: string) => void;
   onAddCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
@@ -161,6 +162,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Business Rejection Modal State with Automated Notification
   const [rejectingBusiness, setRejectingBusiness] = useState<Business | null>(null);
+
+  // Dedicated Business Approval Modal State (Choice of Featured Categories & Verification Tier)
+  const [approvingBusiness, setApprovingBusiness] = useState<{
+    business: Business;
+    isFeatured: boolean;
+    badgeType: string;
+  } | null>(null);
 
   // Pending Queue Sub-Filter State
   const [pendingSubFilter, setPendingSubFilter] = useState<'all' | 'with_docs' | 'gps_valid'>('all');
@@ -755,10 +763,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              onApproveVerification(biz.id, 'Gold Enterprise');
-                              confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 } });
+                              setApprovingBusiness({
+                                business: biz,
+                                isFeatured: biz.isFeatured ?? true,
+                                badgeType: 'Gold Enterprise',
+                              });
                             }}
-                            className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40"
+                            className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 cursor-pointer"
                           >
                             <CheckCircle2 className="w-4 h-4" />
                             <span>Approve & Enlist</span>
@@ -1662,11 +1673,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    onApproveVerification(b.id, 'Gold Enterprise');
-                                    confetti({ particleCount: 50, spread: 50, origin: { y: 0.6 } });
+                                    setApprovingBusiness({
+                                      business: b,
+                                      isFeatured: b.isFeatured ?? true,
+                                      badgeType: 'Gold Enterprise',
+                                    });
                                   }}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors inline-flex items-center gap-1"
-                                  title="Approve and publish business on AuraCentra"
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                  title="Approve and choose category placement"
                                 >
                                   <ShieldCheck className="w-3 h-3" />
                                   <span>{b.verificationStatus === 'rejected' ? 'Re-Approve' : 'Approve'}</span>
@@ -2030,12 +2044,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onApproveVerification(previewDoc.business.id, 'Gold Enterprise');
+                  const targetBiz = previewDoc.business;
                   setPreviewDoc(null);
+                  setApprovingBusiness({
+                    business: targetBiz,
+                    isFeatured: targetBiz.isFeatured ?? true,
+                    badgeType: 'Gold Enterprise',
+                  });
                 }}
-                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500"
+                className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 cursor-pointer"
               >
-                Approve Gold Badge
+                Approve & Enlist
               </button>
               <button
                 type="button"
@@ -2253,8 +2272,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           business={verifyingBusiness}
           isOpen={!!verifyingBusiness}
           onClose={() => setVerifyingBusiness(null)}
-          onApprove={(bizId, badge, coords) => {
-            onApproveVerification(bizId, badge, coords);
+          onApprove={(bizId, badge, coords, isFeatured) => {
+            onApproveVerification(bizId, badge, coords, isFeatured);
             confetti({ particleCount: 80, spread: 70 });
             setVerifyingBusiness(null);
           }}
@@ -2263,6 +2282,181 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setVerifyingBusiness(null);
           }}
         />
+      )}
+
+      {/* Admin Business Approval & Category Placement Modal */}
+      {approvingBusiness && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl flex flex-col shadow-2xl overflow-hidden text-slate-200">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Approve & Enlist Business</h3>
+                  <p className="text-xs text-slate-400">Configure directory category placement & verification tier</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApprovingBusiness(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto max-h-[75vh]">
+              {/* Target Business Quick Info */}
+              <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center gap-3">
+                {approvingBusiness.business.logo ? (
+                  <img
+                    src={approvingBusiness.business.logo}
+                    alt=""
+                    className="w-10 h-10 rounded-lg object-contain bg-white p-0.5 shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-blue-600/20 text-[#155DFC] flex items-center justify-center font-bold text-sm shrink-0">
+                    {approvingBusiness.business.name.charAt(0)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-bold text-white truncate">{approvingBusiness.business.name}</h4>
+                  <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                    <span>{approvingBusiness.business.city}, {approvingBusiness.business.region}</span>
+                    <span>•</span>
+                    <span className="text-[#38bdf8] font-semibold">{approvingBusiness.business.category}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Automatic Category & General Categories Explanation */}
+              <div className="p-3 rounded-xl bg-blue-950/40 border border-blue-800/50 text-xs text-blue-200/90 leading-relaxed">
+                <p className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-[#38bdf8] shrink-0 mt-0.5" />
+                  <span>
+                    When approved, <strong>{approvingBusiness.business.name}</strong> will automatically be published under its primary category (<strong>{approvingBusiness.business.category}</strong>) and appear across all general categories including <strong>Trending</strong>, <strong>Popular Near You</strong>, and <strong>Newly Verified</strong>.
+                  </span>
+                </p>
+              </div>
+
+              {/* FEATURED CATEGORY PLACEMENT CHOICE */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                    <span>Featured Business Categories Status</span>
+                  </label>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-600/50 text-amber-300 font-bold">
+                    Admin Discretion
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Choose if this business should be placed under the <strong>Featured business categories</strong> and VIP homepage spotlights:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setApprovingBusiness({ ...approvingBusiness, isFeatured: true })}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      approvingBusiness.isFeatured
+                        ? 'bg-amber-950/60 border-amber-500 text-amber-100 ring-1 ring-amber-500/60 shadow-md'
+                        : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs flex items-center gap-1.5 text-amber-300">
+                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                        Include in Featured Categories
+                      </span>
+                      {approvingBusiness.isFeatured && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      Placed in Featured Categories, VIP spotlight carousel, Trending boost, and priority directory placement.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setApprovingBusiness({ ...approvingBusiness, isFeatured: false })}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      !approvingBusiness.isFeatured
+                        ? 'bg-blue-950/60 border-blue-500 text-blue-100 ring-1 ring-blue-500/60 shadow-md'
+                        : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs flex items-center gap-1.5 text-blue-300">
+                        <Building2 className="w-4 h-4 text-blue-400" />
+                        Standard Category Listing
+                      </span>
+                      {!approvingBusiness.isFeatured && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-snug">
+                      Enlisted under its primary category and general categories (Trending, Newly Verified, All Categories).
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              {/* VERIFICATION BADGE TIER */}
+              <div className="space-y-2 pt-1">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Verification Tier & Badge
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['Gold Enterprise', 'Standard Verified', 'Locally Verified'].map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      onClick={() => setApprovingBusiness({ ...approvingBusiness, badgeType: tier })}
+                      className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
+                        approvingBusiness.badgeType === tier
+                          ? 'bg-emerald-950/70 border-emerald-500 text-emerald-200 ring-1 ring-emerald-500/50'
+                          : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="text-xs font-bold">{tier}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-850 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setApprovingBusiness(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  onApproveVerification(
+                    approvingBusiness.business.id,
+                    approvingBusiness.badgeType,
+                    approvingBusiness.business.coordinates,
+                    approvingBusiness.isFeatured
+                  );
+                  confetti({ particleCount: 80, spread: 70 });
+                  setApprovingBusiness(null);
+                }}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirm & Publish Listing</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Rejection Feedback & Automated Notification Modal */}

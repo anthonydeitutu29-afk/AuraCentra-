@@ -798,7 +798,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   src={logo || 'https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=150&auto=format&fit=crop&q=80'}
                   alt={name}
                   referrerPolicy="no-referrer"
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-amber-500/40 shadow-md ring-2 ring-amber-500/20"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-contain bg-white p-1 border-2 border-amber-500/40 shadow-md ring-2 ring-amber-500/20"
                 />
                 <button
                   type="button"
@@ -1213,40 +1213,8 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   No Direct Messages Yet
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                  When visitors browse your business profile on AuraCentra Ghana and click the <strong>"Direct Message"</strong> button, their chats and contact details will appear here instantly with live sound notifications.
+                  When visitors browse your business profile on AuraCentra Ghana and click the <strong>"Direct Message"</strong> button, their inquiries and contact details will appear here instantly with live sound notifications.
                 </p>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!activeBusiness) return;
-                      // Generate a demo customer message so the owner can test the real-time flow immediately
-                      DirectMessagingService.sendMessage({
-                        businessId: activeBusiness.id,
-                        businessName: activeBusiness.name,
-                        customerId: 'demo_customer_accra',
-                        customerName: 'Kwame Asante',
-                        customerEmail: 'kwame.asante@example.com',
-                        customerPhone: '+233 24 123 4567',
-                        sender: 'customer',
-                        senderName: 'Kwame Asante',
-                        message: `Hello ${activeBusiness.name}! I saw your listing on AuraCentra Ghana and would like to ask about your availability and pricing for this week. Thank you!`,
-                      });
-                      const threads = DirectMessagingService.getThreadsForBusiness(activeBusiness.id);
-                      setDirectMessageThreads(threads);
-                      if (threads.length > 0) setActiveThreadId(threads[0].threadId);
-                      onShowToast(
-                        'Demo Customer Message Received',
-                        'A sample customer inquiry was routed to your inbox. You can test replying now!',
-                        'info'
-                      );
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/20 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Send Test Customer Message</span>
-                  </button>
-                </div>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-[560px]">
@@ -1875,12 +1843,12 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   <p className="text-xs text-slate-500 dark:text-slate-400">Square avatar (1:1 aspect ratio)</p>
                 </div>
 
-                <div className="relative group w-32 h-32 mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/30 shadow-md">
+                <div className="relative group w-32 h-32 mx-auto rounded-3xl overflow-hidden border-2 border-amber-500/30 shadow-md bg-white p-2">
                   <img
                     src={logo || 'https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=300&auto=format&fit=crop&q=80'}
                     alt="Logo"
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                   <button
                     type="button"
@@ -2073,7 +2041,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
-                      <span>Test</span>
+                      <span>Chat</span>
                     </a>
                   )}
                 </div>

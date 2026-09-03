@@ -221,7 +221,7 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
             <img
               src={business.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80'}
               alt={business.name}
-              className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+              className="w-10 h-10 rounded-xl object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-700 shrink-0 relative z-10"
             />
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">

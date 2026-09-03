@@ -94,6 +94,10 @@ export interface Business {
   reviewCount: number;
   verificationStatus: VerificationStatus;
   listingStatus?: 'active' | 'pending_approval' | 'rejected';
+  permanentlyEnlisted?: boolean;
+  isApproved?: boolean;
+  enlistedAt?: string;
+  approvedAt?: string;
   verificationDetails?: {
     verifiedAt: string;
     badgeType: 'Gold Enterprise' | 'Standard Verified' | 'Community Partner' | string;

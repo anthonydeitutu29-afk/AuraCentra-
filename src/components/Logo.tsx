@@ -79,7 +79,7 @@ export const Logo: React.FC<LogoProps> = ({
   if (variant === 'icon') {
     return (
       <div 
-        className={`inline-flex items-center justify-center relative transition-transform hover:scale-105 ${className}`}
+        className={`inline-flex items-center justify-center relative z-10 shrink-0 transition-transform hover:scale-105 ${className}`}
         id="auracentra-icon-logo"
       >
         <AuraCentraLogoSVG size={pixelSizes[size]} className="object-contain" />
@@ -91,7 +91,7 @@ export const Logo: React.FC<LogoProps> = ({
     return (
       <div className={`flex flex-col items-center text-center select-none ${className}`} id="auracentra-brand-stacked">
         {/* Exact Logo Pin Emblem from Image 2 */}
-        <div className="relative mb-1 flex items-center justify-center transition-transform hover:scale-105">
+        <div className="relative z-10 mb-1 flex items-center justify-center shrink-0 transition-transform hover:scale-105">
           <AuraCentraLogoSVG size={pixelSizes[size] * 1.5} />
         </div>
 
@@ -131,9 +131,9 @@ export const Logo: React.FC<LogoProps> = ({
 
   // Default: Horizontal / Full Variant
   return (
-    <div className={`inline-flex items-center gap-2 sm:gap-2.5 select-none ${className}`} id="auracentra-brand-logo">
+    <div className={`inline-flex items-center gap-2 sm:gap-2.5 select-none shrink-0 whitespace-nowrap ${className}`} id="auracentra-brand-logo">
       {/* Official AuraCentra Pin Logo Emblem (Image 2) */}
-      <div className="relative shrink-0 flex items-center justify-center transition-transform hover:scale-105">
+      <div className="relative z-10 shrink-0 flex items-center justify-center transition-transform hover:scale-105">
         <AuraCentraLogoSVG size={pixelSizes[size]} className="object-contain" />
       </div>
 

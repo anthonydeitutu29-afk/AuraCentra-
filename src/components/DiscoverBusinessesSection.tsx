@@ -191,9 +191,19 @@ export const DiscoverBusinessesSection: React.FC<DiscoverBusinessesSectionProps>
                     <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider truncate">
                       {biz.category}
                     </div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
-                      {biz.name}
-                    </h3>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {biz.logo && (
+                        <img
+                          src={biz.logo}
+                          alt=""
+                          className="w-5 h-5 rounded-md object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-800 shrink-0 relative z-10 shadow-2xs"
+                          loading="lazy"
+                        />
+                      )}
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 transition-colors">
+                        {biz.name}
+                      </h3>
+                    </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 truncate">
                       <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{biz.city || biz.region}</span>

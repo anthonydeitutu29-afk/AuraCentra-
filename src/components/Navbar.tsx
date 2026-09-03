@@ -92,19 +92,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-3 sm:gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-6">
         
         {/* Brand Logo & Desktop Navigation */}
-        <div className="flex items-center gap-6 lg:gap-10 min-w-0">
+        <div className="flex items-center gap-4 lg:gap-10 shrink-0">
           <div 
-            className="cursor-pointer shrink-0" 
+            className="cursor-pointer shrink-0 flex items-center select-none" 
             onClick={() => {
               onNavigateSection('home');
               window.scrollTo({ top: 0, behavior: 'smooth' });
               setMobileMenuOpen(false);
             }}
           >
-            <Logo size="md" showTagline={false} />
+            <Logo size="md" showTagline={false} className="shrink-0" />
           </div>
 
           {/* Desktop Navigation Links matching Image 1 */}
@@ -166,8 +166,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
         </div>
 
-        {/* Action Controls matching Image 1: List Your Business & Sign In */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Action Controls: List Your Business & Sign In */}
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto">
           
           {/* Compare Shortcut Pill */}
           {comparedCount > 0 && (
@@ -204,7 +204,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
 
-          {/* Button: List Your Business matching Image 1 */}
+          {/* Button: List Your Business */}
           <button
             type="button"
             id="nav-list-business-btn"
@@ -215,53 +215,57 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>List Your Business</span>
           </button>
 
-          {/* Button: Sign In / User Profile matching Image 1 */}
+          {/* Button: Sign In / User Profile */}
           {currentUser ? (
-            <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 pl-1 sm:pl-1.5 border-l border-slate-200 dark:border-slate-800 shrink-0">
               {currentUser.role === 'admin' ? (
                 <button
                   type="button"
                   id="nav-admin-dashboard-btn"
                   onClick={onOpenAdminDashboard}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
                   title="Open Admin Dashboard"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span>Admin</span>
+                  <span className="hidden xs:inline">Admin</span>
                 </button>
               ) : (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) ? (
                 <button
                   type="button"
                   id="nav-owner-dashboard-btn"
                   onClick={onOpenBusinessDashboard}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white text-[11px] sm:text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer shrink-0"
                   title="Open Business Owner Dashboard"
                 >
                   <Building2 className="w-3.5 h-3.5 text-amber-100 shrink-0" />
-                  <span>My Business</span>
+                  {/* Shortened on mobile to ensure logo is never covered */}
+                  <span className="hidden sm:inline">My Business</span>
+                  <span className="inline sm:hidden font-semibold">Business</span>
                 </button>
               ) : (
                 <button 
                   type="button"
                   id="nav-personal-dashboard-btn"
                   onClick={onOpenPersonalDashboard}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-blue-100 border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-blue-100 border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
                   title={`Signed in as ${currentUser.name} - Open Personal Dashboard`}
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
                     {currentUser.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="max-w-[90px] truncate text-xs font-semibold">
+                  {/* Text hidden on small screens to guarantee full logo clearance */}
+                  <span className="hidden sm:inline max-w-[90px] truncate text-xs font-semibold">
                     {currentUser.name.split(' ')[0]}
                   </span>
                 </button>
               )}
 
+              {/* Desktop-only individual settings and logout (mobile users access via hamburger drawer) */}
               <button
                 type="button"
                 id="nav-account-settings-btn"
                 onClick={onOpenAccountSettings}
-                className="p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="hidden md:inline-flex p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Account & Security Settings / Delete Account"
               >
                 <Settings className="w-4 h-4" />
@@ -270,7 +274,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onSignOut}
-                className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                className="hidden md:inline-flex p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -281,9 +285,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               id="nav-signin-btn"
               onClick={onOpenAuth}
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-600/20 transition-all cursor-pointer shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-600/20 transition-all cursor-pointer shrink-0"
             >
-              <User className="w-4 h-4" />
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Sign In</span>
             </button>
           )}
@@ -428,6 +432,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Settings className="w-4 h-4 text-blue-600" />
                 <span>Account & Security Settings</span>
+              </button>
+            )}
+
+            {currentUser && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSignOut();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sign Out</span>
               </button>
             )}
 

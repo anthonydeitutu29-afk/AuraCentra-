@@ -94,8 +94,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
           loading="lazy"
         />
 
-        {/* Ambient Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/30 pointer-events-none" />
+        {/* Subtle Bottom Ambient Gradient so nothing covers the image */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
 
         {/* Top Badges: Category, Distance & Quick Utility Actions */}
         <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
@@ -214,7 +214,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             <img
               src={business.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80'}
               alt={`${business.name} logo`}
-              className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-slate-800 shrink-0 bg-white p-0.5 shadow-xs"
+              className="w-11 h-11 rounded-xl object-contain border border-slate-200 dark:border-slate-800 shrink-0 bg-white p-1 shadow-xs relative z-10"
               loading="lazy"
             />
             <div className="flex-1 min-w-0">

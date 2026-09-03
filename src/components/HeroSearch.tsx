@@ -341,11 +341,11 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                     className="p-4 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-blue-800/40 hover:border-white/40 hover:bg-white/15 backdrop-blur-md transition-all cursor-pointer group space-y-3 shadow-xl"
                   >
                     <div className="flex items-center gap-3.5">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-900 shrink-0 border border-white/20 relative shadow-md">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shrink-0 border border-white/30 relative shadow-md p-1 z-10">
                         <img 
-                          src={featuredBiz.coverImage || featuredBiz.logo || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=80'} 
+                          src={featuredBiz.logo || featuredBiz.coverImage || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=80'} 
                           alt={featuredBiz.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                         />
                       </div>
                       <div className="flex-1 min-w-0">

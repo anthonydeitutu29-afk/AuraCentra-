@@ -56,7 +56,7 @@ import {
   findRegisteredAccountByEmail,
   isDeletedBusiness
 } from './utils/storage';
-import { autoDetectUserLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
+import { autoDetectUserLocation, requestPreciseLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
 // Subcomponents
 import { Navbar } from './components/Navbar';
@@ -224,6 +224,41 @@ export default function App() {
         );
       }
     });
+  }, [showToast]);
+
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+
+  // Explicit user GPS location request handler
+  const handleRequestUserLocation = useCallback(async (notify: boolean = true) => {
+    setIsLocatingUser(true);
+    try {
+      const loc = await requestPreciseLocation();
+      setUserDetectedLocation({
+        regionName: loc.regionName,
+        cityName: loc.cityName,
+        coords: loc.coords,
+      });
+      setIsAutoDetectedRegion(true);
+      setFilters((prev) => ({
+        ...prev,
+        region: loc.regionName,
+        userLat: loc.coords.lat,
+        userLng: loc.coords.lng,
+        sortBy: 'nearest',
+      }));
+
+      if (notify) {
+        showToast(
+          'Location Accessed Successfully',
+          `GPS active: Displaying businesses and verified professionals near ${loc.cityName}, ${loc.regionName}!`,
+          'success'
+        );
+      }
+    } catch (err) {
+      console.warn('Location detection warning:', err);
+    } finally {
+      setIsLocatingUser(false);
+    }
   }, [showToast]);
 
   // Real-time Firestore sync & backend health check
@@ -630,16 +665,28 @@ export default function App() {
     );
   };
 
-  const handleApproveVerification = (businessId: string, badgeType: string = 'Gold Enterprise', verifiedCoords?: { lat: number; lng: number }) => {
+  const handleApproveVerification = (
+    businessId: string, 
+    badgeType: string = 'Gold Enterprise', 
+    verifiedCoords?: { lat: number; lng: number },
+    isFeatured?: boolean
+  ) => {
     const nowIso = new Date().toISOString();
     let approvedBiz: Business | undefined;
-    setBusinesses((prev) =>
-      prev.map((b) => {
+    const shouldBeFeatured = isFeatured !== undefined ? isFeatured : true;
+
+    setBusinesses((prev) => {
+      const updated = prev.map((b) => {
         if (b.id === businessId) {
           approvedBiz = {
             ...b,
-            listingStatus: 'active', // Enlist officially upon admin approval
+            listingStatus: 'active', // Permanently enlist officially on the site
             verificationStatus: 'verified',
+            isApproved: true,
+            permanentlyEnlisted: true,
+            isFeatured: shouldBeFeatured, // Configured by admin (Featured vs Standard)
+            enlistedAt: nowIso,
+            approvedAt: nowIso,
             updatedAt: nowIso,
             coordinates: verifiedCoords || b.coordinates,
             verificationDetails: {
@@ -661,17 +708,21 @@ export default function App() {
           return approvedBiz;
         }
         return b;
-      })
-    );
+      });
+      // Guarantee immediate permanent local storage persistence
+      saveBusinesses(updated);
+      return updated;
+    });
 
     if (approvedBiz) {
+      // Guarantee persistent Supabase and backend sync
       FirestoreSync.saveBusiness(approvedBiz);
       dispatchApprovalNotification(approvedBiz, badgeType);
     }
 
     showToast(
       'Business Approved & Enlisted',
-      `The business has been verified with ${badgeType} badge and published on AuraCentra Ghana. Automated notification dispatched.`,
+      `"${approvedBiz?.name || 'Business'}" is now permanently published ${shouldBeFeatured ? 'under Featured Business Categories and' : ''} in its category (${approvedBiz?.category || 'General'}) and all general categories (Trending, Popular Near You, Newly Verified).`,
       'success'
     );
   };
@@ -1308,6 +1359,8 @@ export default function App() {
               onOpenNewsTab={() => setCurrentNavTab('news')}
               onOpenQuote={handleOpenQuote}
               onOpenRegister={handleOpenRegisterModal}
+              onRequestLocation={() => handleRequestUserLocation(true)}
+              isLocating={isLocatingUser}
             />
 
           </main>

@@ -242,3 +242,57 @@ export function autoDetectUserLocation(): Promise<AutoDetectedLocationResult> {
     );
   });
 }
+
+/**
+ * On-demand explicit GPS location request with fresh high accuracy
+ */
+export function requestPreciseLocation(): Promise<AutoDetectedLocationResult> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve({
+        regionName: 'Greater Accra',
+        cityName: 'Accra',
+        coords: { lat: 5.6037, lng: -0.1870 },
+        distanceKm: 0,
+        isAutomatic: false,
+        statusMessage: 'Geolocation is not supported by your browser. Defaulting to Greater Accra.',
+      });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const match = getClosestGhanaRegion(latitude, longitude);
+
+        resolve({
+          regionName: match.region.name,
+          cityName: match.region.capital,
+          coords: {
+            lat: latitude,
+            lng: longitude,
+          },
+          distanceKm: match.distanceKm,
+          isAutomatic: true,
+          statusMessage: `Detected GPS location in ${match.region.name} (${match.region.capital}).`,
+        });
+      },
+      (error) => {
+        console.warn('Explicit geolocation request notice:', error.message);
+        resolve({
+          regionName: 'Greater Accra',
+          cityName: 'Accra',
+          coords: { lat: 5.6037, lng: -0.1870 },
+          distanceKm: 0,
+          isAutomatic: false,
+          statusMessage: 'Location permission was not granted. Using Greater Accra.',
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0, // Fresh GPS
+      }
+    );
+  });
+}
