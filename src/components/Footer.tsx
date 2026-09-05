@@ -24,6 +24,7 @@ interface FooterProps {
   onOpenNews?: () => void;
   onOpenAboutUs?: () => void;
   onOpenPricing?: () => void;
+  onOpenSectors?: () => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
 
@@ -32,6 +33,7 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenNews,
   onOpenAboutUs,
   onOpenPricing,
+  onOpenSectors,
   onShowToast,
 }) => {
   const [newsletterEmail, setNewsletterEmail] = useState('');
@@ -104,13 +106,17 @@ export const Footer: React.FC<FooterProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const el = document.getElementById('category-explore-row') || document.getElementById('discover-businesses-section');
-                    el?.scrollIntoView({ behavior: 'smooth' });
+                    if (onOpenSectors) {
+                      onOpenSectors();
+                    } else {
+                      const el = document.getElementById('category-explore-row') || document.getElementById('discover-businesses-section');
+                      el?.scrollIntoView({ behavior: 'smooth' });
+                    }
                   }}
                   className="hover:text-white transition-colors text-left flex items-center gap-1 cursor-pointer"
                 >
                   <ArrowRight className="w-2.5 h-2.5 text-slate-500" />
-                  <span>Browse Categories</span>
+                  <span>Business Sectors & Categories</span>
                 </button>
               </li>
               <li>

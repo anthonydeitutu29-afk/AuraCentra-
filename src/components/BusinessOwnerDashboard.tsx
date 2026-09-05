@@ -852,7 +852,9 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{activeBusiness.rating || 5.0}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {activeBusiness.reviewCount > 0 && activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : 'Unrated'}
+                    </span>
                     <span>({activeBusiness.reviewCount || 0} reviews)</span>
                   </span>
                   <span>•</span>
@@ -1072,7 +1074,9 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
               </div>
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs">
                 <span className="text-slate-400 font-bold block mb-1">Average Star Rating</span>
-                <span className="text-lg font-black text-amber-500">{activeBusiness.rating || 5.0} ★ ({businessReviews.length})</span>
+                <span className="text-lg font-black text-amber-500">
+                  {activeBusiness.reviewCount > 0 && activeBusiness.rating > 0 ? `${activeBusiness.rating.toFixed(1)} ★` : 'Unrated'} ({businessReviews.length})
+                </span>
               </div>
             </div>
 

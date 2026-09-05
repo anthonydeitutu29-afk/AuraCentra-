@@ -124,7 +124,10 @@ export function getStoredCategories(): Category[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Merge with INITIAL_CATEGORIES to ensure all standard sectors exist
+        const existingIds = new Set(parsed.map((c) => c.id));
+        const missingDefaults = INITIAL_CATEGORIES.filter((c) => !existingIds.has(c.id));
+        return [...parsed, ...missingDefaults];
       }
     }
   } catch (e) {

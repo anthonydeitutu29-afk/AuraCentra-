@@ -25,7 +25,9 @@ import {
   Copy,
   Flag,
   Send,
-  AlertCircle
+  AlertCircle,
+  Star,
+  ThumbsUp
 } from 'lucide-react';
 import { Business, BusinessReview, UserProfile, BusinessReport } from '../types';
 import confetti from 'canvas-confetti';
@@ -55,6 +57,9 @@ interface BusinessDetailsModalProps {
   }) => void;
   currentUser: UserProfile | null;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  reviews?: BusinessReview[];
+  onAddReview?: (review: BusinessReview) => void;
+  onHelpfulVote?: (reviewId: string) => void;
 }
 
 export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
@@ -72,6 +77,9 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
   onReportBusiness,
   currentUser,
   onShowToast,
+  reviews = [],
+  onAddReview,
+  onHelpfulVote,
 }) => {
   // Gallery Carousel State
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -93,6 +101,16 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
   const [reporterName, setReporterName] = useState(currentUser?.name || '');
   const [reporterContact, setReporterContact] = useState(currentUser?.email || currentUser?.phone || '');
 
+  // Review & Rating State
+  const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
+  const [ratingInput, setRatingInput] = useState<number>(5);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [reviewerName, setReviewerName] = useState(currentUser?.name || '');
+  const [reviewerRole, setReviewerRole] = useState<'customer' | 'business'>('customer');
+  const [reviewerCompany, setReviewerCompany] = useState('');
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
   // Touch Swipe for Gallery
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
@@ -102,6 +120,60 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
   const [copiedTemplate, setCopiedTemplate] = useState(false);
 
   if (!isOpen || !business) return null;
+
+  // Real Reviews for this business
+  const businessReviews = reviews.filter((r) => r.businessId === business.id);
+  const totalReviews = businessReviews.length;
+  const calculatedRating = totalReviews > 0
+    ? Number((businessReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1))
+    : (business.reviewCount > 0 && business.rating > 0 ? business.rating : 0);
+
+  const handleReviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ratingInput || !reviewComment.trim()) {
+      alert('Please select a star rating and enter a review comment.');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+
+    const displayName = reviewerRole === 'business' && reviewerCompany.trim()
+      ? `${reviewerName.trim() || 'Representative'} (${reviewerCompany.trim()})`
+      : (reviewerName.trim() || currentUser?.name || 'Verified Customer');
+
+    const createdReview: BusinessReview = {
+      id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      businessId: business.id,
+      userName: displayName,
+      userEmail: currentUser?.email,
+      rating: ratingInput,
+      date: new Date().toISOString().split('T')[0],
+      comment: reviewComment.trim(),
+      helpfulCount: 0,
+    };
+
+    if (onAddReview) {
+      onAddReview(createdReview);
+    }
+
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.6 }
+    });
+
+    if (onShowToast) {
+      onShowToast(
+        'Review & Rating Submitted',
+        `Thank you for rating ${business.name} with ${ratingInput} stars! The business rating has been updated.`,
+        'success'
+      );
+    }
+
+    setReviewComment('');
+    setIsReviewFormOpen(false);
+    setIsSubmittingReview(false);
+  };
 
   const galleryImages = business.gallery && business.gallery.length > 0 
     ? business.gallery 
@@ -230,9 +302,38 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
                   <CheckCircle2 className="w-4 h-4 text-blue-600 fill-blue-50 shrink-0" />
                 )}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {business.city}, {business.region} • {business.category}
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  {business.city}, {business.region} • {business.category}
+                </p>
+                <div className="flex items-center gap-1.5 text-xs">
+                  {totalReviews > 0 && calculatedRating > 0 ? (
+                    <div className="flex items-center gap-1 font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-900/50">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      <span>{calculatedRating.toFixed(1)}</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-normal text-[11px]">
+                        ({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                      <Star className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+                      <span>Unrated</span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsReviewFormOpen(true);
+                      const el = document.getElementById(`reviews-section-${business.id}`);
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="text-[11px] font-bold text-[#155DFC] hover:underline cursor-pointer"
+                  >
+                    ★ Rate & Review
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -802,6 +903,352 @@ export const BusinessDetailsModal: React.FC<BusinessDetailsModalProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* 4. Verified Ratings & Customer / Enterprise Reviews Hub */}
+          <div id={`reviews-section-${business.id}`} className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+                  <span>Ratings & Verified Reviews</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Directory ratings are strictly calculated from real user reviews. No business is automatically given 5 stars.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                id={`open-review-form-btn-${business.id}`}
+                onClick={() => setIsReviewFormOpen(!isReviewFormOpen)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md hover:shadow-blue-600/20 transition-all cursor-pointer shrink-0"
+              >
+                <Star className="w-4 h-4 fill-amber-300 text-amber-300" />
+                <span>{isReviewFormOpen ? 'Close Review Form' : 'Rate & Leave Review'}</span>
+              </button>
+            </div>
+
+            {/* Aggregate Score & Distribution Card */}
+            <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+              {/* Left: Overall Big Score */}
+              <div className="text-center md:text-left md:border-r border-slate-200 dark:border-slate-700 md:pr-6">
+                {totalReviews > 0 && calculatedRating > 0 ? (
+                  <>
+                    <div className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+                      {calculatedRating.toFixed(1)}
+                    </div>
+                    <div className="flex items-center justify-center md:justify-start gap-1 my-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-4 h-4 ${
+                            star <= Math.round(calculatedRating)
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-slate-300 dark:text-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Based on {totalReviews} {totalReviews === 1 ? 'verified review' : 'verified reviews'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-slate-400 dark:text-slate-500">
+                      Unrated
+                    </div>
+                    <div className="flex items-center justify-center md:justify-start gap-1 my-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      No ratings yet. Your review will set the initial rating!
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Middle: Star breakdown */}
+              <div className="md:col-span-2 space-y-1.5">
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const countForStar = businessReviews.filter((r) => r.rating === stars).length;
+                  const percent = totalReviews > 0 ? Math.round((countForStar / totalReviews) * 100) : 0;
+                  return (
+                    <div key={stars} className="flex items-center gap-3 text-xs">
+                      <span className="w-12 text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1">
+                        <span>{stars}</span>
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      </span>
+                      <div className="flex-1 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                        <div
+                          className="h-full bg-amber-400 rounded-full transition-all duration-500"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <span className="w-10 text-right text-slate-400 font-mono text-[11px]">
+                        {countForStar}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Interactive Review Submission Form */}
+            {isReviewFormOpen && (
+              <form
+                onSubmit={handleReviewSubmit}
+                className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border-2 border-blue-500/50 shadow-lg space-y-4 animate-in fade-in slide-in-from-top-2 duration-200"
+              >
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <span>Rate & Review {business.name}</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-400">Authentic Rating System</span>
+                </div>
+
+                {/* Reviewer Role Toggle */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Are you reviewing as a Client or as a Business Partner?
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setReviewerRole('customer')}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        reviewerRole === 'customer'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-500'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      Customer / Client
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReviewerRole('business')}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        reviewerRole === 'business'
+                          ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-500'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      Business / Enterprise Partner
+                    </button>
+                  </div>
+                </div>
+
+                {/* Star Rating Selector */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Your Rating (1 to 5 Stars) *
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(null)}
+                          onClick={() => setRatingInput(star)}
+                          className="p-1 cursor-pointer transition-transform hover:scale-110 active:scale-95"
+                          aria-label={`Rate ${star} star`}
+                        >
+                          <Star
+                            className={`w-7 h-7 ${
+                              star <= (hoverRating ?? ratingInput)
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-slate-300 dark:text-slate-600'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 ml-2">
+                      {(hoverRating ?? ratingInput) === 5 && '5.0 - Exceptional'}
+                      {(hoverRating ?? ratingInput) === 4 && '4.0 - Very Good'}
+                      {(hoverRating ?? ratingInput) === 3 && '3.0 - Good'}
+                      {(hoverRating ?? ratingInput) === 2 && '2.0 - Fair'}
+                      {(hoverRating ?? ratingInput) === 1 && '1.0 - Needs Improvement'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Name and Enterprise fields */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Your Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Samuel K. Addo"
+                      value={reviewerName}
+                      onChange={(e) => setReviewerName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  {reviewerRole === 'business' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Your Enterprise / Organization Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Apex Logistics Ltd"
+                        value={reviewerCompany}
+                        onChange={(e) => setReviewerCompany(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Review Text */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Your Review & Experience *
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Describe your customer experience, timeliness, pricing transparency, product quality..."
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsReviewFormOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReview}
+                    className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSubmittingReview ? 'Submitting...' : 'Post Rating & Review'}</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* List of Reviews */}
+            {businessReviews.length > 0 ? (
+              <div className="space-y-3">
+                {businessReviews.map((rev) => (
+                  <div
+                    key={rev.id}
+                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2.5 shadow-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center">
+                          {rev.userName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <span>{rev.userName}</span>
+                            {rev.userName.includes('(') ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 font-semibold border border-purple-200 dark:border-purple-800">
+                                Business Partner
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800">
+                                Verified Client
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            {rev.date || 'Recent review'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Stars */}
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-3.5 h-3.5 ${
+                              s <= rev.rating
+                                ? 'fill-amber-400 text-amber-400'
+                                : 'text-slate-200 dark:text-slate-700'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {rev.comment}
+                    </p>
+
+                    {/* Helpful Vote */}
+                    <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+                      <button
+                        type="button"
+                        onClick={() => onHelpfulVote && onHelpfulVote(rev.id)}
+                        className="inline-flex items-center gap-1 text-slate-500 dark:text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span>Helpful ({rev.helpfulCount || 0})</span>
+                      </button>
+
+                      {rev.reply && (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          ✓ Enterprise Responded
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Owner Response */}
+                    {rev.reply && (
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs mt-2">
+                        <p className="font-bold text-slate-800 dark:text-slate-200 mb-0.5">
+                          Response from {business.name}:
+                        </p>
+                        <p className="text-slate-600 dark:text-slate-400">
+                          {rev.reply.comment}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700">
+                <Star className="w-8 h-8 text-amber-300 mx-auto mb-2 opacity-60" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  No ratings or reviews yet
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto mt-1 mb-3">
+                  This business is currently unrated. Customers and partner enterprises determine business ratings on AuraCentra.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsReviewFormOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                  <span>Be the First to Rate this Business</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -25,8 +25,9 @@ import { UserProfile } from '../types';
 import { Logo } from './Logo';
 
 interface NavbarProps {
-  currentSection: 'home' | 'news';
-  onNavigateSection: (section: 'home' | 'news') => void;
+  currentSection: 'home' | 'news' | 'sectors';
+  onNavigateSection: (section: 'home' | 'news' | 'sectors') => void;
+  onOpenSectors?: () => void;
   onOpenAboutUs: () => void;
   onOpenPricing: () => void;
   currentUser: UserProfile | null;
@@ -51,6 +52,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   currentSection,
   onNavigateSection,
+  onOpenSectors,
   onOpenAboutUs,
   onOpenPricing,
   currentUser,
@@ -124,6 +126,26 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               Explore
+            </button>
+
+            {/* Sectors / Business Categories Section */}
+            <button
+              type="button"
+              id="desktop-nav-sectors-btn"
+              onClick={() => {
+                onNavigateSection('sectors');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
+                currentSection === 'sectors'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 font-extrabold'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'
+              }`}
+            >
+              <span>Sectors</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-black">
+                All Categories
+              </span>
             </button>
 
             {/* Business News (Dedicated Section) */}
@@ -323,6 +345,24 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               Explore (Home)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onNavigateSection('sectors');
+                setMobileMenuOpen(false);
+              }}
+              className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
+                currentSection === 'sectors'
+                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
+                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>Sectors & Business Categories</span>
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px]">
+                All Categories
+              </span>
             </button>
 
             <button 

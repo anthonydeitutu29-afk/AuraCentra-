@@ -15,7 +15,8 @@ import {
   Check,
   Globe,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Star
 } from 'lucide-react';
 import { Business } from '../types';
 
@@ -46,6 +47,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
   onOpenQuote,
   onOpenQR,
   onShare,
+  onRate,
 }) => {
   const [justShared, setJustShared] = useState(false);
 
@@ -242,6 +244,36 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                 {business.digitalAddress}
               </span>
             )}
+          </div>
+
+          {/* Authentic Rating Row - Determined exclusively by verified ratings */}
+          <div className="flex items-center justify-between gap-1.5 text-xs mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800/80">
+            {business.reviewCount > 0 && business.rating > 0 ? (
+              <div className="flex items-center gap-1.5 text-amber-500 font-bold">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>{business.rating.toFixed(1)}</span>
+                <span className="text-slate-500 dark:text-slate-400 font-normal text-[11px]">
+                  ({business.reviewCount} {business.reviewCount === 1 ? 'review' : 'reviews'})
+                </span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                <Star className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+                <span>Unrated (No reviews yet)</span>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onRate) onRate(business);
+                else onSelect(business);
+              }}
+              className="text-[11px] font-bold text-[#155DFC] hover:text-blue-700 hover:underline cursor-pointer flex items-center gap-0.5"
+            >
+              <span>Rate & Review</span>
+            </button>
           </div>
 
           {/* Tagline / Brief Description */}

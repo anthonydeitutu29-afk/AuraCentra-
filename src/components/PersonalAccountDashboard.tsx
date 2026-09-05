@@ -421,10 +421,16 @@ export const PersonalAccountDashboard: React.FC<PersonalAccountDashboardProps> =
                           <MapPin className="w-3.5 h-3.5 text-slate-400" />
                           {biz.city}, {biz.region}
                         </span>
-                        <span className="flex items-center gap-1 font-bold text-amber-500">
-                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          {biz.rating?.toFixed(1) || '5.0'}
-                        </span>
+                        {biz.reviewCount > 0 && biz.rating > 0 ? (
+                          <span className="flex items-center gap-1 font-bold text-amber-500">
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            {biz.rating.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-normal">
+                            Unrated
+                          </span>
+                        )}
                       </div>
                     </div>
                   );

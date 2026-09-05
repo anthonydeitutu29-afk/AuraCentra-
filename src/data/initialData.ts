@@ -81,6 +81,60 @@ export const INITIAL_CATEGORIES: Category[] = [
     description: 'Chartered accountants, corporate legal consultants, immigration specialists, and translation agencies.',
     itemCount: 0,
     featuredImageUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'agriculture',
+    name: 'Agriculture & Agribusiness',
+    slug: 'agriculture',
+    iconName: 'Sprout',
+    description: 'Commercial farms, cocoa & cashew aggregators, poultry feed suppliers, tractors, and agricultural exports.',
+    itemCount: 0,
+    featuredImageUrl: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'hospitality',
+    name: 'Hospitality, Hotels & Tourism',
+    slug: 'hospitality',
+    iconName: 'Hotel',
+    description: 'Luxury safari resorts, beachfront boutique hotels, eco-lodges, event venues, and tour operators.',
+    itemCount: 0,
+    featuredImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'education',
+    name: 'Education, Academies & Training',
+    slug: 'education',
+    iconName: 'GraduationCap',
+    description: 'Accredited universities, international STEM schools, coding academies, and executive corporate training.',
+    itemCount: 0,
+    featuredImageUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'beauty',
+    name: 'Beauty, Hair & Spa Wellness',
+    slug: 'beauty',
+    iconName: 'Sparkles',
+    description: 'Executive barbering, luxury bridal makeup, organic shea skincare, dermatological spas, and cosmetics.',
+    itemCount: 0,
+    featuredImageUrl: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'logistics',
+    name: 'Logistics, Freight & Delivery',
+    slug: 'logistics',
+    iconName: 'Truck',
+    description: 'Tema port clearing and forwarding agents, intercity cold-chain haulage, motorbike dispatch, and cargo warehousing.',
+    itemCount: 0,
+    featuredImageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80'
+  },
+  {
+    id: 'financial-services',
+    name: 'Financial Services & Microfinance',
+    slug: 'financial-services',
+    iconName: 'Landmark',
+    description: 'Licensed savings & loans, insurance underwriters, Mobile Money merchant aggregators, and audit firms.',
+    itemCount: 0,
+    featuredImageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&q=80'
   }
 ];
 

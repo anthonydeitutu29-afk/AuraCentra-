@@ -277,7 +277,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       digitalAddress: gpsCheck.isValid ? gpsCheck.formattedAddress : (digitalAddress.trim() || 'GA-019-4821'),
       coordinates: verifiedCoordinates,
       priceLevel: '$$',
-      rating: 5.0,
+      rating: 0,
       reviewCount: 0,
       verificationStatus: 'pending',
       listingStatus: 'pending_approval', // Requires Admin Approval

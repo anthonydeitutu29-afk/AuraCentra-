@@ -42,9 +42,14 @@ export interface BusinessReview {
   comment: string;
   photos?: string[];
   helpfulCount: number;
+  reviewerRole?: 'business' | 'customer';
   ownerReply?: {
     date: string;
     text: string;
+  };
+  reply?: {
+    date?: string;
+    comment: string;
   };
 }
 

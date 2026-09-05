@@ -210,7 +210,7 @@ export function mapSupabaseToBusiness(row: any): Business {
     digitalAddress: row.digital_address || row.digitalAddress || '',
     coordinates: row.coordinates || { lat: 5.6037, lng: -0.1870 },
     priceLevel: row.price_level || row.priceLevel || '$$',
-    rating: Number(row.rating) || 5.0,
+    rating: row.rating !== null && row.rating !== undefined ? Number(row.rating) : 0,
     reviewCount: Number(row.review_count || row.reviewCount) || 0,
     verificationStatus: row.verification_status || row.verificationStatus || 'pending',
     listingStatus: row.listing_status || row.listingStatus || 'pending_approval',

@@ -144,8 +144,9 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
       .map(([id, group]) => {
         const count = group.businesses.length;
         const verifiedCount = group.businesses.filter((b) => b.verificationStatus === 'verified').length;
-        const totalRating = group.businesses.reduce((acc, b) => acc + (b.rating || 4.5), 0);
-        const avgRating = count > 0 ? Number((totalRating / count).toFixed(1)) : 4.8;
+        const ratedBusinesses = group.businesses.filter((b) => b.reviewCount > 0 && b.rating > 0);
+        const totalRating = ratedBusinesses.reduce((acc, b) => acc + b.rating, 0);
+        const avgRating = ratedBusinesses.length > 0 ? Number((totalRating / ratedBusinesses.length).toFixed(1)) : 0;
 
         const totalLat = group.businesses.reduce((acc, b) => acc + (b.coordinates?.lat || 5.6037), 0);
         const totalLng = group.businesses.reduce((acc, b) => acc + (b.coordinates?.lng || -0.1870), 0);
@@ -184,12 +185,11 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
       .sort((a, b) => b.count - a.count);
   }, [allBusinesses]);
 
-  if (!isOpen || !business) return null;
-
   const currentBusiness = activeBusiness || business;
 
   // Determine active cluster
   const currentCluster = useMemo(() => {
+    if (!currentBusiness) return clusters[0] || null;
     if (selectedClusterId !== 'auto') {
       const match = clusters.find((c) => c.id === selectedClusterId);
       if (match) return match;
@@ -200,6 +200,8 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     );
     return autoMatch || clusters[0] || null;
   }, [clusters, selectedClusterId, currentBusiness]);
+
+  if (!isOpen || !business) return null;
 
   // Coordinates calculation based on map mode
   let activeLat = currentBusiness.coordinates.lat;

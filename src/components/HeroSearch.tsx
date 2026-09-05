@@ -20,6 +20,7 @@ interface HeroSearchProps {
   onClearSearchHistory: () => void;
   onSelectBusiness: (business: Business) => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
+  onOpenSectors?: () => void;
   isAutoDetectedRegion?: boolean;
 }
 
@@ -33,6 +34,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
   onAddSearchHistory,
   onSelectBusiness,
   onShowToast,
+  onOpenSectors,
 }) => {
   const [inputValue, setInputValue] = useState(filters.searchQuery);
   const [selectedRegion, setSelectedRegion] = useState(filters.region || '');
@@ -273,7 +275,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
 
                 {showMorePills && (
                   <div className="absolute left-0 mt-1.5 w-44 bg-white dark:bg-[#0c1c42] border border-blue-200 dark:border-blue-800 rounded-xl shadow-xl p-1.5 z-40 space-y-1">
-                    {['Technology', 'Real Estate', 'Healthcare', 'Legal Services'].map((item) => (
+                    {['Technology', 'Real Estate', 'Healthcare', 'Legal Services', 'Digital Marketing', 'Agriculture', 'Hospitality'].map((item) => (
                       <button
                         key={item}
                         type="button"
@@ -365,8 +367,16 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           <span>•</span>
                           <span className="text-blue-200 font-semibold">{featuredBiz.category}</span>
                         </div>
-                        <div className="text-xs text-amber-300 font-bold flex items-center gap-1 mt-1">
-                          ★ {featuredBiz.rating.toFixed(1)} <span className="text-blue-200/70 font-normal">({featuredBiz.reviewCount} reviews)</span>
+                        <div className="text-xs font-bold flex items-center gap-1 mt-1">
+                          {featuredBiz.reviewCount > 0 && featuredBiz.rating > 0 ? (
+                            <span className="text-amber-300 flex items-center gap-1">
+                              ★ {featuredBiz.rating.toFixed(1)} <span className="text-blue-200/70 font-normal">({featuredBiz.reviewCount} {featuredBiz.reviewCount === 1 ? 'review' : 'reviews'})</span>
+                            </span>
+                          ) : (
+                            <span className="text-blue-200/70 font-normal">
+                              ★ Unrated (0 reviews)
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

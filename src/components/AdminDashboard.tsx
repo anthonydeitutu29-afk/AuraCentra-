@@ -1523,8 +1523,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       digitalAddress: 'GA-019-4821',
                       coordinates: { lat: 5.6037, lng: -0.1870 },
                       priceLevel: '$$',
-                      rating: 5.0,
-                      reviewCount: 1,
+                      rating: 0,
+                      reviewCount: 0,
                       verificationStatus: 'verified',
                       listingStatus: 'active',
                       verificationDetails: {

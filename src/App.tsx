@@ -92,6 +92,7 @@ import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection'
 import { NewsArticleModal } from './components/NewsArticleModal';
 import { SecureLogoutModal } from './components/SecureLogoutModal';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
+import { SectorsPage } from './components/SectorsPage';
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
 import { FirestoreSync } from './services/dbSync';
@@ -148,8 +149,8 @@ export default function App() {
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
   const [feedback, setFeedback] = useState<PlatformFeedback[]>(getStoredFeedback);
 
-  // Navigation section state: 'home' | 'news'
-  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news'>('home');
+  // Navigation section state: 'home' | 'news' | 'sectors'
+  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news' | 'sectors'>('home');
 
   // Modals state
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
@@ -170,6 +171,8 @@ export default function App() {
   const [isSecureLogoutModalOpen, setIsSecureLogoutModalOpen] = useState(false);
   const [isAccountSettingsModalOpen, setIsAccountSettingsModalOpen] = useState(false);
   const [selectedBusinessForReview, setSelectedBusinessForReview] = useState<Business | null>(null);
+  const [isSectorsModalOpen, setIsSectorsModalOpen] = useState(false);
+  const [initialCategoryForSectors, setInitialCategoryForSectors] = useState<string | null>(null);
 
   // Filters & Location Auto-Detection State
   const initialFilters: FilterState = {
@@ -600,31 +603,65 @@ export default function App() {
   };
 
   const handleAddReview = (newReview: BusinessReview) => {
-    setReviews((prev) => [newReview, ...prev]);
-    FirestoreSync.saveReview(newReview);
-    setBusinesses((prev) =>
-      prev.map((b) => {
-        if (b.id === newReview.businessId) {
-          const newCount = b.reviewCount + 1;
-          const newRating = Number(((b.rating * b.reviewCount + newReview.rating) / newCount).toFixed(1));
-          const updatedBiz = { ...b, reviewCount: newCount, rating: newRating };
-          FirestoreSync.saveBusiness(updatedBiz);
-          return updatedBiz;
-        }
-        return b;
-      })
+    setReviews((prevReviews) => {
+      const updatedReviews = [newReview, ...prevReviews];
+      saveReviews(updatedReviews);
+      FirestoreSync.saveReview(newReview);
+
+      // Recalculate business rating based exclusively on authentic user/business reviews
+      setBusinesses((prev) => {
+        const updated = prev.map((b) => {
+          if (b.id === newReview.businessId) {
+            const bizReviews = updatedReviews.filter((r) => r.businessId === b.id);
+            const totalReviews = bizReviews.length;
+            const sumRating = bizReviews.reduce((acc, curr) => acc + curr.rating, 0);
+            const newAvgRating = totalReviews > 0 ? Number((sumRating / totalReviews).toFixed(1)) : 0;
+            
+            const updatedBiz: Business = {
+              ...b,
+              rating: newAvgRating,
+              reviewCount: totalReviews,
+              updatedAt: new Date().toISOString()
+            };
+
+            setSelectedBusiness((currentSelected) => {
+              if (currentSelected && currentSelected.id === b.id) {
+                return updatedBiz;
+              }
+              return currentSelected;
+            });
+
+            FirestoreSync.saveBusiness(updatedBiz);
+            return updatedBiz;
+          }
+          return b;
+        });
+        saveBusinesses(updated);
+        return updated;
+      });
+
+      return updatedReviews;
+    });
+
+    showToast(
+      'Rating & Review Submitted!',
+      `Your verified rating (${newReview.rating}★) for this business has been recorded.`,
+      'success'
     );
   };
 
   const handleHelpfulVote = (reviewId: string) => {
-    setReviews((prev) =>
-      prev.map((r) => {
+    setReviews((prev) => {
+      const updated = prev.map((r) => {
         if (r.id === reviewId) {
           return { ...r, helpfulCount: (r.helpfulCount || 0) + 1 };
         }
         return r;
-      })
-    );
+      });
+      saveReviews(updated);
+      return updated;
+    });
+    showToast('Feedback Noted', 'Thank you for your vote on this review.', 'info');
   };
 
   const handleUpdateBusiness = (updated: Business) => {
@@ -1269,7 +1306,14 @@ export default function App() {
       {/* 1. Global Navigation Bar matching Image 1 */}
       <Navbar
         currentSection={currentNavTab}
-        onNavigateSection={(sec) => setCurrentNavTab(sec)}
+        onNavigateSection={(sec) => {
+          setCurrentNavTab(sec);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenSectors={() => {
+          setCurrentNavTab('sectors');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onOpenAboutUs={() => {
           setAboutUsInitialTab('about');
           setIsAboutUsModalOpen(true);
@@ -1297,7 +1341,7 @@ export default function App() {
         onSharePlatform={handleSharePlatform}
       />
 
-      {/* Conditional Rendering: Dedicated Business News View OR Home Discovery Flow */}
+      {/* Conditional Rendering: Dedicated Business News View OR Sectors Page OR Home Discovery Flow */}
       {currentNavTab === 'news' ? (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 animate-in fade-in duration-200">
           <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
@@ -1327,6 +1371,23 @@ export default function App() {
             onShowToast={showToast}
           />
         </main>
+      ) : currentNavTab === 'sectors' ? (
+        <SectorsPage
+          categories={categories}
+          businesses={businesses}
+          initialCategoryId={initialCategoryForSectors}
+          onSelectBusiness={(b) => setSelectedBusiness(b)}
+          onFilterByCategoryOnHome={(catId) => {
+            handleFilterChange({ category: catId });
+            setCurrentNavTab('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenRegister={handleOpenRegisterModal}
+          onBackToHome={() => {
+            setCurrentNavTab('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       ) : (
         <>
           {/* 2. Hero & Unified Search Section matching Image 2 */}
@@ -1341,6 +1402,7 @@ export default function App() {
             onClearSearchHistory={handleClearSearchHistory}
             onSelectBusiness={(b) => setSelectedBusiness(b)}
             onShowToast={showToast}
+            onOpenSectors={() => setCurrentNavTab('sectors')}
             isAutoDetectedRegion={isAutoDetectedRegion}
           />
 
@@ -1390,8 +1452,12 @@ export default function App() {
         onReportBusiness={handleReportBusiness}
         currentUser={currentUser}
         onShowToast={showToast}
+        reviews={reviews}
+        onAddReview={handleAddReview}
+        onHelpfulVote={handleHelpfulVote}
       />
 
+      {/* Suggest Category Modal */}
       <SuggestCategoryModal
         isOpen={isSuggestCategoryOpen}
         onClose={() => setIsSuggestCategoryOpen(false)}
@@ -1542,6 +1608,10 @@ export default function App() {
           setAboutUsInitialTab('pricing');
           setIsAboutUsModalOpen(true);
         }}
+        onOpenSectors={() => {
+          setCurrentNavTab('sectors');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         onShowToast={showToast}
       />
 
@@ -1558,9 +1628,12 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onScrollToCategories={() => {
-          setCurrentNavTab('home');
-          const el = document.getElementById('category-explore-row');
-          el?.scrollIntoView({ behavior: 'smooth' });
+          setCurrentNavTab('sectors');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenSectors={() => {
+          setCurrentNavTab('sectors');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onScrollToDirectory={() => {
           setCurrentNavTab('home');

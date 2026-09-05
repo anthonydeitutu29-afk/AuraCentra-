@@ -212,11 +212,18 @@ export const DiscoverBusinessesSection: React.FC<DiscoverBusinessesSectionProps>
 
                   {/* Footer of Card: Rating & Verified Badge */}
                   <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span>{biz.rating?.toFixed(1) || '4.8'}</span>
-                      <span className="text-slate-400 font-normal text-[11px]">({biz.reviewCount || 42})</span>
-                    </div>
+                    {biz.reviewCount > 0 && biz.rating > 0 ? (
+                      <div className="flex items-center gap-1 font-bold text-slate-700 dark:text-slate-300">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>{biz.rating.toFixed(1)}</span>
+                        <span className="text-slate-400 font-normal text-[11px]">({biz.reviewCount} {biz.reviewCount === 1 ? 'review' : 'reviews'})</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-slate-400 text-[11px] font-medium">
+                        <Star className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
+                        <span>Unrated (0 reviews)</span>
+                      </div>
+                    )}
 
                     {biz.verificationStatus === 'verified' && (
                       <div className="flex items-center gap-1 text-blue-600 dark:text-cyan-400 text-[11px] font-bold">

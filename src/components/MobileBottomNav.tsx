@@ -29,6 +29,7 @@ interface MobileBottomNavProps {
   onToggleTheme?: () => void;
   onScrollToTop: () => void;
   onScrollToCategories: () => void;
+  onOpenSectors?: () => void;
   onScrollToDirectory: () => void;
   onOpenRegister: () => void;
   onOpenSaved: () => void;
@@ -52,6 +53,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onToggleTheme,
   onScrollToTop,
   onScrollToCategories,
+  onOpenSectors,
   onScrollToDirectory,
   onOpenRegister,
   onOpenSaved,
@@ -143,9 +145,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           {/* Tab 2: Sectors / Categories */}
           <button
             type="button"
-            onClick={onScrollToCategories}
+            onClick={onOpenSectors || onScrollToCategories}
             className="flex flex-col items-center justify-center py-1 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-cyan-400 active:scale-95 transition-all cursor-pointer"
             aria-label="Browse Sectors"
+            id="mobile-nav-sectors-btn"
           >
             <Grid className="w-5 h-5 mb-0.5" />
             <span className="text-[10px] font-bold tracking-tight">Sectors</span>
