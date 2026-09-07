@@ -68,6 +68,7 @@ import { DualCtaBanner } from './components/DualCtaBanner';
 import { AboutUsModal } from './components/AboutUsModal';
 import { BusinessCard } from './components/BusinessCard';
 import { BusinessDetailsModal } from './components/BusinessDetailsModal';
+import { BusinessPage } from './components/BusinessPage';
 import { BusinessComparisonModal } from './components/BusinessComparisonModal';
 import { LocationMapModal } from './components/LocationMapModal';
 import { AuthModal } from './components/AuthModal';
@@ -304,6 +305,42 @@ export default function App() {
     }
     localStorage.setItem('auracentra_theme', theme);
   }, [theme]);
+
+  // Handle URL hash navigation for business profile (e.g. #business-tonys-digital-marketing)
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#business-')) {
+        const idOrSlug = hash.replace('#business-', '');
+        const found = businesses.find((b) => b.id === idOrSlug || b.slug === idOrSlug);
+        if (found) {
+          setSelectedBusiness(found);
+          document.title = `${found.name} | AuraCentra Ghana`;
+        }
+      } else if (!hash.includes('business-') && selectedBusiness) {
+        setSelectedBusiness(null);
+        document.title = 'AuraCentra | Verified Ghana Business Directory & Economic Hub';
+      }
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, [businesses]);
+
+  const handleSelectBusiness = (b: Business) => {
+    setSelectedBusiness(b);
+    window.location.hash = `business-${b.slug || b.id}`;
+    document.title = `${b.name} | AuraCentra Ghana`;
+  };
+
+  const handleCloseBusinessPage = () => {
+    setSelectedBusiness(null);
+    if (window.location.hash.startsWith('#business-')) {
+      window.history.pushState(null, '', window.location.pathname + window.location.search);
+    }
+    document.title = 'AuraCentra | Verified Ghana Business Directory & Economic Hub';
+  };
 
   // Synchronize Live Profile and Admin Role from Supabase + Subscribe to Supabase Auth State
   useEffect(() => {
@@ -1208,7 +1245,7 @@ export default function App() {
           onBackToPortal={() => setCurrentView('portal')}
           onSignOut={handleSignOut}
           onOpenLivePreview={(b) => {
-            setSelectedBusiness(b);
+            handleSelectBusiness(b);
             setCurrentView('portal');
           }}
           onOpenCertificateModal={(b) => {
@@ -1223,7 +1260,7 @@ export default function App() {
           onAccountDeleted={handleAccountDeleted}
           onShowToast={showToast}
           onOpenBusiness={(b) => {
-            setSelectedBusiness(b);
+            handleSelectBusiness(b);
             setCurrentView('portal');
           }}
         />
@@ -1261,7 +1298,7 @@ export default function App() {
           }}
           onToggleSaveBusiness={handleToggleSave}
           onOpenBusinessDetails={(biz) => {
-            setSelectedBusiness(biz);
+            handleSelectBusiness(biz);
           }}
           onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
           onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
@@ -1273,7 +1310,7 @@ export default function App() {
           <BusinessDetailsModal
             business={selectedBusiness}
             isOpen={!!selectedBusiness}
-            onClose={() => setSelectedBusiness(null)}
+            onClose={handleCloseBusinessPage}
             isSaved={savedBusinessIds.includes(selectedBusiness.id)}
             onToggleSave={handleToggleSave}
             isCompared={comparedBusinessIds.includes(selectedBusiness.id)}
@@ -1285,6 +1322,9 @@ export default function App() {
             onReportBusiness={handleReportBusiness}
             currentUser={currentUser}
             onShowToast={showToast}
+            reviews={reviews}
+            onAddReview={handleAddReview}
+            onHelpfulVote={handleHelpfulVote}
           />
         )}
         <AccountSettingsModal
@@ -1353,8 +1393,43 @@ export default function App() {
         onSharePlatform={handleSharePlatform}
       />
 
-      {/* Conditional Rendering: Dedicated Business News View OR Sectors Page OR Home Discovery Flow */}
-      {currentNavTab === 'news' ? (
+      {/* Conditional Rendering: Dedicated Business Profile Page (Directly on Background) OR News View OR Sectors Page OR Home Discovery Flow */}
+      {selectedBusiness ? (
+        <BusinessPage
+          business={selectedBusiness}
+          onBack={handleCloseBusinessPage}
+          isSaved={savedBusinessIds.includes(selectedBusiness.id)}
+          onToggleSave={handleToggleSave}
+          isCompared={comparedBusinessIds.includes(selectedBusiness.id)}
+          onToggleCompare={handleToggleCompare}
+          onOpenMap={(b) => setMapBusiness(b)}
+          onOpenQuote={handleOpenQuote}
+          onOpenQR={handleOpenQR}
+          onOpenCertificate={handleOpenCert}
+          onReportBusiness={handleReportBusiness}
+          currentUser={currentUser}
+          onShowToast={showToast}
+          reviews={reviews}
+          onAddReview={handleAddReview}
+          onHelpfulVote={handleHelpfulVote}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenRegister={handleOpenRegisterModal}
+          onOpenAdminDashboard={() => {
+            setSelectedBusiness(null);
+            setCurrentView('admin');
+          }}
+          onOpenBusinessDashboard={() => {
+            setSelectedBusiness(null);
+            setCurrentView('business_dashboard');
+          }}
+          onOpenPersonalDashboard={() => {
+            setSelectedBusiness(null);
+            setCurrentView('personal_dashboard');
+          }}
+        />
+      ) : currentNavTab === 'news' ? (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 animate-in fade-in duration-200">
           <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
@@ -1388,7 +1463,7 @@ export default function App() {
           categories={categories}
           businesses={businesses}
           initialCategoryId={initialCategoryForSectors}
-          onSelectBusiness={(b) => setSelectedBusiness(b)}
+          onSelectBusiness={(b) => handleSelectBusiness(b)}
           onFilterByCategoryOnHome={(catId) => {
             handleFilterChange({ category: catId });
             setCurrentNavTab('home');
@@ -1412,7 +1487,7 @@ export default function App() {
             searchHistory={searchHistory}
             onAddSearchHistory={handleAddSearchHistory}
             onClearSearchHistory={handleClearSearchHistory}
-            onSelectBusiness={(b) => setSelectedBusiness(b)}
+            onSelectBusiness={(b) => handleSelectBusiness(b)}
             onShowToast={showToast}
             onOpenSectors={() => setCurrentNavTab('sectors')}
             isAutoDetectedRegion={isAutoDetectedRegion}
@@ -1429,7 +1504,7 @@ export default function App() {
               onResetFilters={handleResetFilters}
               savedBusinessIds={savedBusinessIds}
               onToggleSave={handleToggleSave}
-              onSelectBusiness={(b) => setSelectedBusiness(b)}
+              onSelectBusiness={(b) => handleSelectBusiness(b)}
               onOpenNewsTab={() => setCurrentNavTab('news')}
               onOpenQuote={handleOpenQuote}
               onOpenRegister={handleOpenRegisterModal}
@@ -1447,26 +1522,6 @@ export default function App() {
         onClose={() => setIsAboutUsModalOpen(false)}
         initialTab={aboutUsInitialTab}
         onOpenRegister={handleOpenRegisterModal}
-      />
-
-      <BusinessDetailsModal
-        business={selectedBusiness}
-        isOpen={!!selectedBusiness}
-        onClose={() => setSelectedBusiness(null)}
-        isSaved={selectedBusiness ? savedBusinessIds.includes(selectedBusiness.id) : false}
-        onToggleSave={handleToggleSave}
-        isCompared={selectedBusiness ? comparedBusinessIds.includes(selectedBusiness.id) : false}
-        onToggleCompare={handleToggleCompare}
-        onOpenMap={(b) => setMapBusiness(b)}
-        onOpenQuote={handleOpenQuote}
-        onOpenQR={handleOpenQR}
-        onOpenCertificate={handleOpenCert}
-        onReportBusiness={handleReportBusiness}
-        currentUser={currentUser}
-        onShowToast={showToast}
-        reviews={reviews}
-        onAddReview={handleAddReview}
-        onHelpfulVote={handleHelpfulVote}
       />
 
       {/* Suggest Category Modal */}
@@ -1522,7 +1577,7 @@ export default function App() {
         isOpen={isCompareModalOpen}
         onClose={() => setIsCompareModalOpen(false)}
         onRemove={handleRemoveCompare}
-        onSelect={(b) => setSelectedBusiness(b)}
+        onSelect={(b) => handleSelectBusiness(b)}
       />
 
       <LocationMapModal
@@ -1530,7 +1585,7 @@ export default function App() {
         allBusinesses={businesses}
         isOpen={!!mapBusiness}
         onClose={() => setMapBusiness(null)}
-        onSelectBusiness={(b) => setSelectedBusiness(b)}
+        onSelectBusiness={(b) => handleSelectBusiness(b)}
       />
 
       <AuthModal
@@ -1569,7 +1624,7 @@ export default function App() {
         isOpen={isSavedModalOpen}
         onClose={() => setIsSavedModalOpen(false)}
         onRemoveSaved={handleToggleSave}
-        onSelectBusiness={(b) => setSelectedBusiness(b)}
+        onSelectBusiness={(b) => handleSelectBusiness(b)}
       />
 
       <NewsArticleModal
