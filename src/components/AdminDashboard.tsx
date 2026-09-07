@@ -87,6 +87,7 @@ interface AdminDashboardProps {
   onDeleteFeedback?: (feedbackId: string) => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
   onOpenRegisterModal?: () => void;
+  onSelectBusiness?: (business: Business) => void;
   onSignOut: () => void;
   onBackToPortal: () => void;
 }
@@ -116,6 +117,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteFeedback,
   onShowToast,
   onOpenRegisterModal,
+  onSelectBusiness,
   onSignOut,
   onBackToPortal,
 }) => {
@@ -1696,6 +1698,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   title="Reject and exclude business listing"
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+
+                               {onSelectBusiness && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onSelectBusiness(b);
+                                    onBackToPortal();
+                                  }}
+                                  className="p-1.5 rounded-lg bg-blue-950/80 hover:bg-blue-600 border border-blue-800/80 text-blue-300 hover:text-white transition-colors cursor-pointer"
+                                  title="View live page on website background"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
                                 </button>
                               )}
 

@@ -205,27 +205,12 @@ export default function App() {
       });
       if (loc.isAutomatic) {
         setIsAutoDetectedRegion(true);
-        setFilters((prev) => {
-          // If no specific region has been selected yet by the user, default to closest region
-          if (!prev.region) {
-            return {
-              ...prev,
-              region: loc.regionName,
-              userLat: loc.coords.lat,
-              userLng: loc.coords.lng,
-            };
-          }
-          return {
-            ...prev,
-            userLat: loc.coords.lat,
-            userLng: loc.coords.lng,
-          };
-        });
-        showToast(
-          'Location Personalized',
-          `Defaulted to closest region: ${loc.regionName} (${loc.cityName}) businesses based on your location.`,
-          'info'
-        );
+        setFilters((prev) => ({
+          ...prev,
+          userLat: loc.coords.lat,
+          userLng: loc.coords.lng,
+          // Keep prev.region so all regions across Ghana are displayed by default unless explicitly chosen
+        }));
       }
     });
   }, [showToast]);
@@ -277,7 +262,30 @@ export default function App() {
           // Merge live businesses with state
           const map = new Map<string, Business>();
           prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, b));
-          liveBusinesses.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, { ...map.get(b.id), ...b }));
+          
+          liveBusinesses.filter((b) => !isDeletedBusiness(b)).forEach((b) => {
+            const existing = map.get(b.id);
+            if (existing) {
+              const isLocalApproved = existing.listingStatus === 'active' || existing.verificationStatus === 'verified';
+              const isIncomingPending = b.listingStatus === 'pending_approval' || b.verificationStatus === 'pending';
+              if (isLocalApproved && isIncomingPending) {
+                // Keep local verified / active approval status
+                map.set(b.id, {
+                  ...b,
+                  ...existing,
+                  listingStatus: 'active',
+                  verificationStatus: 'verified',
+                  isApproved: true,
+                  permanentlyEnlisted: true
+                });
+              } else {
+                map.set(b.id, { ...existing, ...b });
+              }
+            } else {
+              map.set(b.id, b);
+            }
+          });
+
           const clean = Array.from(map.values()).filter((b) => !isDeletedBusiness(b));
           saveBusinesses(clean);
           return clean;
@@ -546,6 +554,21 @@ export default function App() {
     saveSearchHistory(searchHistory);
   }, [searchHistory]);
 
+  useEffect(() => {
+    localStorage.setItem('auracentra_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+      document.body.classList.add('dark');
+      document.body.classList.remove('light');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
+      document.body.classList.remove('dark');
+      document.body.classList.add('light');
+    }
+  }, [theme]);
+
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
@@ -799,7 +822,11 @@ export default function App() {
     if (approvedBiz) {
       // Guarantee persistent Supabase and backend sync
       FirestoreSync.saveBusiness(approvedBiz);
-      ApiClient.moderateBusiness(businessId, 'approve').catch(() => {});
+      ApiClient.moderateBusiness(businessId, 'approve', undefined, {
+        badgeType,
+        isFeatured: shouldBeFeatured,
+        coordinates: verifiedCoords || approvedBiz.coordinates
+      }).catch(() => {});
       dispatchApprovalNotification(approvedBiz, badgeType);
     }
 
@@ -1220,6 +1247,7 @@ export default function App() {
           onDeleteFeedback={handleDeleteFeedback}
           onShowToast={showToast}
           onOpenRegisterModal={handleOpenRegisterModal}
+          onSelectBusiness={handleSelectBusiness}
           onSignOut={handleSignOut}
           onBackToPortal={() => setCurrentView('portal')}
         />

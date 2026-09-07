@@ -119,10 +119,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onNavigateSection('home');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className={`transition-colors cursor-pointer py-1 ${
+              className={`transition-colors cursor-pointer py-1 font-bold ${
                 currentSection === 'home'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               Explore
@@ -138,12 +138,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
                 currentSection === 'sectors'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 font-extrabold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               <span>Sectors</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-black">
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/70 text-[10px] font-black shadow-2xs">
                 All Categories
               </span>
             </button>
@@ -155,14 +155,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onNavigateSection('news');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 ${
+              className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
                 currentSection === 'news'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 font-extrabold'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400'
+                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               <span>Business News</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/90 text-blue-900 dark:text-cyan-200 border border-blue-200 dark:border-blue-700/80 text-[10px] font-black shadow-2xs">
                 Live FX
               </span>
             </button>
@@ -171,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button 
               type="button" 
               onClick={onOpenPricing}
-              className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer py-1"
+              className="text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8] transition-colors cursor-pointer py-1 font-bold"
             >
               Pricing
             </button>
@@ -180,7 +180,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button 
               type="button" 
               onClick={onOpenAboutUs}
-              className="text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer py-1"
+              className="text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8] transition-colors cursor-pointer py-1 font-bold"
             >
               About Us
             </button>
@@ -188,7 +188,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
         </div>
 
-        {/* Action Controls: List Your Business & Sign In */}
+        {/* Action Controls: List Your Business, Theme Switcher & Sign In */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto">
           
           {/* Compare Shortcut Pill */}
@@ -197,7 +197,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               id="nav-compare-btn"
               onClick={onOpenCompareModal}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-cyan-300 text-xs font-bold border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors cursor-pointer shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/90 text-blue-600 dark:text-cyan-300 text-xs font-bold border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer shrink-0"
               title="Compare selected businesses"
             >
               <Layers className="w-3.5 h-3.5" />
@@ -214,10 +214,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               id="nav-saved-btn"
               onClick={onOpenSavedModal}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition-colors cursor-pointer shrink-0"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 text-xs font-bold border border-slate-200 dark:border-slate-700/80 transition-colors cursor-pointer shrink-0"
               title="Saved businesses"
             >
-              <Bookmark className="w-3.5 h-3.5 text-blue-600" />
+              <Bookmark className="w-3.5 h-3.5 text-blue-600 dark:text-[#38BDF8]" />
               <span>Saved</span>
               <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
                 {savedCount}
@@ -225,15 +225,36 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
+          {/* Desktop Theme Switcher Button */}
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            id="desktop-theme-toggle-btn"
+            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 hover:text-blue-600 dark:hover:text-[#38BDF8] text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="hidden xl:inline font-bold">Light</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                <span className="hidden xl:inline font-bold">Dark</span>
+              </>
+            )}
+          </button>
 
           {/* Button: List Your Business */}
           <button
             type="button"
             id="nav-list-business-btn"
             onClick={onOpenRegister}
-            className="hidden sm:inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 transition-all cursor-pointer shadow-2xs"
+            className="hidden sm:inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-slate-800 text-slate-800 dark:text-white hover:bg-blue-50/50 dark:hover:bg-slate-750 transition-all cursor-pointer shadow-2xs"
           >
-            <Plus className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <Plus className="w-4 h-4 text-blue-600 dark:text-[#38BDF8]" />
             <span>List Your Business</span>
           </button>
 
@@ -245,10 +266,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   id="nav-admin-dashboard-btn"
                   onClick={onOpenAdminDashboard}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-750 text-white border border-slate-700 text-[11px] sm:text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
                   title="Open Admin Dashboard"
                 >
-                  <LayoutDashboard className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <LayoutDashboard className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
                   <span className="hidden xs:inline">Admin</span>
                 </button>
               ) : (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) ? (
@@ -269,7 +290,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   type="button"
                   id="nav-personal-dashboard-btn"
                   onClick={onOpenPersonalDashboard}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-blue-100 border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-white border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
                   title={`Signed in as ${currentUser.name} - Open Personal Dashboard`}
                 >
                   <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
@@ -287,7 +308,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 id="nav-account-settings-btn"
                 onClick={onOpenAccountSettings}
-                className="hidden md:inline-flex p-2 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="hidden md:inline-flex p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-blue-600 dark:hover:text-[#38BDF8] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Account & Security Settings / Delete Account"
               >
                 <Settings className="w-4 h-4" />
@@ -296,7 +317,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onSignOut}
-                className="hidden md:inline-flex p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                className="hidden md:inline-flex p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -307,7 +328,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               id="nav-signin-btn"
               onClick={onOpenAuth}
-              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-600/20 transition-all cursor-pointer shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-600/30 transition-all cursor-pointer shrink-0"
             >
               <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Sign In</span>
@@ -318,7 +339,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="lg:hidden p-2 rounded-xl text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Toggle navigation menu"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -338,10 +359,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onNavigateSection('home');
                 setMobileMenuOpen(false);
               }}
-              className={`p-2.5 rounded-xl text-left transition-colors ${
+              className={`p-2.5 rounded-xl text-left transition-colors font-bold ${
                 currentSection === 'home'
-                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               Explore (Home)
@@ -355,12 +376,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
                 currentSection === 'sectors'
-                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               <span>Sectors & Business Categories</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 text-[10px]">
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/60 text-[10px] font-black">
                 All Categories
               </span>
             </button>
@@ -371,14 +392,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onNavigateSection('news');
                 setMobileMenuOpen(false);
               }}
-              className={`p-2.5 rounded-xl text-left flex items-center justify-between transition-colors ${
+              className={`p-2.5 rounded-xl text-left flex items-center justify-between transition-colors font-bold ${
                 currentSection === 'news'
-                  ? 'bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               <span>Business News & Live Forex</span>
-              <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px]">Live FX</span>
+              <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">Live FX</span>
             </button>
 
             <button 
@@ -387,7 +408,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenPricing();
                 setMobileMenuOpen(false);
               }}
-              className="p-2.5 rounded-xl text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              className="p-2.5 rounded-xl text-left text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white font-bold transition-colors"
             >
               Pricing & Enlistment
             </button>
@@ -398,21 +419,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenAboutUs();
                 setMobileMenuOpen(false);
               }}
-              className="p-2.5 rounded-xl text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+              className="p-2.5 rounded-xl text-left text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white font-bold transition-colors"
             >
               About AuraCentra
             </button>
 
             {/* Mobile Drawer Theme Switcher */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200">
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-100">
                 {theme === 'dark' ? <Moon className="w-4 h-4 text-cyan-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
                 <span>Appearance Theme</span>
               </div>
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5" />}
                 <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
@@ -428,7 +449,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onOpenBusinessDashboard?.();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Building2 className="w-4 h-4 text-cyan-200" />
                 <span>My Business Dashboard</span>
@@ -442,7 +463,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onOpenPersonalDashboard?.();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <User className="w-4 h-4 text-cyan-200" />
                 <span>My Personal Dashboard</span>
@@ -455,7 +476,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenRegister();
                 setMobileMenuOpen(false);
               }}
-              className="w-full py-2.5 px-4 rounded-xl border border-blue-600 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 px-4 rounded-xl border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold text-xs flex items-center justify-center gap-1.5"
             >
               <Plus className="w-4 h-4" />
               <span>List Your Business</span>
@@ -468,9 +489,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onOpenAccountSettings?.();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-1.5"
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center justify-center gap-1.5"
               >
-                <Settings className="w-4 h-4 text-blue-600" />
+                <Settings className="w-4 h-4 text-blue-600 dark:text-[#38BDF8]" />
                 <span>Account & Security Settings</span>
               </button>
             )}
@@ -482,7 +503,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onSignOut();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <LogOut className="w-4 h-4" />
                 <span>Sign Out</span>
@@ -496,7 +517,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onOpenAuth();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <User className="w-4 h-4" />
                 <span>Sign In to Account</span>

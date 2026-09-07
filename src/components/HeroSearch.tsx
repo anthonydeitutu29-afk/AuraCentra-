@@ -197,9 +197,9 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
 
               {/* Autocomplete Dropdown */}
               {isFocused && trimmed && matchedBusinesses.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0c1c42] border border-blue-200 dark:border-blue-800/80 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in duration-100">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in duration-100">
                   <div className="p-2 space-y-1">
-                    <div className="text-[11px] font-bold text-slate-500 dark:text-blue-300 uppercase tracking-wider px-3 py-1.5">
+                    <div className="text-[11px] font-bold text-slate-500 dark:text-cyan-300 uppercase tracking-wider px-3 py-1.5">
                       Matching Verified Businesses
                     </div>
                     {matchedBusinesses.map((biz) => (
@@ -210,7 +210,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           onSelectBusiness(biz);
                           setIsFocused(false);
                         }}
-                        className="w-full px-3 py-2 rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-blue-900/50 transition-colors text-left"
+                        className="w-full px-3 py-2 rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors text-left"
                       >
                         <div className="flex items-center gap-3">
                           <img
@@ -220,10 +220,10 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           />
                           <div>
                             <div className="text-xs font-bold text-slate-900 dark:text-white">{biz.name}</div>
-                            <div className="text-[11px] text-slate-500 dark:text-blue-200">{biz.city}, {biz.region} • {biz.category}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-300">{biz.city}, {biz.region} • {biz.category}</div>
                           </div>
                         </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-[#155DFC]" />
+                        <ArrowRight className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8]" />
                       </button>
                     ))}
                   </div>
@@ -274,7 +274,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                 </button>
 
                 {showMorePills && (
-                  <div className="absolute left-0 mt-1.5 w-44 bg-white dark:bg-[#0c1c42] border border-blue-200 dark:border-blue-800 rounded-xl shadow-xl p-1.5 z-40 space-y-1">
+                  <div className="absolute left-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 z-40 space-y-1">
                     {['Technology', 'Real Estate', 'Healthcare', 'Legal Services', 'Digital Marketing', 'Agriculture', 'Hospitality'].map((item) => (
                       <button
                         key={item}
@@ -283,7 +283,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           handleQuickTagClick(item);
                           setShowMorePills(false);
                         }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-800 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors cursor-pointer"
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer font-medium"
                       >
                         {item}
                       </button>

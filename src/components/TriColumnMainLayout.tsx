@@ -241,7 +241,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 1. Sort by */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
                 Sort by
               </label>
               <div className="relative">
@@ -249,12 +249,12 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-sort-by-select"
                   value={filters.sortBy}
                   onChange={(e) => onFilterChange({ sortBy: e.target.value as any })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] dark:focus:border-[#38BDF8] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="featured" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Featured & Verified First</option>
-                  <option value="rating" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Highest Customer Rating</option>
-                  <option value="reviews" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Most Reviews & Feedback</option>
-                  <option value="name" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">Alphabetical (A - Z)</option>
+                  <option value="featured" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Featured & Verified First</option>
+                  <option value="rating" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Highest Customer Rating</option>
+                  <option value="reviews" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Most Reviews & Feedback</option>
+                  <option value="name" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Alphabetical (A - Z)</option>
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -262,7 +262,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 2. Region Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
                 Region
               </label>
               <div className="relative">
@@ -270,11 +270,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-region-select"
                   value={filters.region === 'All Regions' ? '' : (filters.region || '')}
                   onChange={(e) => onFilterChange({ region: e.target.value })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] dark:focus:border-[#38BDF8] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">All 16 Ghana Regions</option>
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All 16 Ghana Regions</option>
                   {GHANA_REGIONS.map((reg) => (
-                    <option key={reg.name} value={reg.name} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
+                    <option key={reg.name} value={reg.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                       {reg.name}
                     </option>
                   ))}
@@ -285,7 +285,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 3. City Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
                 City
               </label>
               <div className="relative">
@@ -293,11 +293,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-city-select"
                   value={filters.city === 'All Cities' ? '' : (filters.city || '')}
                   onChange={(e) => onFilterChange({ city: e.target.value })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] dark:focus:border-[#38BDF8] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">All Major Cities</option>
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All Major Cities</option>
                   {availableCities.map((c) => (
-                    <option key={c} value={c} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
+                    <option key={c} value={c} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                       {c}
                     </option>
                   ))}
@@ -308,7 +308,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 4. Sector / Category Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
                 Business Sector
               </label>
               <div className="relative">
@@ -316,11 +316,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   id="filter-category-select"
                   value={filters.category === 'All Categories' ? '' : (filters.category || '')}
                   onChange={(e) => onFilterChange({ category: e.target.value })}
-                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] appearance-none cursor-pointer pr-8 shadow-xs"
+                  className="w-full px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:border-[#155DFC] dark:focus:border-[#38BDF8] appearance-none cursor-pointer pr-8 shadow-xs"
                 >
-                  <option value="" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">All Business Sectors</option>
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All Business Sectors</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
+                    <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                       {cat.name}
                     </option>
                   ))}
@@ -331,16 +331,16 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
             {/* 5. Verified Only Checkbox */}
             <div className="pt-1">
-              <label className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 font-medium cursor-pointer select-none">
+              <label className="flex items-center gap-2.5 text-xs text-slate-800 dark:text-slate-200 font-bold cursor-pointer select-none">
                 <input
                   type="checkbox"
                   id="filter-verified-only-checkbox"
                   checked={Boolean(filters.verificationOnly)}
                   onChange={(e) => onFilterChange({ verificationOnly: e.target.checked })}
-                  className="w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-[#155DFC] focus:ring-[#155DFC] bg-white dark:bg-black/60 cursor-pointer"
+                  className="w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-[#155DFC] focus:ring-[#155DFC] bg-white dark:bg-slate-900 cursor-pointer"
                 />
                 <span className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-[#155DFC]" />
+                  <ShieldCheck className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8]" />
                   <span>Verified Enterprises Only</span>
                 </span>
               </label>
@@ -388,7 +388,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'trending'
                   ? 'bg-[#155DFC] text-white shadow-sm'
-                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC]'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC] dark:hover:border-[#38BDF8]'
               }`}
             >
               Trending
@@ -399,7 +399,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'near_you'
                   ? 'bg-[#155DFC] text-white shadow-sm'
-                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC]'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC] dark:hover:border-[#38BDF8]'
               }`}
             >
               <Navigation className="w-3.5 h-3.5" />
@@ -411,7 +411,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'featured'
                   ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-amber-500'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-amber-500'
               }`}
             >
               <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
@@ -423,7 +423,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'newly_verified'
                   ? 'bg-[#155DFC] text-white shadow-sm'
-                  : 'bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC]'
+                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-[#155DFC] dark:hover:border-[#38BDF8]'
               }`}
             >
               Newly Verified
@@ -493,10 +493,10 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                   <div
                     key={biz.id}
                     onClick={() => onSelectBusiness(biz)}
-                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-lg hover:border-[#155DFC] dark:hover:border-[#155DFC] transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center gap-4 group relative"
+                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-lg hover:border-[#155DFC] dark:hover:border-[#38BDF8] transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center gap-4 group relative"
                   >
                     {/* Thumbnail Image */}
-                    <div className="w-full sm:w-28 h-32 sm:h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 shrink-0 relative">
+                    <div className="w-full sm:w-28 h-32 sm:h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 relative">
                       <img
                         src={biz.coverImage || (biz.gallery && biz.gallery[0]) || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=400&q=80'}
                         alt={biz.name}
@@ -522,11 +522,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                           <img
                             src={biz.logo}
                             alt=""
-                            className="w-6 h-6 rounded-lg object-contain bg-white p-0.5 border border-slate-200 dark:border-slate-800 shrink-0 relative z-10 shadow-2xs"
+                            className="w-6 h-6 rounded-lg object-contain bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 shrink-0 relative z-10 shadow-2xs"
                             loading="lazy"
                           />
                         )}
-                        <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-[#155DFC] transition-colors">
+                        <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-[#155DFC] dark:group-hover:text-[#38BDF8] transition-colors">
                           {biz.name}
                         </h4>
                         {biz.isFeatured && (
@@ -538,11 +538,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap text-xs">
-                        <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-[#155DFC] dark:text-blue-400 font-semibold">
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/80 text-[#155DFC] dark:text-[#38BDF8] font-bold">
                           {categoryLabel}
                         </span>
-                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" />
+                        <span className="text-slate-500 dark:text-slate-300 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-slate-400 dark:text-slate-400" />
                           <span>{biz.city}, {biz.region} Region</span>
                           {distKm !== null && (
                             <span className="ml-1 px-1.5 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">
@@ -561,7 +561,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                           <div className="flex items-center text-amber-500">
                             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                             <span className="font-bold ml-1 text-slate-900 dark:text-white">{biz.rating.toFixed(1)}</span>
-                            <span className="text-slate-400 ml-1">({biz.reviewCount} {biz.reviewCount === 1 ? 'review' : 'reviews'})</span>
+                            <span className="text-slate-400 dark:text-slate-400 ml-1">({biz.reviewCount} {biz.reviewCount === 1 ? 'review' : 'reviews'})</span>
                           </div>
                         ) : (
                           <div className="flex items-center text-slate-400 text-[11px] font-medium">
@@ -570,7 +570,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                           </div>
                         )}
                         {biz.phone && (
-                          <span className="text-slate-500 dark:text-slate-400 text-[11px] hidden sm:inline">
+                          <span className="text-slate-500 dark:text-slate-300 text-[11px] hidden sm:inline">
                             📞 {biz.phone}
                           </span>
                         )}
@@ -634,7 +634,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                 type="button"
                 id="show-more-businesses-btn"
                 onClick={() => setVisibleCount((prev) => prev + 6)}
-                className="w-full py-3 rounded-2xl bg-white dark:bg-black/40 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900 text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                className="w-full py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition-colors cursor-pointer shadow-xs"
               >
                 Show more businesses ({filteredAndSortedBusinesses.length - visibleCount} remaining) ↓
               </button>
@@ -662,7 +662,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
                 Ghana Business News & Live FX Exchange
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-300">
                 Synced: 11:49 AM • Bank of Ghana Interbank Feed
               </p>
             </div>
@@ -670,7 +670,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
             {/* Live Exchange Rates */}
             <div className="divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800 py-1">
               <div className="flex items-center justify-between text-xs py-2.5">
-                <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
+                <span className="text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5">
                   <span>🇺🇸 USD / GHS</span>
                 </span>
                 <div className="flex items-center gap-2">
@@ -680,7 +680,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-xs py-2.5">
-                <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
+                <span className="text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5">
                   <span>🇬🇧 GBP / GHS</span>
                 </span>
                 <div className="flex items-center gap-2">
@@ -690,38 +690,38 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-xs py-2.5">
-                <span className="text-slate-700 dark:text-slate-300 font-semibold flex items-center gap-1.5">
+                <span className="text-slate-700 dark:text-slate-200 font-semibold flex items-center gap-1.5">
                   <span>🇪🇺 EUR / GHS</span>
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold text-slate-900 dark:text-white">{forexRates.EUR.rate.toFixed(2)}</span>
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">{forexRates.EUR.change}</span>
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded-md">{forexRates.EUR.change}</span>
                 </div>
               </div>
             </div>
 
             {/* Interactive Live Converter */}
             <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-200">
                 <span>Quick FX Converter</span>
-                <span className="text-[#155DFC]">Live BoG Rate</span>
+                <span className="text-[#155DFC] dark:text-[#38BDF8]">Live BoG Rate</span>
               </div>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
                   value={fxCalcAmount}
                   onChange={(e) => setFxCalcAmount(Number(e.target.value) || 0)}
-                  className="w-20 px-2.5 py-1.5 rounded-xl bg-white dark:bg-black/50 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white font-mono shadow-xs focus:outline-hidden focus:border-[#155DFC]"
+                  className="w-20 px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-mono shadow-xs focus:outline-hidden focus:border-[#155DFC] dark:focus:border-[#38BDF8]"
                   min="1"
                 />
                 <select
                   value={fxCalcCurrency}
                   onChange={(e) => setFxCalcCurrency(e.target.value as any)}
-                  className="px-2 py-1.5 rounded-xl bg-white dark:bg-black/50 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white cursor-pointer shadow-xs focus:outline-hidden focus:border-[#155DFC]"
+                  className="px-2 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white cursor-pointer shadow-xs focus:outline-hidden focus:border-[#155DFC] dark:focus:border-[#38BDF8]"
                 >
-                  <option value="USD" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">USD</option>
-                  <option value="GBP" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">GBP</option>
-                  <option value="EUR" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">EUR</option>
+                  <option value="USD" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">USD</option>
+                  <option value="GBP" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">GBP</option>
+                  <option value="EUR" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">EUR</option>
                 </select>
                 <span className="text-slate-400 text-xs font-bold">=</span>
                 <div className="flex-1 text-right text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">
@@ -731,8 +731,8 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
             </div>
 
             {/* Indicator */}
-            <div className="flex items-center gap-2 text-xs text-[#155DFC] dark:text-blue-400 pt-1">
-              <ShieldCheck className="w-4 h-4 text-[#155DFC] shrink-0" />
+            <div className="flex items-center gap-2 text-xs text-[#155DFC] dark:text-[#38BDF8] pt-1 font-medium">
+              <ShieldCheck className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
               <span>9 verified business articles ready</span>
             </div>
 

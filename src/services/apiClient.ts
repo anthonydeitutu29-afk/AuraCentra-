@@ -145,12 +145,17 @@ export const ApiClient = {
   },
 
   // Admin Moderation
-  async moderateBusiness(businessId: string, action: 'approve' | 'reject', notes?: string) {
+  async moderateBusiness(
+    businessId: string, 
+    action: 'approve' | 'reject', 
+    notes?: string,
+    extra?: { badgeType?: string; isFeatured?: boolean; coordinates?: { lat: number; lng: number } }
+  ) {
     try {
       const res = await fetch('/api/moderation/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId, action, notes })
+        body: JSON.stringify({ businessId, action, notes, ...extra })
       });
       return await res.json();
     } catch (err) {
