@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
+import fs from 'fs';
 
 const app = express();
 const PORT = 3000;
@@ -49,7 +50,6 @@ const PERMANENTLY_DELETED_BUSINESS_IDS = [
   'biz-zion-city',
   'biz-veritas-motors',
   'biz-buildright-supplies',
-  'biz-tonys-digital-marketing',
   'biz-bonwire-kente',
   'biz-apex-diagnostic',
   'biz-pending-starbite-tema',
@@ -87,7 +87,126 @@ function isDeletedBusinessRecord(b: any): boolean {
   return false;
 }
 
-let businessesCache: any[] = [];
+// Server Disk Persistence Configuration
+const DATA_DIR = path.join(process.cwd(), 'data');
+const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
+
+function ensureDataDirectory() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (e) {
+    console.warn('Could not create data directory:', e);
+  }
+}
+
+function saveBusinessesToDisk(businesses: any[]) {
+  try {
+    ensureDataDirectory();
+    fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Could not save businesses to disk:', e);
+  }
+}
+
+function loadBusinessesFromDisk(): any[] {
+  try {
+    if (fs.existsSync(BUSINESSES_FILE)) {
+      const content = fs.readFileSync(BUSINESSES_FILE, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((b) => !isDeletedBusinessRecord(b));
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load businesses from disk:', e);
+  }
+  return [];
+}
+
+const DEFAULT_INITIAL_BUSINESSES = [
+  {
+    id: 'biz-tonys-digital-marketing-hub',
+    name: "Tony's Digital Marketing and Business Hub",
+    tagline: 'We offer quality digital and tech services',
+    slug: 'tonys-digital-marketing-and-business-hub',
+    category: 'digital-marketing',
+    description: "Tony's Digital Marketing and Business Hub offers high-impact digital marketing, search engine optimization, social media strategy, custom website architecture, and technology consulting in Ho and nationwide.",
+    logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80'
+    ],
+    phone: '0508203673',
+    whatsapp: '233508203673',
+    email: 'tonysdigitalmarketing@gmail.com',
+    website: 'https://tonysdigitalmarketing.com',
+    city: 'Ho',
+    region: 'Volta',
+    address: 'Ho Central Commercial District, Near Civic Centre',
+    digitalAddress: 'VH-0012-4821',
+    coordinates: { lat: 6.6108, lng: 0.4785 },
+    priceLevel: '$$',
+    rating: 0,
+    reviewCount: 0,
+    verificationStatus: 'pending',
+    listingStatus: 'pending_approval',
+    views: 1,
+    leadsCount: 0,
+    ownerId: 'admin-tony-02',
+    ownerEmail: 'tonysdigitalmarketing@gmail.com',
+    createdAt: '2026-09-06T15:00:00.000Z',
+    updatedAt: '2026-09-06T15:00:00.000Z',
+    verificationDocuments: [
+      {
+        id: 'doc-tony-hub-1',
+        type: 'ghana_card',
+        documentNumber: 'GHA-729184029-1',
+        holderName: "Tony's Digital Marketing Hub",
+        expiryDate: '2034-10-15',
+        frontImageUrl: 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?auto=format&fit=crop&w=600&q=80',
+        submittedAt: '2026-09-06T15:00:00.000Z',
+        status: 'pending'
+      }
+    ],
+    openingHours: {
+      monday: '08:00 - 18:00',
+      tuesday: '08:00 - 18:00',
+      wednesday: '08:00 - 18:00',
+      thursday: '08:00 - 18:00',
+      friday: '08:00 - 18:00',
+      saturday: '09:00 - 16:00',
+      sunday: 'Closed'
+    },
+    services: [
+      'Digital Marketing Strategy',
+      'Social Media Advertising & Brand Growth',
+      'Search Engine Optimization (SEO)',
+      'Graphic Design & Brand Collateral',
+      'Custom Web & Tech Development'
+    ],
+    features: [
+      'Official AuraCentra Member',
+      'Direct Contact Verified',
+      'Ho Commercial District Branch'
+    ]
+  }
+];
+
+let businessesCache: any[] = (() => {
+  const fromDisk = loadBusinessesFromDisk();
+  if (fromDisk && fromDisk.length > 0) {
+    const existingIds = new Set(fromDisk.map(b => b.id));
+    const toAdd = DEFAULT_INITIAL_BUSINESSES.filter(b => !existingIds.has(b.id) && !isDeletedBusinessRecord(b));
+    const combined = [...fromDisk, ...toAdd];
+    saveBusinessesToDisk(combined);
+    return combined;
+  }
+  saveBusinessesToDisk(DEFAULT_INITIAL_BUSINESSES);
+  return [...DEFAULT_INITIAL_BUSINESSES];
+})();
 let inquiriesCache: any[] = [];
 let reviewsCache: any[] = [];
 let newsletterCache: string[] = ['tonysdigitalmarketing@gmail.com'];
@@ -1645,6 +1764,9 @@ app.post('/api/auth/delete-account', async (req, res) => {
         return !matchesOwner;
       });
       deletedBusinessesCount = initialBizCount - businessesCache.length;
+      if (deletedBusinessesCount > 0) {
+        saveBusinessesToDisk(businessesCache);
+      }
     }
 
     // 4. If Supabase is configured, delete profile and businesses
@@ -1727,7 +1849,7 @@ app.get('/api/businesses', (req, res) => {
   });
 });
 
-// 6. Register New Business
+// 6. Register or Update Business
 app.post('/api/businesses', (req, res) => {
   try {
     const data = req.body;
@@ -1736,24 +1858,60 @@ app.post('/api/businesses', (req, res) => {
       return;
     }
 
+    const businessId = data.id || `biz-${Date.now()}`;
     const newBusiness = {
       ...data,
-      id: data.id || `biz-${Date.now()}`,
+      id: businessId,
       slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      rating: data.rating || 5.0,
+      rating: data.rating !== undefined ? data.rating : 0,
       reviewCount: data.reviewCount || 0,
       verificationStatus: data.verificationStatus || 'pending',
       listingStatus: data.listingStatus || 'pending_approval',
-      views: 1,
-      leadsCount: 0,
-      createdAt: new Date().toISOString(),
+      views: data.views !== undefined ? data.views : 1,
+      leadsCount: data.leadsCount || 0,
+      createdAt: data.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
-    businessesCache.unshift(newBusiness);
+    const existingIndex = businessesCache.findIndex(b => b.id === businessId);
+    if (existingIndex >= 0) {
+      businessesCache[existingIndex] = { ...businessesCache[existingIndex], ...newBusiness };
+    } else {
+      businessesCache.unshift(newBusiness);
+    }
+    saveBusinessesToDisk(businessesCache);
     res.status(201).json({ status: 'success', business: newBusiness });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to create business listing' });
+  }
+});
+
+// Update Existing Business
+app.put('/api/businesses/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    const existingIndex = businessesCache.findIndex(b => b.id === id);
+    if (existingIndex === -1) {
+      // Add if not found
+      const newBiz = { ...data, id, updatedAt: new Date().toISOString() };
+      businessesCache.unshift(newBiz);
+      saveBusinessesToDisk(businessesCache);
+      res.json({ status: 'success', business: newBiz });
+      return;
+    }
+
+    const updated = {
+      ...businessesCache[existingIndex],
+      ...data,
+      id,
+      updatedAt: new Date().toISOString()
+    };
+    businessesCache[existingIndex] = updated;
+    saveBusinessesToDisk(businessesCache);
+    res.json({ status: 'success', business: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update business' });
   }
 });
 
@@ -1868,6 +2026,7 @@ app.post('/api/moderation/action', (req, res) => {
     }
     biz.moderationNotes = notes || '';
     biz.updatedAt = new Date().toISOString();
+    saveBusinessesToDisk(businessesCache);
   }
 
   res.json({
@@ -1884,6 +2043,7 @@ app.delete('/api/businesses/:id', (req, res) => {
   const index = businessesCache.findIndex(b => b.id === id);
   if (index !== -1) {
     const deleted = businessesCache.splice(index, 1);
+    saveBusinessesToDisk(businessesCache);
     res.json({ status: 'success', message: 'Business permanently deleted', business: deleted[0] });
   } else {
     res.json({ status: 'success', message: 'Business deleted from cache' });

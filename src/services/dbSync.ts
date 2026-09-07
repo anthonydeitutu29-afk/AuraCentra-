@@ -61,29 +61,58 @@ export const FirestoreSync = {
     }
   },
 
-  // Subscribe to real-time businesses updates from Supabase
+  // Subscribe to real-time businesses updates from backend API and Supabase
   subscribeBusinesses(onUpdate: (businesses: Business[]) => void) {
-    try {
-      // 1. Prefer Supabase Realtime if configured
-      if (isSupabaseConfigured) {
-        const unsubscribeSupabase = SupabaseService.subscribeBusinesses((list) => {
+    let isSubscribed = true;
+    let pollTimer: any = null;
+    let unsubscribeSupabase: (() => void) | null = null;
+
+    const fetchBackendBusinesses = async () => {
+      if (!isSubscribed) return;
+      try {
+        const list = await ApiClient.getBusinesses();
+        if (isSubscribed && Array.isArray(list) && list.length > 0) {
           onUpdate(list);
+        }
+      } catch (e) {
+        // Silent fallback
+      }
+    };
+
+    try {
+      // 1. Initial immediate fetch from backend
+      fetchBackendBusinesses();
+
+      // 2. Poll backend every 4 seconds for immediate multi-device/client sync (< 10 seconds)
+      pollTimer = setInterval(fetchBackendBusinesses, 4000);
+
+      // 3. Prefer Supabase Realtime if configured
+      if (isSupabaseConfigured) {
+        unsubscribeSupabase = SupabaseService.subscribeBusinesses((list) => {
+          if (isSubscribed && Array.isArray(list) && list.length > 0) {
+            onUpdate(list);
+          }
         });
 
-        // Also fetch initial list immediately
+        // Also fetch initial list from Supabase
         SupabaseService.fetchBusinesses().then((list) => {
-          if (list && list.length > 0) {
+          if (isSubscribed && list && list.length > 0) {
             onUpdate(list);
           }
         }).catch(() => {});
-
-        return unsubscribeSupabase;
       }
 
-      return () => {};
+      return () => {
+        isSubscribed = false;
+        if (pollTimer) clearInterval(pollTimer);
+        if (unsubscribeSupabase) unsubscribeSupabase();
+      };
     } catch (err) {
       console.warn('[Data Sync] Subscribe listener error:', err);
-      return () => {};
+      return () => {
+        isSubscribed = false;
+        if (pollTimer) clearInterval(pollTimer);
+      };
     }
   }
 };

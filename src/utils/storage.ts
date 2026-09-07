@@ -51,7 +51,6 @@ export const PERMANENTLY_DELETED_BUSINESS_IDS = [
   'biz-zion-city',
   'biz-veritas-motors',
   'biz-buildright-supplies',
-  'biz-tonys-digital-marketing',
   'biz-bonwire-kente',
   'biz-apex-diagnostic',
   'biz-pending-starbite-tema',
@@ -97,16 +96,20 @@ export function getStoredBusinesses(): Business[] {
       if (Array.isArray(parsed)) {
         // Strip any residual legacy or permanently deleted businesses
         const clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
-        if (clean.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+        // Ensure initial businesses (such as pending enlisted listings) are merged if missing
+        const existingIds = new Set(clean.map((b) => b.id));
+        const toAdd = INITIAL_BUSINESSES.filter((b) => !existingIds.has(b.id) && !isDeletedBusiness(b));
+        const merged = [...clean, ...toAdd];
+        if (merged.length !== parsed.length || toAdd.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(merged));
         }
-        return clean;
+        return merged;
       }
     }
   } catch (e) {
     console.error('Failed to load businesses from storage', e);
   }
-  return [];
+  return [...INITIAL_BUSINESSES];
 }
 
 export function saveBusinesses(businesses: Business[]): void {

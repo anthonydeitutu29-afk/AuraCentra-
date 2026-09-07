@@ -70,6 +70,20 @@ export const ApiClient = {
     }
   },
 
+  // Fetch all businesses from backend (including pending approval)
+  async getBusinesses(params?: { category?: string; region?: string; city?: string; search?: string }): Promise<any[]> {
+    try {
+      const query = params ? new URLSearchParams(params as any).toString() : '';
+      const res = await fetch(`/api/businesses${query ? `?${query}` : ''}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data.businesses) ? data.businesses : [];
+    } catch (err) {
+      console.warn('[ApiClient] Error fetching businesses:', err);
+      return [];
+    }
+  },
+
   // Register / Add Business
   async createBusiness(businessData: any) {
     try {

@@ -598,8 +598,17 @@ export default function App() {
 
   const handleRegisterBusiness = (newBusiness: Business) => {
     // Record business with pending_approval status
-    setBusinesses((prev) => [newBusiness, ...prev]);
+    setBusinesses((prev) => {
+      const updated = [newBusiness, ...prev.filter((b) => b.id !== newBusiness.id)];
+      saveBusinesses(updated);
+      return updated;
+    });
     FirestoreSync.saveBusiness(newBusiness);
+    showToast(
+      'Business Enlisted Successfully!',
+      `"${newBusiness.name}" has been queued for verification. It is pending review in the Admin Dashboard.`,
+      'success'
+    );
   };
 
   const handleAddReview = (newReview: BusinessReview) => {
@@ -673,28 +682,27 @@ export default function App() {
   };
 
   const handleAddBusinessDirect = (newBiz: Business) => {
-    setBusinesses((prev) => [newBiz, ...prev]);
+    setBusinesses((prev) => {
+      const updated = [newBiz, ...prev.filter((b) => b.id !== newBiz.id)];
+      saveBusinesses(updated);
+      return updated;
+    });
     FirestoreSync.saveBusiness(newBiz);
+    ApiClient.createBusiness(newBiz).catch(() => {});
   };
 
   const handleDeleteBusiness = (businessId: string) => {
-    setBusinesses((prev) => prev.filter((b) => b.id !== businessId));
+    setBusinesses((prev) => {
+      const updated = prev.filter((b) => b.id !== businessId);
+      saveBusinesses(updated);
+      return updated;
+    });
     if (selectedBusiness && selectedBusiness.id === businessId) {
       setSelectedBusiness(null);
     }
     // Delete from Firestore & Backend API
     FirestoreSync.deleteBusiness(businessId);
-    // Cleanup localStorage cache if present
-    try {
-      const stored = localStorage.getItem('auracentra_businesses');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          const updated = parsed.filter((b: any) => b.id !== businessId);
-          localStorage.setItem('auracentra_businesses', JSON.stringify(updated));
-        }
-      }
-    } catch {}
+    ApiClient.deleteBusiness(businessId).catch(() => {});
     showToast(
       'Business Permanently Deleted',
       'The business listing has been permanently removed from AuraCentra.',
@@ -754,6 +762,7 @@ export default function App() {
     if (approvedBiz) {
       // Guarantee persistent Supabase and backend sync
       FirestoreSync.saveBusiness(approvedBiz);
+      ApiClient.moderateBusiness(businessId, 'approve').catch(() => {});
       dispatchApprovalNotification(approvedBiz, badgeType);
     }
 
@@ -771,8 +780,8 @@ export default function App() {
     adminNotes?: string
   ) => {
     let rejectedBiz: Business | undefined;
-    setBusinesses((prev) =>
-      prev.map((b) => {
+    setBusinesses((prev) => {
+      const updated = prev.map((b) => {
         if (b.id === businessId) {
           rejectedBiz = {
             ...b,
@@ -788,11 +797,14 @@ export default function App() {
           return rejectedBiz;
         }
         return b;
-      })
-    );
+      });
+      saveBusinesses(updated);
+      return updated;
+    });
 
     if (rejectedBiz) {
       FirestoreSync.saveBusiness(rejectedBiz);
+      ApiClient.moderateBusiness(businessId, 'reject', reason).catch(() => {});
       dispatchRejectionNotification(rejectedBiz, reason, resolutionGuide, adminNotes);
     }
 
