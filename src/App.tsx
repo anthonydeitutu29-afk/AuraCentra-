@@ -94,6 +94,7 @@ import { NewsArticleModal } from './components/NewsArticleModal';
 import { SecureLogoutModal } from './components/SecureLogoutModal';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
 import { SectorsPage } from './components/SectorsPage';
+import { AboutPage, AboutPageTab } from './components/AboutPage';
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
 import { FirestoreSync } from './services/dbSync';
@@ -150,14 +151,23 @@ export default function App() {
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
   const [feedback, setFeedback] = useState<PlatformFeedback[]>(getStoredFeedback);
 
-  // Navigation section state: 'home' | 'news' | 'sectors'
-  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news' | 'sectors'>('home');
+  // Navigation section state: 'home' | 'news' | 'sectors' | 'about'
+  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news' | 'sectors' | 'about'>('home');
+  const [aboutPageTab, setAboutPageTab] = useState<AboutPageTab>('about');
+
+  const handleOpenAboutPage = (tab: AboutPageTab = 'about') => {
+    setAboutPageTab(tab);
+    setAboutUsInitialTab(tab);
+    setCurrentNavTab('about');
+    setIsAboutUsModalOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // Modals state
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [selectedNewsArticle, setSelectedNewsArticle] = useState<GhanaNewsArticle | null>(null);
   const [isAboutUsModalOpen, setIsAboutUsModalOpen] = useState(false);
-  const [aboutUsInitialTab, setAboutUsInitialTab] = useState<'about' | 'pricing' | 'verification'>('about');
+  const [aboutUsInitialTab, setAboutUsInitialTab] = useState<'about' | 'pricing' | 'verification' | 'terms'>('about');
   const [mapBusiness, setMapBusiness] = useState<Business | null>(null);
   const [quoteBusiness, setQuoteBusiness] = useState<Business | null>(null);
   const [qrBusiness, setQrBusiness] = useState<Business | null>(null);
@@ -1395,12 +1405,10 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
-          setAboutUsInitialTab('about');
-          setIsAboutUsModalOpen(true);
+          handleOpenAboutPage('about');
         }}
         onOpenPricing={() => {
-          setAboutUsInitialTab('pricing');
-          setIsAboutUsModalOpen(true);
+          handleOpenAboutPage('pricing');
         }}
         currentUser={currentUser}
         savedCount={savedBusinessIds.length}
@@ -1456,6 +1464,16 @@ export default function App() {
             setSelectedBusiness(null);
             setCurrentView('personal_dashboard');
           }}
+        />
+      ) : currentNavTab === 'about' ? (
+        <AboutPage
+          initialTab={aboutPageTab}
+          onBackToHome={() => {
+            setCurrentNavTab('home');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenRegister={handleOpenRegisterModal}
+          onShowToast={showToast}
         />
       ) : currentNavTab === 'news' ? (
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 animate-in fade-in duration-200">
@@ -1550,6 +1568,7 @@ export default function App() {
         onClose={() => setIsAboutUsModalOpen(false)}
         initialTab={aboutUsInitialTab}
         onOpenRegister={handleOpenRegisterModal}
+        onOpenFullPage={() => handleOpenAboutPage(aboutUsInitialTab)}
       />
 
       {/* Suggest Category Modal */}
@@ -1696,12 +1715,13 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
-          setAboutUsInitialTab('about');
-          setIsAboutUsModalOpen(true);
+          handleOpenAboutPage('about');
+        }}
+        onOpenTerms={() => {
+          handleOpenAboutPage('terms');
         }}
         onOpenPricing={() => {
-          setAboutUsInitialTab('pricing');
-          setIsAboutUsModalOpen(true);
+          handleOpenAboutPage('pricing');
         }}
         onOpenSectors={() => {
           setCurrentNavTab('sectors');

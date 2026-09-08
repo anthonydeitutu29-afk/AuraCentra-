@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="goldBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <linearGradient id="barGrad1" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <linearGradient id="barGrad2" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#0369A1" />
+    </linearGradient>
+    <linearGradient id="barGrad3" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0369A1" />
+      <stop offset="100%" stop-color="#075985" />
+    </linearGradient>
+    <linearGradient id="barGrad4" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#075985" />
+      <stop offset="100%" stop-color="#0C4A6E" />
+    </linearGradient>
+    <filter id="softGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.06" />
+    </filter>
+  </defs>
+
+  <!-- Clean White Card Frame with Subtle Gold Border matching screenshot -->
+  <rect x="16" y="16" width="468" height="468" rx="72" ry="72" fill="#FFFFFF" stroke="url(#goldBorder)" stroke-width="8" filter="url(#softGlow)" />
+
+  <g transform="translate(48, 105)">
+    <!-- Ascending Business Chart & Dynamic Trend Arrow -->
+    <g transform="translate(8, 16)">
+      <!-- Baseline -->
+      <line x1="0" y1="180" x2="135" y2="180" stroke="#CBD5E1" stroke-width="4" stroke-linecap="round" />
+      
+      <!-- Growth Bars -->
+      <rect x="10" y="125" width="18" height="55" rx="3" fill="url(#barGrad1)" />
+      <rect x="38" y="90" width="18" height="90" rx="3" fill="url(#barGrad2)" />
+      <rect x="66" y="55" width="18" height="125" rx="3" fill="url(#barGrad3)" />
+      <rect x="94" y="20" width="18" height="160" rx="3" fill="url(#barGrad4)" />
+
+      <!-- High-Trajectory Arrow -->
+      <path d="M 4 148 Q 50 110 118 10" fill="none" stroke="#0369A1" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+      <polygon points="126,2 124,28 104,14" fill="#0369A1" />
+    </g>
+
+    <!-- Main Typography: Tony's -->
+    <g transform="translate(156, 42)">
+      <text x="0" y="50" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="68" font-weight="900" fill="#0C4A6E" letter-spacing="-1.5">Tony's</text>
+      
+      <!-- Sub-brand: DIGITAL MARKETING -->
+      <g transform="translate(2, 78)">
+        <line x1="0" y1="8" x2="16" y2="8" stroke="#0284C7" stroke-width="2.5" />
+        <text x="22" y="14" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="800" fill="#0F172A" letter-spacing="2.8">DIGITAL MARKETING</text>
+        <line x1="228" y1="8" x2="242" y2="8" stroke="#0284C7" stroke-width="2.5" />
+      </g>
+
+      <!-- & BUSINESS HUB -->
+      <text x="24" y="112" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="15" font-weight="800" fill="#0284C7" letter-spacing="4">&amp; BUSINESS HUB</text>
+    </g>
+
+    <!-- Tagline: CREATIVITY THAT CONNECTS, STRATEGY THAT CONVERTS -->
+    <g transform="translate(2, 218)">
+      <line x1="0" y1="0" x2="400" y2="0" stroke="#E2E8F0" stroke-width="1.5" />
+      <text x="200" y="24" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="800" fill="#64748B" letter-spacing="1.2">CREATIVITY THAT CONNECTS, STRATEGY THAT CONVERTS</text>
+    </g>
+  </g>
+</svg>

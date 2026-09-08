@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Business, FilterState } from '../types';
+import { isDeletedBusiness, isBusinessPermanentlyApproved } from '../utils/storage';
 
 interface DiscoverBusinessesSectionProps {
   businesses: Business[];
@@ -42,10 +43,20 @@ export const DiscoverBusinessesSection: React.FC<DiscoverBusinessesSectionProps>
 
   // Filter and sort businesses based on the active tab
   const displayedBusinesses = useMemo(() => {
-    let list = businesses.filter((b) => b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected');
+    let list = businesses.filter((b) => {
+      if (!b || isDeletedBusiness(b)) return false;
+      if (isBusinessPermanentlyApproved(b.id)) return true;
+      return b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected';
+    });
     
     if (activeTab === 'trending') {
-      list = [...list].sort((a, b) => (b.views || 0) + (b.leadsCount || 0) * 3 - ((a.views || 0) + (a.leadsCount || 0) * 3));
+      list = [...list].sort((a, b) => {
+        const isFreshA = (Date.now() - new Date(a.approvedAt || a.enlistedAt || a.createdAt || 0).getTime()) < 172800000 ? 60 : 0;
+        const isFreshB = (Date.now() - new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime()) < 172800000 ? 60 : 0;
+        const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + (b.isFeatured ? 50 : 0) + isFreshB;
+        const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + (a.isFeatured ? 50 : 0) + isFreshA;
+        return scoreB - scoreA;
+      });
     } else if (activeTab === 'near_you') {
       list = [...list].sort((a, b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0) || (b.rating || 0) - (a.rating || 0));
     } else if (activeTab === 'newly_verified') {

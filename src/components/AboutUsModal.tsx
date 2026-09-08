@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   ShieldCheck, 
+  ShieldAlert,
   TrendingUp, 
   Building2, 
   MapPin, 
@@ -11,15 +12,23 @@ import {
   CheckCircle2, 
   Users, 
   Award,
-  Zap
+  Zap,
+  Lock,
+  Scale,
+  MessageSquareX,
+  Maximize2,
+  Gift,
+  Tag,
+  Sparkles
 } from 'lucide-react';
 import { Logo } from './Logo';
 
 interface AboutUsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'about' | 'pricing' | 'verification';
+  initialTab?: 'about' | 'pricing' | 'verification' | 'terms';
   onOpenRegister: () => void;
+  onOpenFullPage?: () => void;
 }
 
 export const AboutUsModal: React.FC<AboutUsModalProps> = ({
@@ -27,8 +36,15 @@ export const AboutUsModal: React.FC<AboutUsModalProps> = ({
   onClose,
   initialTab = 'about',
   onOpenRegister,
+  onOpenFullPage,
 }) => {
-  const [activeTab, setActiveTab] = useState<'about' | 'pricing' | 'verification'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'about' | 'pricing' | 'verification' | 'terms'>(initialTab);
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   if (!isOpen) return null;
 
@@ -38,60 +54,98 @@ export const AboutUsModal: React.FC<AboutUsModalProps> = ({
         className="relative w-full max-w-3xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8"
         id="about-us-modal"
       >
-        {/* Header */}
-        <div className="p-6 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo size="sm" />
+        {/* Header - High contrast, readable light background with crisp logo & text */}
+        <div className="p-5 sm:p-6 bg-gradient-to-r from-blue-50/90 via-slate-50 to-indigo-50/80 dark:from-slate-850 dark:via-slate-900 dark:to-slate-850 border-b border-blue-100/90 dark:border-slate-800 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-2xs border border-slate-200/80 dark:border-slate-700 shrink-0">
+              <Logo size="sm" textColorMode="auto" />
+            </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight">About AuraCentra Ghana</h2>
-              <p className="text-xs text-slate-400">Ghana's Premier Verified Business Directory & Market Platform</p>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                  About AuraCentra Ghana
+                </h2>
+                <span className="hidden sm:inline-block px-2 py-0.2 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-cyan-300 text-[10px] font-bold">
+                  Verified
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                Ghana&apos;s Premier Verified Business Directory & Market Platform
+              </p>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-            aria-label="Close modal"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenFullPage && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenFullPage();
+                }}
+                className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-cyan-400 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Open Dedicated Full Page"
+                aria-label="Open full page"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="p-2 bg-slate-100 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex gap-2">
+        <div className="p-2 bg-slate-100 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => setActiveTab('about')}
-            className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-center ${
               activeTab === 'about'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
             }`}
           >
-            Our Mission & Vision
+            Mission & Vision
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('pricing')}
-            className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-center ${
               activeTab === 'pricing'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
             }`}
           >
-            Listing Packages & Pricing
+            Packages & Pricing
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('verification')}
-            className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all ${
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-center ${
               activeTab === 'verification'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
             }`}
           >
-            Ghana Card Verification
+            Verification
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('terms')}
+            className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-center ${
+              activeTab === 'terms'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            Terms & Trust
           </button>
         </div>
 
@@ -300,6 +354,93 @@ export const AboutUsModal: React.FC<AboutUsModalProps> = ({
                   <li>Upload a clear photo of your Ghana Card and business registration.</li>
                   <li>Our verification team audits your submission within 24 hours.</li>
                 </ol>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'terms' && (
+            <div className="space-y-5 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    AuraCentra Terms of Service & Community Trust Standards
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] font-bold">
+                    Rev. Sep 2026
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Sensible marketplace standards established with Tony&apos;s Digital Marketing & Business Hub to protect Ghanaian consumers and elevate vetted enterprises.
+                </p>
+              </div>
+
+              {/* Zero-Tolerance Anti-Scam Callout */}
+              <div className="p-4 rounded-2xl bg-red-50/80 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 space-y-2.5">
+                <div className="flex items-center gap-2 font-bold text-red-800 dark:text-red-300 text-xs sm:text-sm">
+                  <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+                  <span>Strict Anti-Scam & Anti-Fraud Guarantee</span>
+                </div>
+                <p className="text-xs text-red-900/90 dark:text-red-200 leading-relaxed">
+                  AuraCentra maintains a zero-tolerance policy against advance-fee scams, deceptive listings, fake delivery demands, or ghost businesses. Fraudulent users face immediate permanent ban and direct legal referral to the Cyber Security Authority (CSA) and Ghana Police Service CID.
+                </p>
+              </div>
+
+              {/* Core Tenets */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-850/50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                    <MessageSquareX className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Anti-Spam & Contact Integrity</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Scraping business phone numbers, automated spam blasting, robo-calls, or chain messaging is strictly forbidden. Communication is restricted to legitimate commercial inquiries.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-850/50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span>Ghana Card Verification Integrity</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Only authentic government identification (Ghana Card) and registered GhanaPost digital addresses are recognized for official verification badges.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-850/50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                    <Scale className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Honest Pricing & Reviews</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Reviews must come from genuine customer transactions. Astroturfing, fake ratings, or competitor sabotage results in immediate profile delisting.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-850/50 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white text-xs">
+                    <Lock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <span>Act 843 Data Privacy</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Governed by Ghana Data Protection Act 2012 (Act 843). Your contact and ID documents are strictly protected and never sold to third-party brokers.
+                  </p>
+                </div>
+              </div>
+
+              {/* Direct Help / Reporting */}
+              <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between gap-3 text-xs">
+                <span className="text-slate-700 dark:text-slate-300">
+                  Suspicious vendor or scam attempt? Report directly:
+                </span>
+                <a 
+                  href="https://wa.me/233508203673" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                >
+                  WhatsApp Fraud Desk →
+                </a>
               </div>
             </div>
           )}

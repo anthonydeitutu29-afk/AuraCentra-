@@ -25,8 +25,8 @@ import { UserProfile } from '../types';
 import { Logo } from './Logo';
 
 interface NavbarProps {
-  currentSection: 'home' | 'news' | 'sectors';
-  onNavigateSection: (section: 'home' | 'news' | 'sectors') => void;
+  currentSection: 'home' | 'news' | 'sectors' | 'about';
+  onNavigateSection: (section: 'home' | 'news' | 'sectors' | 'about') => void;
   onOpenSectors?: () => void;
   onOpenAboutUs: () => void;
   onOpenPricing: () => void;
@@ -180,7 +180,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button 
               type="button" 
               onClick={onOpenAboutUs}
-              className="text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8] transition-colors cursor-pointer py-1 font-bold"
+              className={`transition-colors cursor-pointer py-1 font-bold ${
+                currentSection === 'about'
+                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+              }`}
             >
               About Us
             </button>
@@ -419,7 +423,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenAboutUs();
                 setMobileMenuOpen(false);
               }}
-              className="p-2.5 rounded-xl text-left text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white font-bold transition-colors"
+              className={`p-2.5 rounded-xl text-left font-bold transition-colors ${
+                currentSection === 'about'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
+              }`}
             >
               About AuraCentra
             </button>

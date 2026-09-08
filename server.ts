@@ -8,6 +8,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Enable standard CORS & Request header handling for Vercel/proxies
 app.use((req, res, next) => {
@@ -90,6 +91,7 @@ function isDeletedBusinessRecord(b: any): boolean {
 // Server Disk Persistence Configuration
 const DATA_DIR = path.join(process.cwd(), 'data');
 const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
+const APPROVED_IDS_FILE = path.join(DATA_DIR, 'approved_ids.json');
 
 function ensureDataDirectory() {
   try {
@@ -100,6 +102,37 @@ function ensureDataDirectory() {
     console.warn('Could not create data directory:', e);
   }
 }
+
+function loadApprovedIdsFromDisk(): Set<string> {
+  const set = new Set<string>();
+  try {
+    if (fs.existsSync(APPROVED_IDS_FILE)) {
+      const content = fs.readFileSync(APPROVED_IDS_FILE, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id: string) => {
+          if (id !== 'biz-tonys-digital-marketing-hub') {
+            set.add(id);
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load approved ids from disk:', e);
+  }
+  return set;
+}
+
+function saveApprovedIdsToDisk(ids: Set<string>) {
+  try {
+    ensureDataDirectory();
+    fs.writeFileSync(APPROVED_IDS_FILE, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Could not save approved ids to disk:', e);
+  }
+}
+
+const approvedIdsCache: Set<string> = loadApprovedIdsFromDisk();
 
 function saveBusinessesToDisk(businesses: any[]) {
   try {
@@ -132,8 +165,8 @@ const DEFAULT_INITIAL_BUSINESSES = [
     tagline: 'We offer quality digital and tech services',
     slug: 'tonys-digital-marketing-and-business-hub',
     category: 'digital-marketing',
-    description: "Tony's Digital Marketing and Business Hub offers high-impact digital marketing, search engine optimization, social media strategy, custom website architecture, and technology consulting in Ho and nationwide.",
-    logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
+    description: "We offer quality digital and tech services. Tony's Digital Marketing and Business Hub provides high-impact digital marketing, search engine optimization, social media strategy, custom website architecture, and technology consulting in Ho and nationwide.",
+    logo: '/tonys-digital-marketing-logo.svg',
     coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
     gallery: [
       'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
@@ -153,6 +186,9 @@ const DEFAULT_INITIAL_BUSINESSES = [
     reviewCount: 0,
     verificationStatus: 'pending',
     listingStatus: 'pending_approval',
+    isApproved: false,
+    permanentlyEnlisted: false,
+    isFeatured: false,
     views: 1,
     leadsCount: 0,
     ownerId: 'admin-tony-02',
@@ -164,7 +200,7 @@ const DEFAULT_INITIAL_BUSINESSES = [
         id: 'doc-tony-hub-1',
         type: 'ghana_card',
         documentNumber: 'GHA-729184029-1',
-        holderName: "Tony's Digital Marketing Hub",
+        holderName: "Tony's Digital Marketing and Business Hub",
         expiryDate: '2034-10-15',
         frontImageUrl: 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?auto=format&fit=crop&w=600&q=80',
         submittedAt: '2026-09-06T15:00:00.000Z',
@@ -197,15 +233,28 @@ const DEFAULT_INITIAL_BUSINESSES = [
 
 let businessesCache: any[] = (() => {
   const fromDisk = loadBusinessesFromDisk();
+  let baseList: any[] = [];
   if (fromDisk && fromDisk.length > 0) {
     const existingIds = new Set(fromDisk.map(b => b.id));
     const toAdd = DEFAULT_INITIAL_BUSINESSES.filter(b => !existingIds.has(b.id) && !isDeletedBusinessRecord(b));
-    const combined = [...fromDisk, ...toAdd];
-    saveBusinessesToDisk(combined);
-    return combined;
+    baseList = [...fromDisk, ...toAdd];
+  } else {
+    baseList = [...DEFAULT_INITIAL_BUSINESSES];
   }
-  saveBusinessesToDisk(DEFAULT_INITIAL_BUSINESSES);
-  return [...DEFAULT_INITIAL_BUSINESSES];
+
+  // Guarantee permanent active and verified status for approved businesses
+  baseList.forEach(b => {
+    if (approvedIdsCache.has(b.id) || b.isApproved || b.permanentlyEnlisted) {
+      b.listingStatus = 'active';
+      b.verificationStatus = 'verified';
+      b.isApproved = true;
+      b.permanentlyEnlisted = true;
+      approvedIdsCache.add(b.id);
+    }
+  });
+  saveApprovedIdsToDisk(approvedIdsCache);
+  saveBusinessesToDisk(baseList);
+  return baseList;
 })();
 let inquiriesCache: any[] = [];
 let reviewsCache: any[] = [];
@@ -1859,18 +1908,34 @@ app.post('/api/businesses', (req, res) => {
     }
 
     const businessId = data.id || `biz-${Date.now()}`;
+    const isPermanentlyApproved = approvedIdsCache.has(businessId) || 
+                                  data.listingStatus === 'active' || 
+                                  data.verificationStatus === 'verified' || 
+                                  data.isApproved === true || 
+                                  data.permanentlyEnlisted === true;
+
+    if (isPermanentlyApproved) {
+      approvedIdsCache.add(businessId);
+      saveApprovedIdsToDisk(approvedIdsCache);
+    }
+
     const newBusiness = {
       ...data,
       id: businessId,
       slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      rating: data.rating !== undefined ? data.rating : (data.verificationStatus === 'verified' ? 5.0 : 0),
+      rating: data.rating !== undefined ? data.rating : (isPermanentlyApproved ? 5.0 : 0),
       reviewCount: data.reviewCount || 0,
-      verificationStatus: data.verificationStatus || 'pending',
-      listingStatus: data.listingStatus || 'pending_approval',
-      isApproved: data.isApproved !== undefined ? data.isApproved : (data.listingStatus === 'active'),
-      permanentlyEnlisted: data.permanentlyEnlisted !== undefined ? data.permanentlyEnlisted : (data.listingStatus === 'active'),
+      verificationStatus: isPermanentlyApproved ? 'verified' : (data.verificationStatus || 'pending'),
+      listingStatus: isPermanentlyApproved ? 'active' : (data.listingStatus || 'pending_approval'),
+      isApproved: isPermanentlyApproved ? true : Boolean(data.isApproved),
+      permanentlyEnlisted: isPermanentlyApproved ? true : Boolean(data.permanentlyEnlisted),
       isFeatured: data.isFeatured !== undefined ? data.isFeatured : false,
-      verificationDetails: data.verificationDetails || null,
+      verificationDetails: data.verificationDetails || (isPermanentlyApproved ? {
+        badgeType: 'Gold Enterprise',
+        gpsVerified: true,
+        verifiedByAdmin: 'Executive Desk',
+        verifiedAt: new Date().toISOString()
+      } : null),
       views: data.views !== undefined ? data.views : 1,
       leadsCount: data.leadsCount || 0,
       createdAt: data.createdAt || new Date().toISOString(),
@@ -2019,47 +2084,75 @@ app.post('/api/moderation/action', (req, res) => {
     return;
   }
 
-  const biz = businessesCache.find(b => b.id === businessId);
-  if (biz) {
-    const nowIso = new Date().toISOString();
-    if (action === 'approve') {
-      biz.listingStatus = 'active';
-      biz.verificationStatus = 'verified';
-      biz.isApproved = true;
-      biz.permanentlyEnlisted = true;
-      if (isFeatured !== undefined) {
-        biz.isFeatured = isFeatured;
-      }
-      if (coordinates) {
-        biz.coordinates = coordinates;
-      }
-      biz.enlistedAt = biz.enlistedAt || nowIso;
-      biz.approvedAt = nowIso;
-      biz.verificationDetails = {
-        ...(biz.verificationDetails || {}),
-        badgeType: badgeType || 'Gold Enterprise',
-        gpsVerified: true,
-        tinNumber: biz.verificationDetails?.tinNumber || 'TIN-GH-882194',
-        businessRegNumber: biz.verificationDetails?.businessRegNumber || 'BN-GH-2024-9128',
-        verifiedByAdmin: 'Executive Desk',
-        verifiedAt: nowIso
+  let biz = businessesCache.find(b => b.id === businessId);
+  const nowIso = new Date().toISOString();
+
+  if (action === 'approve') {
+    approvedIdsCache.add(businessId);
+    saveApprovedIdsToDisk(approvedIdsCache);
+
+    if (!biz) {
+      const defaultBiz = DEFAULT_INITIAL_BUSINESSES.find(b => b.id === businessId);
+      biz = {
+        ...(defaultBiz || {
+          id: businessId,
+          name: 'Verified Business Listing',
+          category: 'professional-services',
+          city: 'Accra',
+          region: 'Greater Accra',
+          phone: '0508203673',
+          rating: 5.0,
+          reviewCount: 1,
+          createdAt: nowIso
+        }),
+        id: businessId
       };
-      if (Array.isArray(biz.verificationDocuments)) {
-        biz.verificationDocuments = biz.verificationDocuments.map((d: any) => ({
-          ...d,
-          status: 'verified',
-          reviewedAt: nowIso
-        }));
-      }
-    } else {
+      businessesCache.unshift(biz);
+    }
+
+    biz.listingStatus = 'active';
+    biz.verificationStatus = 'verified';
+    biz.isApproved = true;
+    biz.permanentlyEnlisted = true;
+    if (isFeatured !== undefined) {
+      biz.isFeatured = isFeatured;
+    }
+    if (coordinates) {
+      biz.coordinates = coordinates;
+    }
+    biz.enlistedAt = biz.enlistedAt || nowIso;
+    biz.approvedAt = nowIso;
+    biz.verificationDetails = {
+      ...(biz.verificationDetails || {}),
+      badgeType: badgeType || 'Gold Enterprise',
+      gpsVerified: true,
+      tinNumber: biz.verificationDetails?.tinNumber || 'TIN-GH-882194',
+      businessRegNumber: biz.verificationDetails?.businessRegNumber || 'BN-GH-2024-9128',
+      verifiedByAdmin: 'Executive Desk',
+      verifiedAt: nowIso
+    };
+    if (Array.isArray(biz.verificationDocuments)) {
+      biz.verificationDocuments = biz.verificationDocuments.map((d: any) => ({
+        ...d,
+        status: 'verified',
+        reviewedAt: nowIso
+      }));
+    }
+  } else {
+    approvedIdsCache.delete(businessId);
+    saveApprovedIdsToDisk(approvedIdsCache);
+    if (biz) {
       biz.listingStatus = 'rejected';
       biz.verificationStatus = 'rejected';
       biz.isApproved = false;
     }
+  }
+
+  if (biz) {
     biz.moderationNotes = notes || '';
     biz.updatedAt = nowIso;
-    saveBusinessesToDisk(businessesCache);
   }
+  saveBusinessesToDisk(businessesCache);
 
   res.json({
     status: 'success',

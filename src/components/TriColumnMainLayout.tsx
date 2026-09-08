@@ -23,6 +23,7 @@ import {
 import { Business, Category, FilterState } from '../types';
 import { GHANA_REGIONS, calculateDistanceKm, requestPreciseLocation } from '../utils/geolocationService';
 import { useWhatsAppContact } from '../hooks/useWhatsAppContact';
+import { isDeletedBusiness, isBusinessPermanentlyApproved } from '../utils/storage';
 
 interface TriColumnMainLayoutProps {
   businesses: Business[];
@@ -89,7 +90,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
   // Robust category & tab filtering logic
   const filteredAndSortedBusinesses = useMemo(() => {
     // 0. Only show active / approved businesses to directory users
-    let list = businesses.filter((b) => b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected');
+    let list = businesses.filter((b) => {
+      if (!b || isDeletedBusiness(b)) return false;
+      if (isBusinessPermanentlyApproved(b.id)) return true;
+      return b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected';
+    });
 
     // 1. Region filter
     if (filters.region && filters.region !== 'All Regions' && filters.region !== 'all' && filters.region.trim() !== '') {
@@ -154,8 +159,10 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     // Apply Tab specific sorting - all enlisted/approved businesses are displayed
     if (activeTab === 'trending') {
       list = [...list].sort((a, b) => {
-        const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + (b.isFeatured ? 50 : 0);
-        const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + (a.isFeatured ? 50 : 0);
+        const isFreshA = (Date.now() - new Date(a.approvedAt || a.enlistedAt || a.createdAt || 0).getTime()) < 172800000 ? 60 : 0;
+        const isFreshB = (Date.now() - new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime()) < 172800000 ? 60 : 0;
+        const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + (b.isFeatured ? 50 : 0) + isFreshB;
+        const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + (a.isFeatured ? 50 : 0) + isFreshA;
         return scoreB - scoreA;
       });
     } else if (activeTab === 'featured') {

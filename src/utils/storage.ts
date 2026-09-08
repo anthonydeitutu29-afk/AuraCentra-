@@ -1,5 +1,5 @@
 import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, UserNotification } from '../types';
-import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
+import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS, TONYS_DIGITAL_MARKETING_BUSINESS } from '../data/initialData';
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
@@ -65,6 +65,43 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
   'kempinski hotel'
 ];
 
+// Permanently approved & verified enterprise listings across all sessions
+export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
+
+const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v4';
+
+export function getApprovedBusinessIds(): Set<string> {
+  const set = new Set<string>(PERMANENTLY_APPROVED_BUSINESS_IDS);
+  try {
+    const raw = localStorage.getItem(APPROVED_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id) => set.add(id));
+      }
+    }
+  } catch (e) {
+    // Ignore error
+  }
+  return set;
+}
+
+export function markBusinessPermanentlyApproved(businessId: string): void {
+  if (!businessId) return;
+  try {
+    const ids = getApprovedBusinessIds();
+    ids.add(businessId);
+    localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    // Ignore error
+  }
+}
+
+export function isBusinessPermanentlyApproved(businessId?: string | null): boolean {
+  if (!businessId) return false;
+  return getApprovedBusinessIds().has(businessId);
+}
+
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
   if (b.id && PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id)) return true;
@@ -91,18 +128,54 @@ export function isDeletedBusiness(b: Partial<Business> | null | undefined): bool
 export function getStoredBusinesses(): Business[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
+    const approvedIds = getApprovedBusinessIds();
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
         // Strip any residual legacy or permanently deleted businesses
-        const clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
-        // Ensure initial businesses (such as pending enlisted listings) are merged if missing
+        let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
+
+        // Sync Tony's Digital Marketing to the authentic state from the user's screenshot
+        const tonyIndex = clean.findIndex((b) => b.id === 'biz-tonys-digital-marketing-hub');
+        if (tonyIndex >= 0) {
+          clean[tonyIndex] = {
+            ...clean[tonyIndex],
+            ...TONYS_DIGITAL_MARKETING_BUSINESS,
+            // Keep status pending unless explicitly approved in v4
+            verificationStatus: approvedIds.has('biz-tonys-digital-marketing-hub') ? 'verified' : 'pending',
+            listingStatus: approvedIds.has('biz-tonys-digital-marketing-hub') ? 'active' : 'pending_approval',
+            isApproved: approvedIds.has('biz-tonys-digital-marketing-hub'),
+            permanentlyEnlisted: approvedIds.has('biz-tonys-digital-marketing-hub'),
+            views: clean[tonyIndex].views && clean[tonyIndex].views > 1 && approvedIds.has('biz-tonys-digital-marketing-hub') ? clean[tonyIndex].views : 1,
+            rating: approvedIds.has('biz-tonys-digital-marketing-hub') ? clean[tonyIndex].rating : 0,
+            reviewCount: approvedIds.has('biz-tonys-digital-marketing-hub') ? clean[tonyIndex].reviewCount : 0
+          };
+        }
+
+        // Enforce approved and verified status for permanently approved businesses
+        clean.forEach((b) => {
+          if (approvedIds.has(b.id)) {
+            b.listingStatus = 'active';
+            b.verificationStatus = 'verified';
+            b.isApproved = true;
+            b.permanentlyEnlisted = true;
+          }
+        });
+
+        // Ensure initial businesses (such as Tony's Hub) are merged if missing
         const existingIds = new Set(clean.map((b) => b.id));
         const toAdd = INITIAL_BUSINESSES.filter((b) => !existingIds.has(b.id) && !isDeletedBusiness(b));
+        toAdd.forEach((b) => {
+          if (approvedIds.has(b.id)) {
+            b.listingStatus = 'active';
+            b.verificationStatus = 'verified';
+            b.isApproved = true;
+            b.permanentlyEnlisted = true;
+          }
+        });
+
         const merged = [...clean, ...toAdd];
-        if (merged.length !== parsed.length || toAdd.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(merged));
-        }
+        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(merged));
         return merged;
       }
     }
@@ -114,7 +187,22 @@ export function getStoredBusinesses(): Business[] {
 
 export function saveBusinesses(businesses: Business[]): void {
   try {
+    const approvedIds = getApprovedBusinessIds();
     const clean = Array.isArray(businesses) ? businesses.filter((b) => !isDeletedBusiness(b)) : [];
+    clean.forEach((b) => {
+      if (b.listingStatus === 'active' || b.verificationStatus === 'verified' || b.isApproved || b.permanentlyEnlisted) {
+        b.listingStatus = 'active';
+        b.verificationStatus = 'verified';
+        b.isApproved = true;
+        b.permanentlyEnlisted = true;
+        markBusinessPermanentlyApproved(b.id);
+      } else if (approvedIds.has(b.id)) {
+        b.listingStatus = 'active';
+        b.verificationStatus = 'verified';
+        b.isApproved = true;
+        b.permanentlyEnlisted = true;
+      }
+    });
     localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
   } catch (e) {
     console.error('Failed to save businesses to storage', e);

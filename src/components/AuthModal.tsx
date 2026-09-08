@@ -36,6 +36,7 @@ import {
 } from '../utils/storage';
 import { Logo } from './Logo';
 import { INITIAL_CATEGORIES } from '../data/initialData';
+import { TermsAndConditionsModal } from './TermsAndConditionsModal';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -79,6 +80,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // UI / Interaction state
   const [agreeTerms, setAgreeTerms] = useState(true);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -815,17 +817,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
 
                 {/* Terms Checkbox */}
-                <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
+                <div className="flex items-start gap-2.5 pt-1">
                   <input
                     type="checkbox"
+                    id="auth-signup-terms-checkbox"
                     checked={agreeTerms}
                     onChange={(e) => setAgreeTerms(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500"
+                    className="mt-0.5 w-4 h-4 rounded-md border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
-                  <span className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
-                    I agree to AuraCentra Ghana's <span className="text-blue-600 dark:text-blue-400 font-semibold underline">Terms of Service</span> and <span className="text-blue-600 dark:text-blue-400 font-semibold underline">Privacy Policy</span>.
-                  </span>
-                </label>
+                  <label htmlFor="auth-signup-terms-checkbox" className="text-xs text-slate-500 dark:text-slate-400 leading-tight">
+                    I agree to AuraCentra Ghana&apos;s{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsTermsModalOpen(true);
+                      }}
+                      className="text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer inline focus:outline-none"
+                    >
+                      Terms of Service
+                    </button>{' '}
+                    and{' '}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsTermsModalOpen(true);
+                      }}
+                      className="text-blue-600 dark:text-blue-400 font-semibold underline hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer inline focus:outline-none"
+                    >
+                      Privacy Policy
+                    </button>
+                    .
+                  </label>
+                </div>
 
                 {/* Submit Button */}
                 <button
@@ -963,6 +990,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           </div>
         )}
+
+        {/* Sensible Terms & Anti-Scam Modal */}
+        <TermsAndConditionsModal
+          isOpen={isTermsModalOpen}
+          onClose={() => setIsTermsModalOpen(false)}
+          onAccept={() => {
+            setAgreeTerms(true);
+            setIsTermsModalOpen(false);
+          }}
+        />
       </div>
     </div>
   );

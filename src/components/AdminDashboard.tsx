@@ -52,7 +52,7 @@ import {
   Star
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
-import { getRegisteredAccounts } from '../utils/storage';
+import { getRegisteredAccounts, isBusinessPermanentlyApproved, markBusinessPermanentlyApproved } from '../utils/storage';
 import { verifyGhanaPostGPS } from '../utils/gpsVerification';
 import { Logo } from './Logo';
 import { AdminVerificationModal } from './AdminVerificationModal';
@@ -234,6 +234,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   const pendingBusinesses = businesses.filter((b) => {
+    if (!b) return false;
+    if (
+      isBusinessPermanentlyApproved(b.id) ||
+      b.isApproved === true ||
+      b.permanentlyEnlisted === true ||
+      b.listingStatus === 'active' ||
+      b.verificationStatus === 'verified'
+    ) {
+      return false;
+    }
     const isPending = b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval';
     if (!isPending) return false;
 
@@ -2456,14 +2466,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  const targetBiz = approvingBusiness.business;
+                  markBusinessPermanentlyApproved(targetBiz.id);
                   onApproveVerification(
-                    approvingBusiness.business.id,
+                    targetBiz.id,
                     approvingBusiness.badgeType,
                     approvingBusiness.business.coordinates,
                     approvingBusiness.isFeatured
                   );
                   confetti({ particleCount: 80, spread: 70 });
                   setApprovingBusiness(null);
+                  if (onShowToast) {
+                    onShowToast(
+                      'Business Approved & Live on Website',
+                      `"${targetBiz.name}" is officially verified and immediately published live to the directory.`,
+                      'success'
+                    );
+                  }
                 }}
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
               >
