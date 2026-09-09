@@ -57,7 +57,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
   isLocating = false,
 }) => {
   const [activeTab, setActiveTab] = useState<'trending' | 'near_you' | 'newly_verified' | 'featured'>('trending');
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [visibleCount, setVisibleCount] = useState(12);
   const [fxCalcAmount, setFxCalcAmount] = useState<number>(100);
   const [fxCalcCurrency, setFxCalcCurrency] = useState<'USD' | 'GBP' | 'EUR'>('USD');
   const { contactBusinessOnWhatsApp } = useWhatsAppContact();
@@ -92,8 +92,9 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     // 0. Only show active / approved businesses to directory users
     let list = businesses.filter((b) => {
       if (!b || isDeletedBusiness(b)) return false;
-      if (isBusinessPermanentlyApproved(b.id)) return true;
-      return b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected';
+      const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true;
+      if (isApproved) return true;
+      return b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected' && b.verificationStatus !== 'rejected';
     });
 
     // 1. Region filter
@@ -108,7 +109,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
     // 3. Verification filter
     if (filters.verificationOnly) {
-      list = list.filter((b) => b.verificationStatus === 'verified');
+      list = list.filter((b) => b.verificationStatus === 'verified' || isBusinessPermanentlyApproved(b.id) || b.isApproved === true);
     }
 
     // 4. Flexible Category filter matching by ID, Name, or Slug

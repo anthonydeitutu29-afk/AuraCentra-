@@ -229,104 +229,161 @@ export const AboutUsModal: React.FC<AboutUsModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Standard Free */}
-                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 space-y-3">
-                  <div className="space-y-1">
-                    <div className="text-xs font-bold text-slate-500">STANDARD</div>
-                    <div className="text-xl font-black text-slate-900 dark:text-white">Free</div>
-                    <div className="text-[10px] text-slate-400">Forever directory listing</div>
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-slate-500">STANDARD</div>
+                      <div className="text-xl font-black text-slate-900 dark:text-white">Free</div>
+                      <div className="text-[10px] text-slate-400">Forever directory listing</div>
+                    </div>
+
+                    {/* Special Offer */}
+                    <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-2">
+                      <Gift className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <div className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1">
+                          <span>Launch Offer</span>
+                          <span className="px-1 py-0.2 rounded bg-emerald-200/80 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 text-[9px] font-black uppercase">Bonus</span>
+                        </div>
+                        <p className="text-[10px] text-emerald-800/90 dark:text-emerald-300 leading-snug">
+                          30 days free priority indexing & WhatsApp setup for new signups.
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300 pt-1">
+                      <li className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span>Business profile & contacts</span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span>Opening hours & services</span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span>Customer reviews & ratings</span>
+                      </li>
+                    </ul>
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Business profile & contacts</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Opening hours & services</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      <span>Customer reviews & ratings</span>
-                    </li>
-                  </ul>
+
                   <button
                     type="button"
                     onClick={() => {
                       onClose();
                       onOpenRegister();
                     }}
-                    className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 text-xs font-bold"
+                    className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 text-xs font-bold mt-2"
                   >
                     List Free
                   </button>
                 </div>
 
                 {/* Gold Verified */}
-                <div className="p-4 rounded-2xl border-2 border-blue-600 bg-blue-50/30 dark:bg-blue-950/40 space-y-3 relative shadow-md">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase">
-                    Most Popular
+                <div className="p-4 rounded-2xl border-2 border-blue-600 bg-blue-50/30 dark:bg-blue-950/40 space-y-3 relative shadow-md flex flex-col justify-between">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase shadow-xs">
+                    Recommended
                   </div>
-                  <div className="space-y-1 pt-1">
-                    <div className="text-xs font-bold text-blue-600 dark:text-blue-400">GOLD VERIFIED</div>
-                    <div className="text-xl font-black text-slate-900 dark:text-white">GHS 99 <span className="text-xs font-normal text-slate-500">/mo</span></div>
-                    <div className="text-[10px] text-slate-400">Identity-verified credibility</div>
+                  <div className="space-y-3 pt-1">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-blue-600 dark:text-blue-400">GOLD VERIFIED</div>
+                      <div className="text-xl font-black text-slate-900 dark:text-white">GHS 100 <span className="text-xs font-normal text-slate-500">/mo</span></div>
+                      <div className="text-[10px] text-slate-400">Identity & Location Verified Trust</div>
+                    </div>
+
+                    {/* Special Offer */}
+                    <div className="p-2.5 rounded-xl bg-blue-100/70 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 flex items-start gap-2">
+                      <Tag className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <div className="text-[11px] font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1">
+                          <span>Pay 3, Get 1 Free</span>
+                          <span className="px-1 py-0.2 rounded bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-[9px] font-black uppercase">Save 100</span>
+                        </div>
+                        <p className="text-[10px] text-blue-800/90 dark:text-blue-300 leading-snug">
+                          Pay 3 months (GHS 300) and get 4th month free + official QR decal.
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300 pt-1">
+                      <li className="flex items-center gap-1.5 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Ghana Card Gold Verified Badge</span>
+                      </li>
+                      <li className="flex items-center gap-1.5 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Priority in search results</span>
+                      </li>
+                      <li className="flex items-center gap-1.5 font-semibold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Direct WhatsApp Quote leads</span>
+                      </li>
+                    </ul>
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span>Ghana Card Gold Verified Badge</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span>Priority in search results</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span>Direct WhatsApp Quote leads</span>
-                    </li>
-                  </ul>
+
                   <button
                     type="button"
                     onClick={() => {
                       onClose();
                       onOpenRegister();
                     }}
-                    className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30"
+                    className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 mt-2"
                   >
-                    Get Verified
+                    Get Verified (GHS 100)
                   </button>
                 </div>
 
                 {/* Enterprise Growth */}
-                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 space-y-3">
-                  <div className="space-y-1">
-                    <div className="text-xs font-bold text-purple-600 dark:text-purple-400">ENTERPRISE</div>
-                    <div className="text-xl font-black text-slate-900 dark:text-white">GHS 249 <span className="text-xs font-normal text-slate-500">/mo</span></div>
-                    <div className="text-[10px] text-slate-400">Dedicated digital marketing</div>
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 space-y-3 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-purple-600 dark:text-purple-400">ENTERPRISE</div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="line-through text-slate-400 text-xs font-semibold">GHS 249</span>
+                        <div className="text-xl font-black text-slate-900 dark:text-white">GHS 150 <span className="text-xs font-normal text-slate-500">/mo</span></div>
+                      </div>
+                      <div className="text-[10px] text-slate-400">Active digital marketing by Tony&apos;s Hub</div>
+                    </div>
+
+                    {/* Special Offer */}
+                    <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/70 flex items-start gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <div className="text-[11px] font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1">
+                          <span>Promo Offer</span>
+                          <span className="px-1 py-0.2 rounded bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-[9px] font-black uppercase">40% Off</span>
+                        </div>
+                        <p className="text-[10px] text-purple-800/90 dark:text-purple-300 leading-snug">
+                          Save GHS 99/mo + free social media ad setup by Tony&apos;s Hub.
+                        </p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300 pt-1">
+                      <li className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <span>Homepage Featured Spotlight</span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <span>Social Media Campaigns by Tony&apos;s Hub</span>
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <span>Dedicated Account Manager</span>
+                      </li>
+                    </ul>
                   </div>
-                  <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span>Homepage Featured Spotlight</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span>Social Media Promotion by Tony's Hub</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                      <span>Dedicated Account Manager</span>
-                    </li>
-                  </ul>
+
                   <button
                     type="button"
                     onClick={() => {
                       onClose();
                       onOpenRegister();
                     }}
-                    className="w-full py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 text-xs font-bold"
+                    className="w-full py-2 rounded-xl border border-purple-300 dark:border-purple-800 text-purple-700 dark:text-purple-300 hover:bg-purple-50 text-xs font-bold mt-2"
                   >
-                    Choose Enterprise
+                    Choose Enterprise (GHS 150)
                   </button>
                 </div>
               </div>

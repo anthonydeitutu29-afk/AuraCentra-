@@ -195,20 +195,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [copiedSchema, setCopiedSchema] = useState(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
 
+  // Helper to reliably determine status
+  const isBizPermanentlyApproved = (b: Business) => 
+    isBusinessPermanentlyApproved(b.id) || 
+    b.isApproved === true || 
+    b.permanentlyEnlisted === true || 
+    (b.listingStatus === 'active' && b.verificationStatus === 'verified');
+
+  const isBizPending = (b: Business) => 
+    !isBizPermanentlyApproved(b) && 
+    (b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval');
+
+  const isBizRejected = (b: Business) => 
+    !isBizPermanentlyApproved(b) && 
+    (b.verificationStatus === 'rejected' || b.listingStatus === 'rejected');
+
   // Stats Calculations
-  const verifiedCount = businesses.filter((b) => b.verificationStatus === 'verified').length;
-  const pendingCount = businesses.filter((b) => b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval').length;
-  const rejectedCount = businesses.filter((b) => b.verificationStatus === 'rejected' || b.listingStatus === 'rejected').length;
+  const verifiedCount = businesses.filter((b) => isBizPermanentlyApproved(b)).length;
+  const pendingCount = businesses.filter((b) => isBizPending(b)).length;
+  const rejectedCount = businesses.filter((b) => isBizRejected(b)).length;
   const pendingReportsCount = reports.filter((r) => r.status === 'pending').length;
   const totalViews = businesses.reduce((acc, b) => acc + (b.views || 0), 0);
   const totalLeads = businesses.reduce((acc, b) => acc + (b.leadsCount || 0), 0);
 
   const filteredBusinesses = businesses.filter((b) => {
-    if (bizStatusFilter === 'pending' && b.verificationStatus !== 'pending' && b.listingStatus !== 'pending_approval') return false;
-    if (bizStatusFilter === 'verified' && b.verificationStatus !== 'verified') return false;
+    if (bizStatusFilter === 'pending' && !isBizPending(b)) return false;
+    if (bizStatusFilter === 'verified' && !isBizPermanentlyApproved(b)) return false;
     if (bizStatusFilter === 'featured' && !b.isFeatured) return false;
-    if (bizStatusFilter === 'rejected' && b.verificationStatus !== 'rejected' && b.listingStatus !== 'rejected') return false;
-    if (bizStatusFilter === 'unverified' && (b.verificationStatus === 'verified' || b.verificationStatus === 'pending' || b.verificationStatus === 'rejected' || b.listingStatus === 'rejected')) return false;
+    if (bizStatusFilter === 'rejected' && !isBizRejected(b)) return false;
+    if (bizStatusFilter === 'unverified' && (isBizPermanentlyApproved(b) || isBizPending(b) || isBizRejected(b))) return false;
 
     if (!searchQuery) return true;
     return (
@@ -589,7 +604,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       : 'text-slate-400 hover:text-white hover:bg-slate-800'
                   }`}
                 >
-                  All Submissions ({businesses.filter((b) => b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval').length})
+                  All Submissions ({pendingCount})
                 </button>
                 <button
                   type="button"
@@ -1600,7 +1615,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </tr>
                     ) : (
                       filteredBusinesses.map((b) => {
-                      const isPending = b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval';
+                      const isApproved = isBizPermanentlyApproved(b);
+                      const isPending = isBizPending(b);
+                      const isRejected = isBizRejected(b);
                       const gpsInfo = verifyGhanaPostGPS(b.digitalAddress || '');
 
                       return (
@@ -1648,11 +1665,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </button>
                           </td>
                           <td className="p-3.5">
-                            {b.verificationStatus === 'verified' ? (
+                            {isApproved ? (
                               <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 font-semibold text-[10px]">
                                 Verified ({b.verificationDetails?.badgeType || 'Gold'})
                               </span>
-                            ) : (b.verificationStatus === 'rejected' || b.listingStatus === 'rejected') ? (
+                            ) : isRejected ? (
                               <span className="px-2 py-0.5 rounded-full bg-rose-950/90 border border-rose-800 text-rose-300 font-bold text-[10px] inline-flex items-center gap-1">
                                 <XCircle className="w-3 h-3 text-rose-400" />
                                 <span>Rejected (Excluded)</span>
@@ -1681,7 +1698,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </button>
 
                               {/* Direct Approve Action for Pending or Rejected Business */}
-                              {(isPending || b.verificationStatus === 'rejected' || b.listingStatus === 'rejected') && (
+                              {(isPending || isRejected) && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1695,12 +1712,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   title="Approve and choose category placement"
                                 >
                                   <ShieldCheck className="w-3 h-3" />
-                                  <span>{b.verificationStatus === 'rejected' ? 'Re-Approve' : 'Approve'}</span>
+                                  <span>{isRejected ? 'Re-Approve' : 'Approve'}</span>
                                 </button>
                               )}
 
                               {/* Reject Action if active/pending and not yet rejected */}
-                              {b.verificationStatus !== 'rejected' && b.listingStatus !== 'rejected' && (
+                              {!isRejected && (
                                 <button
                                   type="button"
                                   onClick={() => setRejectingBusiness(b)}
@@ -2299,6 +2316,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           isOpen={!!verifyingBusiness}
           onClose={() => setVerifyingBusiness(null)}
           onApprove={(bizId, badge, coords, isFeatured) => {
+            markBusinessPermanentlyApproved(bizId);
             onApproveVerification(bizId, badge, coords, isFeatured);
             confetti({ particleCount: 80, spread: 70 });
             setVerifyingBusiness(null);
@@ -2454,7 +2472,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-850 flex items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-850 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setApprovingBusiness(null)}
@@ -2463,32 +2481,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Cancel
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const targetBiz = approvingBusiness.business;
-                  markBusinessPermanentlyApproved(targetBiz.id);
-                  onApproveVerification(
-                    targetBiz.id,
-                    approvingBusiness.badgeType,
-                    approvingBusiness.business.coordinates,
-                    approvingBusiness.isFeatured
-                  );
-                  confetti({ particleCount: 80, spread: 70 });
-                  setApprovingBusiness(null);
-                  if (onShowToast) {
-                    onShowToast(
-                      'Business Approved & Live on Website',
-                      `"${targetBiz.name}" is officially verified and immediately published live to the directory.`,
-                      'success'
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetBiz = approvingBusiness.business;
+                    markBusinessPermanentlyApproved(targetBiz.id);
+                    onApproveVerification(
+                      targetBiz.id,
+                      approvingBusiness.badgeType,
+                      approvingBusiness.business.coordinates,
+                      approvingBusiness.isFeatured
                     );
-                  }
-                }}
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm & Publish Listing</span>
-              </button>
+                    confetti({ particleCount: 80, spread: 70 });
+                    setApprovingBusiness(null);
+                    if (onShowToast) {
+                      onShowToast(
+                        'Business Approved & Live on Website',
+                        `"${targetBiz.name}" is officially verified and immediately published live to the directory.`,
+                        'success'
+                      );
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Publish & Stay in Dashboard</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetBiz = approvingBusiness.business;
+                    markBusinessPermanentlyApproved(targetBiz.id);
+                    onApproveVerification(
+                      targetBiz.id,
+                      approvingBusiness.badgeType,
+                      approvingBusiness.business.coordinates,
+                      approvingBusiness.isFeatured
+                    );
+                    confetti({ particleCount: 80, spread: 70 });
+                    setApprovingBusiness(null);
+                    if (onSelectBusiness) {
+                      onSelectBusiness({
+                        ...targetBiz,
+                        listingStatus: 'active',
+                        verificationStatus: 'verified',
+                        isApproved: true,
+                        permanentlyEnlisted: true
+                      });
+                    }
+                    if (onBackToPortal) {
+                      onBackToPortal();
+                    }
+                    if (onShowToast) {
+                      onShowToast(
+                        'Navigating to Live Business',
+                        `"${targetBiz.name}" is now live on the public directory.`,
+                        'success'
+                      );
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Confirm & View on Website</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

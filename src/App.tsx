@@ -29,6 +29,7 @@ import {
   PlatformFeedback,
   GhanaNewsArticle
 } from './types';
+import { INITIAL_BUSINESSES } from './data/initialData';
 import { 
   getStoredBusinesses, 
   saveBusinesses, 
@@ -54,7 +55,11 @@ import {
   validateAndClearSession,
   saveRegisteredAccount,
   findRegisteredAccountByEmail,
-  isDeletedBusiness
+  isDeletedBusiness,
+  markBusinessPermanentlyApproved,
+  unmarkBusinessPermanentlyApproved,
+  isBusinessPermanentlyApproved,
+  getApprovedBusinessIds
 } from './utils/storage';
 import { autoDetectUserLocation, requestPreciseLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
@@ -269,17 +274,30 @@ export default function App() {
     const unsubscribe = FirestoreSync.subscribeBusinesses((liveBusinesses) => {
       if (liveBusinesses && liveBusinesses.length > 0) {
         setBusinesses((prev) => {
+          const approvedIds = getApprovedBusinessIds();
           // Merge live businesses with state
           const map = new Map<string, Business>();
           prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, b));
           
           liveBusinesses.filter((b) => !isDeletedBusiness(b)).forEach((b) => {
+            const isApprovedGlobally = 
+              approvedIds.has(b.id) || 
+              b.isApproved === true || 
+              b.permanentlyEnlisted === true || 
+              b.listingStatus === 'active' || 
+              b.verificationStatus === 'verified';
+
             const existing = map.get(b.id);
             if (existing) {
-              const isLocalApproved = existing.listingStatus === 'active' || existing.verificationStatus === 'verified';
-              const isIncomingPending = b.listingStatus === 'pending_approval' || b.verificationStatus === 'pending';
-              if (isLocalApproved && isIncomingPending) {
-                // Keep local verified / active approval status
+              const isLocalApproved = 
+                isApprovedGlobally || 
+                existing.listingStatus === 'active' || 
+                existing.verificationStatus === 'verified' || 
+                existing.isApproved === true || 
+                existing.permanentlyEnlisted === true;
+
+              if (isLocalApproved) {
+                // Keep local verified / active approval status unconditionally
                 map.set(b.id, {
                   ...b,
                   ...existing,
@@ -288,11 +306,23 @@ export default function App() {
                   isApproved: true,
                   permanentlyEnlisted: true
                 });
+                markBusinessPermanentlyApproved(b.id);
               } else {
                 map.set(b.id, { ...existing, ...b });
               }
             } else {
-              map.set(b.id, b);
+              if (isApprovedGlobally) {
+                map.set(b.id, {
+                  ...b,
+                  listingStatus: 'active',
+                  verificationStatus: 'verified',
+                  isApproved: true,
+                  permanentlyEnlisted: true
+                });
+                markBusinessPermanentlyApproved(b.id);
+              } else {
+                map.set(b.id, b);
+              }
             }
           });
 
@@ -762,6 +792,7 @@ export default function App() {
   };
 
   const handleDeleteBusiness = (businessId: string) => {
+    unmarkBusinessPermanentlyApproved(businessId);
     setBusinesses((prev) => {
       const updated = prev.filter((b) => b.id !== businessId);
       saveBusinesses(updated);
@@ -786,63 +817,70 @@ export default function App() {
     verifiedCoords?: { lat: number; lng: number },
     isFeatured?: boolean
   ) => {
+    // 1. Immediately mark permanently approved in storage so it can never revert to pending
+    markBusinessPermanentlyApproved(businessId);
+
     const nowIso = new Date().toISOString();
-    let approvedBiz: Business | undefined;
     const shouldBeFeatured = isFeatured !== undefined ? isFeatured : true;
 
+    // 2. Synchronously find current business from state or local storage
+    const fallbackBase = INITIAL_BUSINESSES.find((b) => b.id === businessId) || INITIAL_BUSINESSES[0];
+    const currentBiz: Business = businesses.find((b) => b.id === businessId) || 
+                                 getStoredBusinesses().find((b) => b.id === businessId) ||
+                                 { ...fallbackBase, id: businessId };
+
+    const approvedBiz: Business = {
+      ...currentBiz,
+      listingStatus: 'active', // Permanently enlist officially on the site
+      verificationStatus: 'verified',
+      isApproved: true,
+      permanentlyEnlisted: true,
+      isFeatured: shouldBeFeatured, // Configured by admin (Featured vs Standard)
+      enlistedAt: currentBiz.enlistedAt || nowIso,
+      approvedAt: nowIso,
+      updatedAt: nowIso,
+      coordinates: verifiedCoords || currentBiz.coordinates,
+      verificationDetails: {
+        ...(currentBiz.verificationDetails || {
+          tinNumber: 'TIN-GH-882194',
+          businessRegNumber: 'BN-GH-2024-9128',
+          verifiedByAdmin: 'Executive Desk',
+        }),
+        verifiedAt: nowIso,
+        badgeType: (badgeType as any) || 'Gold Enterprise',
+        gpsVerified: true,
+      },
+      verificationDocuments: currentBiz.verificationDocuments?.map((d) => ({
+        ...d,
+        status: 'verified',
+        reviewedAt: nowIso,
+      })) || [],
+    };
+
+    // 3. Update React state and immediate permanent storage
     setBusinesses((prev) => {
-      const updated = prev.map((b) => {
-        if (b.id === businessId) {
-          approvedBiz = {
-            ...b,
-            listingStatus: 'active', // Permanently enlist officially on the site
-            verificationStatus: 'verified',
-            isApproved: true,
-            permanentlyEnlisted: true,
-            isFeatured: shouldBeFeatured, // Configured by admin (Featured vs Standard)
-            enlistedAt: nowIso,
-            approvedAt: nowIso,
-            updatedAt: nowIso,
-            coordinates: verifiedCoords || b.coordinates,
-            verificationDetails: {
-              ...(b.verificationDetails || {
-                tinNumber: 'TIN-GH-882194',
-                businessRegNumber: 'BN-GH-2024-9128',
-                verifiedByAdmin: 'Executive Desk',
-              }),
-              verifiedAt: nowIso,
-              badgeType: (badgeType as any) || 'Gold Enterprise',
-              gpsVerified: true,
-            },
-            verificationDocuments: b.verificationDocuments?.map((d) => ({
-              ...d,
-              status: 'verified',
-              reviewedAt: nowIso,
-            })),
-          };
-          return approvedBiz;
-        }
-        return b;
-      });
-      // Guarantee immediate permanent local storage persistence
+      const exists = prev.some((b) => b.id === businessId);
+      const updated = exists
+        ? prev.map((b) => (b.id === businessId ? approvedBiz : b))
+        : [approvedBiz, ...prev];
       saveBusinesses(updated);
       return updated;
     });
 
-    if (approvedBiz) {
-      // Guarantee persistent Supabase and backend sync
-      FirestoreSync.saveBusiness(approvedBiz);
-      ApiClient.moderateBusiness(businessId, 'approve', undefined, {
-        badgeType,
-        isFeatured: shouldBeFeatured,
-        coordinates: verifiedCoords || approvedBiz.coordinates
-      }).catch(() => {});
-      dispatchApprovalNotification(approvedBiz, badgeType);
-    }
+    // 4. Guarantee persistent Supabase and Express backend sync with full business payload
+    FirestoreSync.saveBusiness(approvedBiz);
+    ApiClient.moderateBusiness(businessId, 'approve', undefined, {
+      badgeType,
+      isFeatured: shouldBeFeatured,
+      coordinates: verifiedCoords || approvedBiz.coordinates,
+      business: approvedBiz
+    }).catch((err) => console.warn('[ApiClient Moderate Error]', err));
+
+    dispatchApprovalNotification(approvedBiz, badgeType);
 
     showToast(
-      'Business Approved & Enlisted',
-      `"${approvedBiz?.name || 'Business'}" is now permanently published ${shouldBeFeatured ? 'under Featured Business Categories and' : ''} in its category (${approvedBiz?.category || 'General'}) and all general categories (Trending, Popular Near You, Newly Verified).`,
+      'Business Approved & Live on Website',
+      `"${approvedBiz.name}" is now permanently published ${shouldBeFeatured ? 'under Featured Business Categories and' : ''} in its category (${approvedBiz.category || 'General'}) and all general categories (Trending, Popular Near You, Newly Verified).`,
       'success'
     );
   };
@@ -853,34 +891,36 @@ export default function App() {
     resolutionGuide?: string,
     adminNotes?: string
   ) => {
-    let rejectedBiz: Business | undefined;
+    const fallbackBase = INITIAL_BUSINESSES.find((b) => b.id === businessId) || INITIAL_BUSINESSES[0];
+    const currentBiz: Business = businesses.find((b) => b.id === businessId) || 
+                                 getStoredBusinesses().find((b) => b.id === businessId) ||
+                                 { ...fallbackBase, id: businessId };
+
+    const nowIso = new Date().toISOString();
+    const rejectedBiz: Business = {
+      ...currentBiz,
+      listingStatus: 'rejected',
+      verificationStatus: 'rejected',
+      isApproved: false,
+      permanentlyEnlisted: false,
+      updatedAt: nowIso,
+      verificationDocuments: currentBiz.verificationDocuments?.map((d) => ({
+        ...d,
+        status: 'rejected',
+        rejectionReason: reason,
+        reviewedAt: nowIso,
+      })) || [],
+    };
+
     setBusinesses((prev) => {
-      const updated = prev.map((b) => {
-        if (b.id === businessId) {
-          rejectedBiz = {
-            ...b,
-            listingStatus: 'rejected',
-            verificationStatus: 'rejected',
-            verificationDocuments: b.verificationDocuments?.map((d) => ({
-              ...d,
-              status: 'rejected',
-              rejectionReason: reason,
-              reviewedAt: new Date().toISOString(),
-            })),
-          };
-          return rejectedBiz;
-        }
-        return b;
-      });
+      const updated = prev.map((b) => (b.id === businessId ? rejectedBiz : b));
       saveBusinesses(updated);
       return updated;
     });
 
-    if (rejectedBiz) {
-      FirestoreSync.saveBusiness(rejectedBiz);
-      ApiClient.moderateBusiness(businessId, 'reject', reason).catch(() => {});
-      dispatchRejectionNotification(rejectedBiz, reason, resolutionGuide, adminNotes);
-    }
+    FirestoreSync.saveBusiness(rejectedBiz);
+    ApiClient.moderateBusiness(businessId, 'reject', reason, { business: rejectedBiz }).catch(() => {});
+    dispatchRejectionNotification(rejectedBiz, reason, resolutionGuide, adminNotes);
 
     showToast(
       'Business Rejected & User Notified',
@@ -1145,7 +1185,12 @@ export default function App() {
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b) => {
       // 0. Only show officially enlisted/approved businesses to public users
-      if (b.listingStatus === 'pending_approval' || b.listingStatus === 'rejected' || b.verificationStatus === 'rejected') {
+      if (!b || isDeletedBusiness(b)) return false;
+      const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || (b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
+      if (!isApproved && (b.listingStatus === 'pending_approval' || b.listingStatus === 'rejected' || b.verificationStatus === 'rejected')) {
+        return false;
+      }
+      if (b.listingStatus === 'rejected' || b.verificationStatus === 'rejected') {
         return false;
       }
 
@@ -1187,7 +1232,7 @@ export default function App() {
       }
 
       // Verified only
-      if (filters.verificationOnly && b.verificationStatus !== 'verified') {
+      if (filters.verificationOnly && b.verificationStatus !== 'verified' && !isApproved) {
         return false;
       }
 

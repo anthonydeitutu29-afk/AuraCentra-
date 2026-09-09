@@ -149,7 +149,7 @@ export const ApiClient = {
     businessId: string, 
     action: 'approve' | 'reject', 
     notes?: string,
-    extra?: { badgeType?: string; isFeatured?: boolean; coordinates?: { lat: number; lng: number } }
+    extra?: { badgeType?: string; isFeatured?: boolean; coordinates?: { lat: number; lng: number }; business?: any }
   ) {
     try {
       const res = await fetch('/api/moderation/action', {

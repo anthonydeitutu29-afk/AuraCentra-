@@ -1864,6 +1864,17 @@ app.get('/api/businesses', (req, res) => {
   const { category, region, city, search, verified, sort } = req.query;
   let results = businessesCache.filter(b => !isDeletedBusinessRecord(b));
 
+  // Guarantee permanently approved businesses keep active and verified status
+  results.forEach(b => {
+    if (approvedIdsCache.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true) {
+      b.listingStatus = 'active';
+      b.verificationStatus = 'verified';
+      b.isApproved = true;
+      b.permanentlyEnlisted = true;
+      approvedIdsCache.add(b.id);
+    }
+  });
+
   if (category && typeof category === 'string') {
     results = results.filter(b => b.category?.toLowerCase() === category.toLowerCase());
   }
@@ -2078,7 +2089,7 @@ app.post('/api/subscribe', (req, res) => {
 
 // 12. Admin Moderation Action
 app.post('/api/moderation/action', (req, res) => {
-  const { businessId, action, notes, badgeType, isFeatured, coordinates } = req.body;
+  const { businessId, action, notes, badgeType, isFeatured, coordinates, business } = req.body;
   if (!businessId || !['approve', 'reject'].includes(action)) {
     res.status(400).json({ error: 'Invalid moderation action parameters.' });
     return;
@@ -2091,15 +2102,22 @@ app.post('/api/moderation/action', (req, res) => {
     approvedIdsCache.add(businessId);
     saveApprovedIdsToDisk(approvedIdsCache);
 
-    if (!biz) {
+    if (business && typeof business === 'object') {
+      if (biz) {
+        Object.assign(biz, business);
+      } else {
+        biz = { ...business };
+        businessesCache.unshift(biz);
+      }
+    } else if (!biz) {
       const defaultBiz = DEFAULT_INITIAL_BUSINESSES.find(b => b.id === businessId);
       biz = {
         ...(defaultBiz || {
           id: businessId,
           name: 'Verified Business Listing',
-          category: 'professional-services',
-          city: 'Accra',
-          region: 'Greater Accra',
+          category: 'digital-marketing',
+          city: 'Ho',
+          region: 'Volta',
           phone: '0508203673',
           rating: 5.0,
           reviewCount: 1,
@@ -2165,6 +2183,8 @@ app.post('/api/moderation/action', (req, res) => {
 // 13. Admin Permanently Delete Business
 app.delete('/api/businesses/:id', (req, res) => {
   const { id } = req.params;
+  approvedIdsCache.delete(id);
+  saveApprovedIdsToDisk(approvedIdsCache);
   const index = businessesCache.findIndex(b => b.id === id);
   if (index !== -1) {
     const deleted = businessesCache.splice(index, 1);

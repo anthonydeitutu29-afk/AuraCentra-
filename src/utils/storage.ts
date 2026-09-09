@@ -97,6 +97,17 @@ export function markBusinessPermanentlyApproved(businessId: string): void {
   }
 }
 
+export function unmarkBusinessPermanentlyApproved(businessId: string): void {
+  if (!businessId) return;
+  try {
+    const ids = getApprovedBusinessIds();
+    ids.delete(businessId);
+    localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    // Ignore error
+  }
+}
+
 export function isBusinessPermanentlyApproved(businessId?: string | null): boolean {
   if (!businessId) return false;
   return getApprovedBusinessIds().has(businessId);
@@ -135,30 +146,50 @@ export function getStoredBusinesses(): Business[] {
         // Strip any residual legacy or permanently deleted businesses
         let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
 
-        // Sync Tony's Digital Marketing to the authentic state from the user's screenshot
+        // Sync Tony's Digital Marketing
         const tonyIndex = clean.findIndex((b) => b.id === 'biz-tonys-digital-marketing-hub');
         if (tonyIndex >= 0) {
+          const isTonyAlreadyApproved = 
+            approvedIds.has('biz-tonys-digital-marketing-hub') || 
+            clean[tonyIndex].listingStatus === 'active' || 
+            clean[tonyIndex].verificationStatus === 'verified' || 
+            clean[tonyIndex].isApproved === true || 
+            clean[tonyIndex].permanentlyEnlisted === true;
+
+          if (isTonyAlreadyApproved) {
+            approvedIds.add('biz-tonys-digital-marketing-hub');
+            markBusinessPermanentlyApproved('biz-tonys-digital-marketing-hub');
+          }
+
           clean[tonyIndex] = {
             ...clean[tonyIndex],
             ...TONYS_DIGITAL_MARKETING_BUSINESS,
-            // Keep status pending unless explicitly approved in v4
-            verificationStatus: approvedIds.has('biz-tonys-digital-marketing-hub') ? 'verified' : 'pending',
-            listingStatus: approvedIds.has('biz-tonys-digital-marketing-hub') ? 'active' : 'pending_approval',
-            isApproved: approvedIds.has('biz-tonys-digital-marketing-hub'),
-            permanentlyEnlisted: approvedIds.has('biz-tonys-digital-marketing-hub'),
-            views: clean[tonyIndex].views && clean[tonyIndex].views > 1 && approvedIds.has('biz-tonys-digital-marketing-hub') ? clean[tonyIndex].views : 1,
-            rating: approvedIds.has('biz-tonys-digital-marketing-hub') ? clean[tonyIndex].rating : 0,
-            reviewCount: approvedIds.has('biz-tonys-digital-marketing-hub') ? clean[tonyIndex].reviewCount : 0
+            // Preserve approved status if approved in memory, disk, or state
+            verificationStatus: isTonyAlreadyApproved ? 'verified' : 'pending',
+            listingStatus: isTonyAlreadyApproved ? 'active' : 'pending_approval',
+            isApproved: isTonyAlreadyApproved,
+            permanentlyEnlisted: isTonyAlreadyApproved,
+            views: clean[tonyIndex].views && clean[tonyIndex].views > 1 && isTonyAlreadyApproved ? clean[tonyIndex].views : 1,
+            rating: isTonyAlreadyApproved ? (clean[tonyIndex].rating || 5.0) : 0,
+            reviewCount: isTonyAlreadyApproved ? (clean[tonyIndex].reviewCount || 1) : 0
           };
         }
 
         // Enforce approved and verified status for permanently approved businesses
         clean.forEach((b) => {
-          if (approvedIds.has(b.id)) {
+          if (
+            approvedIds.has(b.id) || 
+            b.listingStatus === 'active' || 
+            b.verificationStatus === 'verified' || 
+            b.isApproved === true || 
+            b.permanentlyEnlisted === true
+          ) {
             b.listingStatus = 'active';
             b.verificationStatus = 'verified';
             b.isApproved = true;
             b.permanentlyEnlisted = true;
+            approvedIds.add(b.id);
+            markBusinessPermanentlyApproved(b.id);
           }
         });
 

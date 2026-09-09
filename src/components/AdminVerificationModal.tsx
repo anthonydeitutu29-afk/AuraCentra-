@@ -26,6 +26,7 @@ import {
   calculateDistanceKm 
 } from '../utils/googleMapsGeocoding';
 import { verifyGhanaPostGPS } from '../utils/gpsVerification';
+import { markBusinessPermanentlyApproved } from '../utils/storage';
 
 interface AdminVerificationModalProps {
   business: Business;
@@ -90,6 +91,7 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({
   if (!isOpen) return null;
 
   const handleApproveWithGPS = () => {
+    markBusinessPermanentlyApproved(business.id);
     const coordsToSave = alignmentReport?.geocoded?.coordinates || business.coordinates;
     onApprove(business.id, selectedBadge, coordsToSave, isFeaturedChoice);
     onShowToast?.(
