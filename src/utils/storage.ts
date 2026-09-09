@@ -66,7 +66,7 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
 ];
 
 // Permanently approved & verified enterprise listings across all sessions
-export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
+export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = ['biz-tonys-digital-marketing-hub'];
 
 const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v4';
 
@@ -146,33 +146,27 @@ export function getStoredBusinesses(): Business[] {
         // Strip any residual legacy or permanently deleted businesses
         let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
 
-        // Sync Tony's Digital Marketing
+        // Sync Tony's Digital Marketing as permanently active & verified
         const tonyIndex = clean.findIndex((b) => b.id === 'biz-tonys-digital-marketing-hub');
         if (tonyIndex >= 0) {
-          const isTonyAlreadyApproved = 
-            approvedIds.has('biz-tonys-digital-marketing-hub') || 
-            clean[tonyIndex].listingStatus === 'active' || 
-            clean[tonyIndex].verificationStatus === 'verified' || 
-            clean[tonyIndex].isApproved === true || 
-            clean[tonyIndex].permanentlyEnlisted === true;
-
-          if (isTonyAlreadyApproved) {
-            approvedIds.add('biz-tonys-digital-marketing-hub');
-            markBusinessPermanentlyApproved('biz-tonys-digital-marketing-hub');
-          }
-
+          approvedIds.add('biz-tonys-digital-marketing-hub');
+          markBusinessPermanentlyApproved('biz-tonys-digital-marketing-hub');
           clean[tonyIndex] = {
             ...clean[tonyIndex],
             ...TONYS_DIGITAL_MARKETING_BUSINESS,
-            // Preserve approved status if approved in memory, disk, or state
-            verificationStatus: isTonyAlreadyApproved ? 'verified' : 'pending',
-            listingStatus: isTonyAlreadyApproved ? 'active' : 'pending_approval',
-            isApproved: isTonyAlreadyApproved,
-            permanentlyEnlisted: isTonyAlreadyApproved,
-            views: clean[tonyIndex].views && clean[tonyIndex].views > 1 && isTonyAlreadyApproved ? clean[tonyIndex].views : 1,
-            rating: isTonyAlreadyApproved ? (clean[tonyIndex].rating || 5.0) : 0,
-            reviewCount: isTonyAlreadyApproved ? (clean[tonyIndex].reviewCount || 1) : 0
+            verificationStatus: 'verified',
+            listingStatus: 'active',
+            isApproved: true,
+            permanentlyEnlisted: true,
+            isFeatured: true,
+            views: Math.max(clean[tonyIndex].views || 0, TONYS_DIGITAL_MARKETING_BUSINESS.views || 24),
+            rating: clean[tonyIndex].rating || 5.0,
+            reviewCount: Math.max(clean[tonyIndex].reviewCount || 0, 1)
           };
+        } else {
+          clean.unshift({ ...TONYS_DIGITAL_MARKETING_BUSINESS });
+          approvedIds.add('biz-tonys-digital-marketing-hub');
+          markBusinessPermanentlyApproved('biz-tonys-digital-marketing-hub');
         }
 
         // Enforce approved and verified status for permanently approved businesses

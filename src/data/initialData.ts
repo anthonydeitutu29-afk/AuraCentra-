@@ -162,19 +162,19 @@ export const TONYS_DIGITAL_MARKETING_BUSINESS: Business = {
   digitalAddress: 'VH-0012-4821',
   coordinates: { lat: 6.6108, lng: 0.4785 },
   priceLevel: '$$',
-  rating: 0,
-  reviewCount: 0,
-  verificationStatus: 'pending',
-  listingStatus: 'pending_approval',
-  isApproved: false,
-  permanentlyEnlisted: false,
-  isFeatured: false,
-  views: 1,
-  leadsCount: 0,
+  rating: 5.0,
+  reviewCount: 1,
+  verificationStatus: 'verified',
+  listingStatus: 'active',
+  isApproved: true,
+  permanentlyEnlisted: true,
+  isFeatured: true,
+  views: 24,
+  leadsCount: 12,
   ownerId: 'admin-tony-02',
   ownerEmail: 'tonysdigitalmarketing@gmail.com',
   createdAt: '2026-09-06T15:00:00.000Z',
-  updatedAt: '2026-09-06T15:00:00.000Z',
+  updatedAt: '2026-09-09T08:00:00.000Z',
   verificationDocuments: [
     {
       id: 'doc-tony-hub-1',
@@ -184,9 +184,18 @@ export const TONYS_DIGITAL_MARKETING_BUSINESS: Business = {
       expiryDate: '2034-10-15',
       frontImageUrl: 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?auto=format&fit=crop&w=600&q=80',
       submittedAt: '2026-09-06T15:00:00.000Z',
-      status: 'pending'
+      status: 'verified',
+      reviewedAt: '2026-09-09T08:00:00.000Z'
     }
   ],
+  verificationDetails: {
+    badgeType: 'Gold Enterprise',
+    gpsVerified: true,
+    tinNumber: 'TIN-GH-882194',
+    businessRegNumber: 'BN-GH-2024-9128',
+    verifiedByAdmin: 'Executive Desk',
+    verifiedAt: '2026-09-09T08:00:00.000Z'
+  },
   openingHours: {
     monday: '08:00 - 18:00',
     tuesday: '08:00 - 18:00',

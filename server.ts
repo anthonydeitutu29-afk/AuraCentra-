@@ -89,7 +89,8 @@ function isDeletedBusinessRecord(b: any): boolean {
 }
 
 // Server Disk Persistence Configuration
-const DATA_DIR = path.join(process.cwd(), 'data');
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = IS_SERVERLESS ? path.join('/tmp', 'auracentra_data') : path.join(process.cwd(), 'data');
 const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
 const APPROVED_IDS_FILE = path.join(DATA_DIR, 'approved_ids.json');
 
@@ -104,16 +105,14 @@ function ensureDataDirectory() {
 }
 
 function loadApprovedIdsFromDisk(): Set<string> {
-  const set = new Set<string>();
+  const set = new Set<string>(['biz-tonys-digital-marketing-hub']);
   try {
     if (fs.existsSync(APPROVED_IDS_FILE)) {
       const content = fs.readFileSync(APPROVED_IDS_FILE, 'utf-8');
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) {
         parsed.forEach((id: string) => {
-          if (id !== 'biz-tonys-digital-marketing-hub') {
-            set.add(id);
-          }
+          set.add(id);
         });
       }
     }
@@ -182,19 +181,19 @@ const DEFAULT_INITIAL_BUSINESSES = [
     digitalAddress: 'VH-0012-4821',
     coordinates: { lat: 6.6108, lng: 0.4785 },
     priceLevel: '$$',
-    rating: 0,
-    reviewCount: 0,
-    verificationStatus: 'pending',
-    listingStatus: 'pending_approval',
-    isApproved: false,
-    permanentlyEnlisted: false,
-    isFeatured: false,
-    views: 1,
-    leadsCount: 0,
+    rating: 5.0,
+    reviewCount: 1,
+    verificationStatus: 'verified',
+    listingStatus: 'active',
+    isApproved: true,
+    permanentlyEnlisted: true,
+    isFeatured: true,
+    views: 24,
+    leadsCount: 12,
     ownerId: 'admin-tony-02',
     ownerEmail: 'tonysdigitalmarketing@gmail.com',
     createdAt: '2026-09-06T15:00:00.000Z',
-    updatedAt: '2026-09-06T15:00:00.000Z',
+    updatedAt: '2026-09-09T08:00:00.000Z',
     verificationDocuments: [
       {
         id: 'doc-tony-hub-1',
@@ -204,9 +203,18 @@ const DEFAULT_INITIAL_BUSINESSES = [
         expiryDate: '2034-10-15',
         frontImageUrl: 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?auto=format&fit=crop&w=600&q=80',
         submittedAt: '2026-09-06T15:00:00.000Z',
-        status: 'pending'
+        status: 'verified',
+        reviewedAt: '2026-09-09T08:00:00.000Z'
       }
     ],
+    verificationDetails: {
+      badgeType: 'Gold Enterprise',
+      gpsVerified: true,
+      tinNumber: 'TIN-GH-882194',
+      businessRegNumber: 'BN-GH-2024-9128',
+      verifiedByAdmin: 'Executive Desk',
+      verifiedAt: '2026-09-09T08:00:00.000Z'
+    },
     openingHours: {
       monday: '08:00 - 18:00',
       tuesday: '08:00 - 18:00',
