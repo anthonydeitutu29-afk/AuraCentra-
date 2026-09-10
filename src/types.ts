@@ -129,8 +129,25 @@ export interface Business {
   updates?: BusinessUpdate[];
   ownerId?: string;
   ownerEmail?: string;
+  rejectionReason?: string;
+  rejectionResolutionGuide?: string;
+  rejectionAdminNotes?: string;
+  lastRejectionEmail?: RejectionEmailTemplate;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RejectionEmailTemplate {
+  recipientEmail: string;
+  recipientName: string;
+  businessName: string;
+  businessId: string;
+  subject: string;
+  textBody: string;
+  htmlBody: string;
+  directDashboardUrl: string;
+  mailtoUrl: string;
+  generatedAt: string;
 }
 
 export interface Category {
@@ -366,6 +383,7 @@ export interface UserNotification {
   read: boolean;
   actionUrl?: string;
   whatsappNoticeText?: string;
+  emailTemplate?: RejectionEmailTemplate;
 }
 
 export interface UserLocationRecord {

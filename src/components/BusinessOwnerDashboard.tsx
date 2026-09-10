@@ -15,6 +15,7 @@ import {
   Check, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
   Eye, 
   MessageSquare, 
   Users, 
@@ -84,6 +85,8 @@ interface BusinessOwnerDashboardProps {
   onSignOut: () => void;
   onOpenLivePreview?: (business: Business) => void;
   onOpenCertificateModal?: (business: Business) => void;
+  initialBusinessId?: string;
+  initialTab?: 'overview' | 'messages' | 'profile' | 'updates' | 'media' | 'contact' | 'location' | 'hours' | 'inquiries' | 'reviews' | 'verification' | 'settings';
 }
 
 export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
@@ -101,6 +104,8 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
   onSignOut,
   onOpenLivePreview,
   onOpenCertificateModal,
+  initialBusinessId,
+  initialTab,
 }) => {
   // Find all businesses owned or associated with this user
   const userBusinesses = useMemo(() => {
@@ -121,8 +126,14 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
 
   // Selected active business being managed in dashboard
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>(
-    userBusinesses[0]?.id || businesses[0]?.id || ''
+    initialBusinessId || userBusinesses[0]?.id || businesses[0]?.id || ''
   );
+
+  useEffect(() => {
+    if (initialBusinessId && businesses.some((b) => b.id === initialBusinessId)) {
+      setSelectedBusinessId(initialBusinessId);
+    }
+  }, [initialBusinessId, businesses]);
 
   const activeBusiness = useMemo(() => {
     return businesses.find((b) => b.id === selectedBusinessId) || userBusinesses[0] || businesses[0];
@@ -131,7 +142,7 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
   // Navigation tab
   const [activeTab, setActiveTab] = useState<
     'overview' | 'messages' | 'profile' | 'updates' | 'media' | 'contact' | 'location' | 'hours' | 'inquiries' | 'reviews' | 'verification' | 'settings'
-  >('overview');
+  >(initialTab || 'overview');
 
   // Performance timeframe filter
   const [performanceTimeframe, setPerformanceTimeframe] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
@@ -570,6 +581,61 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
     }
   };
 
+  // Resubmit business for administrator verification after addressing feedback
+  const handleResubmitVerification = () => {
+    if (!activeBusiness) return;
+    setIsSaving(true);
+    const nowIso = new Date().toISOString();
+
+    const resubmittedBiz: Business = {
+      ...activeBusiness,
+      name: name.trim() || activeBusiness.name,
+      tagline: tagline.trim() || activeBusiness.tagline,
+      category: category || activeBusiness.category,
+      subCategory: subCategory.trim() || activeBusiness.subCategory,
+      description: description.trim() || activeBusiness.description,
+      phone: phone.trim() || activeBusiness.phone,
+      whatsapp: whatsapp.trim() || activeBusiness.whatsapp,
+      email: email.trim() || activeBusiness.email,
+      website: website.trim() || activeBusiness.website,
+      socials,
+      city: city.trim() || activeBusiness.city,
+      region: region.trim() || activeBusiness.region,
+      address: address.trim() || activeBusiness.address,
+      digitalAddress: digitalAddress.trim() || activeBusiness.digitalAddress,
+      openingHours,
+      services,
+      features,
+      listingStatus: 'pending_approval',
+      verificationStatus: 'pending',
+      isApproved: false,
+      permanentlyEnlisted: false,
+      updatedAt: nowIso,
+      verificationDocuments: activeBusiness.verificationDocuments?.map((d) => ({
+        ...d,
+        status: 'pending',
+        rejectionReason: undefined,
+        reviewedAt: undefined,
+      })) || [],
+    };
+
+    onUpdateBusiness(resubmittedBiz);
+    setHasChanges(false);
+    setIsSaving(false);
+
+    confetti({
+      particleCount: 50,
+      spread: 70,
+      origin: { y: 0.6 },
+    });
+
+    onShowToast(
+      'Application Resubmitted for Verification!',
+      `Revisions for "${resubmittedBiz.name}" were submitted to the AuraCentra Ghana administrative review queue.`,
+      'success'
+    );
+  };
+
   // Add Service Item
   const handleAddService = (e: React.FormEvent) => {
     e.preventDefault();
@@ -833,6 +899,11 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
                       <Clock className="w-3.5 h-3.5 text-amber-600" />
                       <span>Pending Verification</span>
                     </span>
+                  ) : activeBusiness.verificationStatus === 'rejected' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 text-xs font-bold border border-rose-300 dark:border-rose-900">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Revision Required</span>
+                    </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold">
                       <span>Standard Listing</span>
@@ -940,6 +1011,61 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
 
       {/* 4. Tab Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        {/* Rejection Notification & Corrective Action Banner */}
+        {activeBusiness.verificationStatus === 'rejected' && (
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-rose-50 via-rose-50/80 to-amber-50/30 dark:from-rose-950/40 dark:via-rose-950/25 dark:to-slate-900 border border-rose-200 dark:border-rose-900/70 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 animate-in fade-in duration-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-rose-600/30">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-200 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 text-[11px] font-black uppercase tracking-wider">
+                    Revisions Required for Verification
+                  </span>
+                  <span className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                    Enlistment Pending Approval
+                  </span>
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-rose-950 dark:text-rose-100">
+                  Feedback: {activeBusiness.rejectionReason || 'Please review your business details and verification documents.'}
+                </h3>
+                {activeBusiness.rejectionResolutionGuide && (
+                  <p className="text-xs text-rose-800 dark:text-rose-300 leading-relaxed max-w-2xl">
+                    <strong className="text-rose-950 dark:text-rose-100">Resolution Guide: </strong>
+                    {activeBusiness.rejectionResolutionGuide}
+                  </p>
+                )}
+                {activeBusiness.rejectionAdminNotes && (
+                  <p className="text-xs text-slate-600 dark:text-slate-400 italic">
+                    Note: {activeBusiness.rejectionAdminNotes}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => setActiveTab('profile')}
+                className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Sliders className="w-4 h-4 text-amber-500" />
+                <span>Edit Profile</span>
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={handleResubmitVerification}
+                className="flex-1 md:flex-initial px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md shadow-rose-600/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Resubmit for Verification</span>
+              </button>
+            </div>
+          </div>
+        )}
         
         {/* TAB 1: OVERVIEW & PERFORMANCE METRICS */}
         {activeTab === 'overview' && (
@@ -2550,35 +2676,81 @@ export const BusinessOwnerDashboard: React.FC<BusinessOwnerDashboardProps> = ({
             </div>
 
             {/* Current Status Card */}
-            <div className="p-6 rounded-3xl bg-amber-50/60 dark:bg-slate-800/60 border border-amber-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-                  <ShieldCheck className="w-6 h-6" />
+            {activeBusiness.verificationStatus === 'rejected' ? (
+              <div className="p-6 rounded-3xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-900/80 flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-md shadow-rose-600/20 shrink-0">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-xs font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+                      Status: REVISION REQUIRED (NOT APPROVED)
+                    </div>
+                    <div className="text-base sm:text-lg font-black text-rose-950 dark:text-rose-100">
+                      Listing Revisions Needed Before Public Enlistment
+                    </div>
+                    <div className="text-xs text-rose-800 dark:text-rose-300/90 leading-relaxed max-w-xl">
+                      <strong>Rejection Feedback:</strong> {activeBusiness.rejectionReason || 'Please review your business details.'}
+                    </div>
+                    {activeBusiness.rejectionResolutionGuide && (
+                      <div className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                        <strong>Resolution Steps:</strong> {activeBusiness.rejectionResolutionGuide}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <div className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                    Status: {activeBusiness.verificationStatus.toUpperCase()}
-                  </div>
-                  <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                    {activeBusiness.verificationDetails?.badgeType || 'Gold Enterprise Verification'}
-                  </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
-                    Verified ID, GhanaPost GPS & Registered Business Certificate
-                  </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('profile')}
+                    className="px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sliders className="w-4 h-4 text-amber-500" />
+                    <span>Edit Profile</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={handleResubmitVerification}
+                    className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Resubmit Application</span>
+                  </button>
                 </div>
               </div>
+            ) : (
+              <div className="p-6 rounded-3xl bg-amber-50/60 dark:bg-slate-800/60 border border-amber-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                      Status: {activeBusiness.verificationStatus.toUpperCase()}
+                    </div>
+                    <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                      {activeBusiness.verificationDetails?.badgeType || 'Gold Enterprise Verification'}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Verified ID, GhanaPost GPS & Registered Business Certificate
+                    </div>
+                  </div>
+                </div>
 
-              {activeBusiness.verificationStatus === 'verified' && (
-                <button
-                  type="button"
-                  onClick={() => onOpenCertificateModal?.(activeBusiness)}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition-all cursor-pointer flex items-center gap-2 shrink-0"
-                >
-                  <Award className="w-4 h-4" />
-                  <span>Download Official Certificate</span>
-                </button>
-              )}
-            </div>
+                {activeBusiness.verificationStatus === 'verified' && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenCertificateModal?.(activeBusiness)}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition-all cursor-pointer flex items-center gap-2 shrink-0"
+                  >
+                    <Award className="w-4 h-4" />
+                    <span>Download Official Certificate</span>
+                  </button>
+                )}
+              </div>
+            )}
 
           </div>
         )}

@@ -1,5 +1,6 @@
-import { Business, UserNotification } from '../types';
+import { Business, UserNotification, RejectionEmailTemplate } from '../types';
 import { saveUserNotification } from './storage';
+import { generateRejectionEmailTemplate } from './rejectionEmailGenerator';
 
 export interface RejectionPreset {
   id: string;
@@ -116,11 +117,25 @@ export function dispatchRejectionNotification(
   business: Business,
   reason: string,
   resolutionGuide?: string,
-  adminNotes?: string
-): { notification: UserNotification; whatsappUrl: string; whatsappMessage: string } {
+  adminNotes?: string,
+  providedEmailTemplate?: RejectionEmailTemplate
+): { 
+  notification: UserNotification; 
+  whatsappUrl: string; 
+  whatsappMessage: string;
+  emailTemplate: RejectionEmailTemplate;
+} {
   const notificationId = `notif-rej-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
 
   const finalResolution = resolutionGuide || 'Please review your business details and re-upload your Ghana Card or verified digital address.';
+
+  // Automated Email Template Generator
+  const emailTemplate = providedEmailTemplate || generateRejectionEmailTemplate({
+    business,
+    reason,
+    resolutionGuide: finalResolution,
+    adminNotes
+  });
 
   const whatsappMessage = [
     `🇬🇭 *AURACENTRA GHANA — ENLISTMENT STATUS UPDATE* ⚠️`,
@@ -137,6 +152,9 @@ export function dispatchRejectionNotification(
     `📋 *How to Resolve & Get Approved:*`,
     `${finalResolution}`,
     adminNotes ? `\n📝 *Admin Note:* ${adminNotes}` : '',
+    ``,
+    `🔗 *Direct Link to Edit & Resubmit:*`,
+    `${emailTemplate.directDashboardUrl}`,
     ``,
     `💬 *Need Assistance?*`,
     `Our support desk is ready to help you complete your verification. Reply directly to this WhatsApp message or call *0508203673*.`,
@@ -160,10 +178,12 @@ export function dispatchRejectionNotification(
     reason,
     createdAt: new Date().toISOString(),
     read: false,
+    actionUrl: emailTemplate.directDashboardUrl,
     whatsappNoticeText: whatsappMessage,
+    emailTemplate,
   };
 
   saveUserNotification(notification);
 
-  return { notification, whatsappUrl, whatsappMessage };
+  return { notification, whatsappUrl, whatsappMessage, emailTemplate };
 }

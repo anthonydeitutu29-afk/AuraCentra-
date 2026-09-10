@@ -1,39 +1,46 @@
 import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, UserNotification } from '../types';
-import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS, TONYS_DIGITAL_MARKETING_BUSINESS } from '../data/initialData';
+import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v8',
-  CATEGORIES: 'auracentra_categories_clean_v8',
-  REVIEWS: 'auracentra_reviews_clean_v8',
-  CURRENT_USER: 'auracentra_user_clean_v8',
-  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v8',
-  SAVED_BUSINESSES: 'auracentra_saved_clean_v8',
-  SEARCH_HISTORY: 'auracentra_search_history_clean_v8',
-  THEME: 'auracentra_theme_clean_v8',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v8',
-  INQUIRIES: 'auracentra_inquiries_clean_v8',
-  PROMOTIONS: 'auracentra_promotions_clean_v8',
-  REPORTS: 'auracentra_reports_clean_v8',
-  SUGGESTIONS: 'auracentra_suggestions_clean_v8',
-  FEEDBACK: 'auracentra_feedback_clean_v8',
-  NEWS_LIKES: 'auracentra_news_likes_v3',
-  USER_NOTIFICATIONS: 'auracentra_user_notifications_v3',
+  BUSINESSES: 'auracentra_businesses_clean_v10',
+  CATEGORIES: 'auracentra_categories_clean_v10',
+  REVIEWS: 'auracentra_reviews_clean_v10',
+  CURRENT_USER: 'auracentra_user_clean_v10',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v10',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v10',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v10',
+  THEME: 'auracentra_theme_clean_v10',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v10',
+  INQUIRIES: 'auracentra_inquiries_clean_v10',
+  PROMOTIONS: 'auracentra_promotions_clean_v10',
+  REPORTS: 'auracentra_reports_clean_v10',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v10',
+  FEEDBACK: 'auracentra_feedback_clean_v10',
+  NEWS_LIKES: 'auracentra_news_likes_v4',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v4',
 };
 
 // Immediate purge of legacy accounts and business records
 try {
   const legacyKeys = [
     'auracentra_businesses',
+    'auracentra_businesses_clean_v9',
+    'auracentra_businesses_clean_v8',
     'auracentra_businesses_clean_v7',
     'auracentra_businesses_clean_v6',
     'auracentra_businesses_clean_v5',
+    'auracentra_approved_business_ids_v4',
+    'auracentra_approved_business_ids_v5',
+    'auracentra_registered_accounts_v8',
     'auracentra_registered_accounts_v7',
     'auracentra_registered_accounts_v6',
+    'auracentra_user_clean_v8',
     'auracentra_user_clean_v7',
     'auracentra_user_clean_v6',
     'auracentra_pending_submissions',
     'auracentra_pending_signup',
+    'auracentra_saved_clean_v8',
     'auracentra_saved_clean_v7',
     'auracentra_saved_ids'
   ];
@@ -66,9 +73,9 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
 ];
 
 // Permanently approved & verified enterprise listings across all sessions
-export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = ['biz-tonys-digital-marketing-hub'];
+export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
 
-const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v4';
+const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v10';
 
 export function getApprovedBusinessIds(): Set<string> {
   const set = new Set<string>(PERMANENTLY_APPROVED_BUSINESS_IDS);
@@ -146,51 +153,8 @@ export function getStoredBusinesses(): Business[] {
         // Strip any residual legacy or permanently deleted businesses
         let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
 
-        // Sync Tony's Digital Marketing as permanently active & verified
-        const tonyIndex = clean.findIndex((b) => b.id === 'biz-tonys-digital-marketing-hub');
-        if (tonyIndex >= 0) {
-          approvedIds.add('biz-tonys-digital-marketing-hub');
-          markBusinessPermanentlyApproved('biz-tonys-digital-marketing-hub');
-          clean[tonyIndex] = {
-            ...clean[tonyIndex],
-            ...TONYS_DIGITAL_MARKETING_BUSINESS,
-            verificationStatus: 'verified',
-            listingStatus: 'active',
-            isApproved: true,
-            permanentlyEnlisted: true,
-            isFeatured: true,
-            views: Math.max(clean[tonyIndex].views || 0, TONYS_DIGITAL_MARKETING_BUSINESS.views || 24),
-            rating: clean[tonyIndex].rating || 5.0,
-            reviewCount: Math.max(clean[tonyIndex].reviewCount || 0, 1)
-          };
-        } else {
-          clean.unshift({ ...TONYS_DIGITAL_MARKETING_BUSINESS });
-          approvedIds.add('biz-tonys-digital-marketing-hub');
-          markBusinessPermanentlyApproved('biz-tonys-digital-marketing-hub');
-        }
-
         // Enforce approved and verified status for permanently approved businesses
         clean.forEach((b) => {
-          if (
-            approvedIds.has(b.id) || 
-            b.listingStatus === 'active' || 
-            b.verificationStatus === 'verified' || 
-            b.isApproved === true || 
-            b.permanentlyEnlisted === true
-          ) {
-            b.listingStatus = 'active';
-            b.verificationStatus = 'verified';
-            b.isApproved = true;
-            b.permanentlyEnlisted = true;
-            approvedIds.add(b.id);
-            markBusinessPermanentlyApproved(b.id);
-          }
-        });
-
-        // Ensure initial businesses (such as Tony's Hub) are merged if missing
-        const existingIds = new Set(clean.map((b) => b.id));
-        const toAdd = INITIAL_BUSINESSES.filter((b) => !existingIds.has(b.id) && !isDeletedBusiness(b));
-        toAdd.forEach((b) => {
           if (approvedIds.has(b.id)) {
             b.listingStatus = 'active';
             b.verificationStatus = 'verified';
@@ -199,15 +163,14 @@ export function getStoredBusinesses(): Business[] {
           }
         });
 
-        const merged = [...clean, ...toAdd];
-        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(merged));
-        return merged;
+        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+        return clean;
       }
     }
   } catch (e) {
     console.error('Failed to load businesses from storage', e);
   }
-  return [...INITIAL_BUSINESSES];
+  return [];
 }
 
 export function saveBusinesses(businesses: Business[]): void {
@@ -215,7 +178,7 @@ export function saveBusinesses(businesses: Business[]): void {
     const approvedIds = getApprovedBusinessIds();
     const clean = Array.isArray(businesses) ? businesses.filter((b) => !isDeletedBusiness(b)) : [];
     clean.forEach((b) => {
-      if (b.listingStatus === 'active' || b.verificationStatus === 'verified' || b.isApproved || b.permanentlyEnlisted) {
+      if (b.isApproved && (b.listingStatus === 'active' || b.verificationStatus === 'verified' || b.permanentlyEnlisted)) {
         b.listingStatus = 'active';
         b.verificationStatus = 'verified';
         b.isApproved = true;

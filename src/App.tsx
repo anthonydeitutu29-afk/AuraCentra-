@@ -101,6 +101,7 @@ import { AccountSettingsModal } from './components/AccountSettingsModal';
 import { SectorsPage } from './components/SectorsPage';
 import { AboutPage, AboutPageTab } from './components/AboutPage';
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
+import { generateRejectionEmailTemplate } from './utils/rejectionEmailGenerator';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
 import { FirestoreSync } from './services/dbSync';
 import { ApiClient } from './services/apiClient';
@@ -151,6 +152,7 @@ export default function App() {
 
   // View state: 'portal', 'admin', 'business_dashboard', or 'personal_dashboard'
   const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard' | 'personal_dashboard'>('portal');
+  const [targetDashboardBusinessId, setTargetDashboardBusinessId] = useState<string | null>(null);
 
   // Suggestions & Feedback State
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
@@ -354,11 +356,50 @@ export default function App() {
     localStorage.setItem('auracentra_theme', theme);
   }, [theme]);
 
-  // Handle URL hash navigation for business profile (e.g. #business-tonys-digital-marketing)
+  // Handle URL hash navigation for business profile (e.g. #business-tonys-digital-marketing) and dashboard deep-links
   useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash;
-      if (hash.startsWith('#business-')) {
+      
+      // Direct Link back to Business Dashboard to Edit and Resubmit (e.g. #dashboard-biz-123 or #edit-business-biz-123)
+      if (hash.startsWith('#dashboard-') || hash.startsWith('#edit-business-')) {
+        const idOrSlug = hash.replace('#dashboard-', '').replace('#edit-business-', '');
+        const found = businesses.find((b) => b.id === idOrSlug || b.slug === idOrSlug) ||
+                      getStoredBusinesses().find((b) => b.id === idOrSlug || b.slug === idOrSlug);
+        if (found) {
+          setTargetDashboardBusinessId(found.id);
+          setSelectedBusiness(null);
+          
+          // Ensure the user has active session authority to edit this business
+          setCurrentUser((prev) => {
+            if (!prev) {
+              const newOwner: UserProfile = {
+                id: found.ownerId || `owner-${found.id}`,
+                name: found.name,
+                email: found.ownerEmail || found.email || 'business@auracentra.com',
+                role: 'business_owner',
+                accountType: 'business_owner',
+                savedBusinessIds: [],
+                ownedBusinessIds: [found.id],
+                createdAt: new Date().toISOString()
+              };
+              saveCurrentUser(newOwner);
+              return newOwner;
+            } else if (!prev.ownedBusinessIds?.includes(found.id)) {
+              const updated = {
+                ...prev,
+                ownedBusinessIds: [...(prev.ownedBusinessIds || []), found.id]
+              };
+              saveCurrentUser(updated);
+              return updated;
+            }
+            return prev;
+          });
+
+          setCurrentView('business_dashboard');
+          document.title = `Dashboard: ${found.name} | AuraCentra Ghana`;
+        }
+      } else if (hash.startsWith('#business-')) {
         const idOrSlug = hash.replace('#business-', '');
         const found = businesses.find((b) => b.id === idOrSlug || b.slug === idOrSlug);
         if (found) {
@@ -697,18 +738,39 @@ export default function App() {
   };
 
   const handleRegisterBusiness = (newBusiness: Business) => {
-    // Record business with pending_approval status
+    const isAlreadyApproved = Boolean(newBusiness.isApproved);
+    const enlistedBusiness: Business = {
+      ...newBusiness,
+      listingStatus: isAlreadyApproved ? 'active' : 'pending_approval',
+      verificationStatus: isAlreadyApproved ? 'verified' : 'pending',
+      isApproved: isAlreadyApproved,
+      permanentlyEnlisted: isAlreadyApproved,
+      enlistedAt: newBusiness.enlistedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    if (isAlreadyApproved) {
+      markBusinessPermanentlyApproved(enlistedBusiness.id);
+    }
     setBusinesses((prev) => {
-      const updated = [newBusiness, ...prev.filter((b) => b.id !== newBusiness.id)];
+      const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
       saveBusinesses(updated);
       return updated;
     });
-    FirestoreSync.saveBusiness(newBusiness);
-    showToast(
-      'Business Enlisted Successfully!',
-      `"${newBusiness.name}" has been queued for verification. It is pending review in the Admin Dashboard.`,
-      'success'
-    );
+    FirestoreSync.saveBusiness(enlistedBusiness);
+    ApiClient.createBusiness(enlistedBusiness).catch(() => {});
+    if (isAlreadyApproved) {
+      showToast(
+        'Business Enlisted & Approved',
+        `"${enlistedBusiness.name}" is now approved and live on AuraCentra Ghana.`,
+        'success'
+      );
+    } else {
+      showToast(
+        'Enlistment Submitted for Due Process',
+        `"${enlistedBusiness.name}" has been queued for verification. It will appear live on the website once approved by the website admin.`,
+        'success'
+      );
+    }
   };
 
   const handleAddReview = (newReview: BusinessReview) => {
@@ -824,10 +886,9 @@ export default function App() {
     const shouldBeFeatured = isFeatured !== undefined ? isFeatured : true;
 
     // 2. Synchronously find current business from state or local storage
-    const fallbackBase = INITIAL_BUSINESSES.find((b) => b.id === businessId) || INITIAL_BUSINESSES[0];
-    const currentBiz: Business = businesses.find((b) => b.id === businessId) || 
-                                 getStoredBusinesses().find((b) => b.id === businessId) ||
-                                 { ...fallbackBase, id: businessId };
+    const currentBiz: Business | undefined = businesses.find((b) => b.id === businessId) || 
+                                 getStoredBusinesses().find((b) => b.id === businessId);
+    if (!currentBiz) return;
 
     const approvedBiz: Business = {
       ...currentBiz,
@@ -891,18 +952,37 @@ export default function App() {
     resolutionGuide?: string,
     adminNotes?: string
   ) => {
-    const fallbackBase = INITIAL_BUSINESSES.find((b) => b.id === businessId) || INITIAL_BUSINESSES[0];
-    const currentBiz: Business = businesses.find((b) => b.id === businessId) || 
-                                 getStoredBusinesses().find((b) => b.id === businessId) ||
-                                 { ...fallbackBase, id: businessId };
+    const currentBiz: Business | undefined = businesses.find((b) => b.id === businessId) || 
+                                 getStoredBusinesses().find((b) => b.id === businessId);
+    if (!currentBiz) return;
 
     const nowIso = new Date().toISOString();
+
+    // 1. Direct Link back to their business dashboard to edit and resubmit
+    const origin = typeof window !== 'undefined' && window.location.origin
+      ? window.location.origin
+      : 'https://auracentra.com';
+    const directDashboardUrl = `${origin}/#dashboard-${currentBiz.id}`;
+
+    // 2. Automated Email Template Generator that pulls rejection reason, resolution guide & direct link
+    const emailTemplate = generateRejectionEmailTemplate({
+      business: currentBiz,
+      reason,
+      resolutionGuide,
+      adminNotes,
+      directDashboardUrl,
+    });
+
     const rejectedBiz: Business = {
       ...currentBiz,
       listingStatus: 'rejected',
       verificationStatus: 'rejected',
       isApproved: false,
       permanentlyEnlisted: false,
+      rejectionReason: reason,
+      rejectionResolutionGuide: resolutionGuide,
+      rejectionAdminNotes: adminNotes,
+      lastRejectionEmail: emailTemplate,
       updatedAt: nowIso,
       verificationDocuments: currentBiz.verificationDocuments?.map((d) => ({
         ...d,
@@ -919,14 +999,21 @@ export default function App() {
     });
 
     FirestoreSync.saveBusiness(rejectedBiz);
-    ApiClient.moderateBusiness(businessId, 'reject', reason, { business: rejectedBiz }).catch(() => {});
-    dispatchRejectionNotification(rejectedBiz, reason, resolutionGuide, adminNotes);
+    ApiClient.moderateBusiness(businessId, 'reject', reason, { 
+      business: rejectedBiz,
+      emailTemplate,
+      directDashboardUrl,
+    }).catch(() => {});
+    
+    dispatchRejectionNotification(rejectedBiz, reason, resolutionGuide, adminNotes, emailTemplate);
 
     showToast(
-      'Business Rejected & User Notified',
-      'The listing was rejected and automated corrective feedback was sent to the owner.',
+      'Listing Rejected & Email Template Generated',
+      `Automated email notice with direct edit link generated for "${currentBiz.name}". Owner can edit and resubmit via their dashboard.`,
       'warning'
     );
+
+    return emailTemplate;
   };
 
   const handleAddCategory = (newCat: Category) => {
@@ -1184,13 +1271,10 @@ export default function App() {
   // Compute filtered & sorted businesses
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b) => {
-      // 0. Only show officially enlisted/approved businesses to public users
+      // 0. Only show businesses that passed the due process and are approved by the website admin
       if (!b || isDeletedBusiness(b)) return false;
-      const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || (b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
-      if (!isApproved && (b.listingStatus === 'pending_approval' || b.listingStatus === 'rejected' || b.verificationStatus === 'rejected')) {
-        return false;
-      }
-      if (b.listingStatus === 'rejected' || b.verificationStatus === 'rejected') {
+      const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true;
+      if (!isApproved || b.listingStatus !== 'active' || b.verificationStatus === 'rejected') {
         return false;
       }
 
@@ -1232,7 +1316,7 @@ export default function App() {
       }
 
       // Verified only
-      if (filters.verificationOnly && b.verificationStatus !== 'verified' && !isApproved) {
+      if (filters.verificationOnly && b.verificationStatus !== 'verified' && !isBusinessPermanentlyApproved(b.id) && !b.isApproved) {
         return false;
       }
 
@@ -1320,6 +1404,7 @@ export default function App() {
           categories={categories}
           inquiries={inquiries}
           reviews={reviews}
+          initialBusinessId={targetDashboardBusinessId || undefined}
           onUpdateBusiness={handleUpdateBusiness}
           onAddBusiness={handleAddBusinessDirect}
           onDeleteBusiness={handleDeleteBusiness}

@@ -9,7 +9,6 @@ import {
 import { Business, Category, FilterState } from '../types';
 import { GHANA_REGIONS } from '../utils/geolocationService';
 import { isDeletedBusiness, isBusinessPermanentlyApproved } from '../utils/storage';
-import { TONYS_DIGITAL_MARKETING_BUSINESS } from '../data/initialData';
 
 interface HeroSearchProps {
   categories: Category[];
@@ -321,10 +320,8 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               {/* Dynamic Showcase for Verified Businesses */}
               {(() => {
                 const featuredBiz = 
-                  businesses.find((b) => !isDeletedBusiness(b) && (isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true)) ||
-                  businesses.find((b) => !isDeletedBusiness(b) && b.verificationStatus === 'verified' && b.listingStatus === 'active') || 
-                  businesses.find((b) => !isDeletedBusiness(b) && b.listingStatus === 'active' && b.verificationStatus !== 'rejected') ||
-                  TONYS_DIGITAL_MARKETING_BUSINESS;
+                  businesses.find((b) => !isDeletedBusiness(b) && (isBusinessPermanentlyApproved(b.id) || b.isApproved === true) && b.listingStatus === 'active') ||
+                  businesses.find((b) => !isDeletedBusiness(b) && b.verificationStatus === 'verified' && b.listingStatus === 'active');
                 if (!featuredBiz) {
                   return (
                     <div className="py-10 px-4 rounded-2xl bg-white/5 border border-dashed border-white/20 flex flex-col items-center justify-center text-center space-y-2.5">
@@ -336,7 +333,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           Verified Enterprises
                         </h4>
                         <p className="text-[11px] text-blue-200/80 max-w-xs mx-auto">
-                          Verified businesses approved by AuraCentra moderators appear here live.
+                          Verified businesses approved by website administrators will be highlighted here.
                         </p>
                       </div>
                     </div>

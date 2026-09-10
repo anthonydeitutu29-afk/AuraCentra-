@@ -89,12 +89,12 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
   // Robust category & tab filtering logic
   const filteredAndSortedBusinesses = useMemo(() => {
-    // 0. Only show active / approved businesses to directory users
+    // 0. Only show businesses that passed the due process and are approved by the website admin
     let list = businesses.filter((b) => {
       if (!b || isDeletedBusiness(b)) return false;
       const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true;
-      if (isApproved) return true;
-      return b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected' && b.verificationStatus !== 'rejected';
+      if (!isApproved || b.listingStatus !== 'active' || b.verificationStatus === 'rejected') return false;
+      return true;
     });
 
     // 1. Region filter

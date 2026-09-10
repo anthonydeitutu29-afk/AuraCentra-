@@ -20,12 +20,33 @@ app.use((req, res, next) => {
     return;
   }
 
+  // Restore true request URL from Vercel headers if rewritten
+  const forwarded =
+    req.headers['x-forwarded-uri'] ||
+    req.headers['x-matched-path'] ||
+    req.headers['x-original-url'] ||
+    req.headers['x-rewrite-url'];
+
+  if (forwarded && typeof forwarded === 'string' && forwarded.startsWith('/api')) {
+    req.url = forwarded;
+  } else {
+    const matchedWildcard = (req.query as any)?.['0'] || (req.query as any)?.['1'] || (req.query as any)?.path;
+    if (matchedWildcard && typeof matchedWildcard === 'string' && (req.url === '/api/index' || req.url === '/api' || req.url === '/')) {
+      req.url = '/api/' + matchedWildcard.replace(/^\//, '');
+    } else if (req.url === '/api/index' || req.url.startsWith('/api/index?')) {
+      req.url = req.url.replace('/api/index', '/api');
+    } else if (req.url.startsWith('/api/index/')) {
+      req.url = req.url.replace('/api/index/', '/api/');
+    }
+  }
+
   // If invoked via Vercel rewrite where /api prefix might be stripped, ensure /api prefix is normalized
   if (!req.url.startsWith('/api') && !req.url.startsWith('/_')) {
     const urlWithoutQuery = req.url.split('?')[0];
     if (
       urlWithoutQuery.startsWith('/auth') || 
       urlWithoutQuery.startsWith('/businesses') || 
+      urlWithoutQuery.startsWith('/moderation') || 
       urlWithoutQuery.startsWith('/forex-rates') || 
       urlWithoutQuery.startsWith('/ghana-news') || 
       urlWithoutQuery.startsWith('/health') ||
@@ -91,6 +112,7 @@ function isDeletedBusinessRecord(b: any): boolean {
 // Server Disk Persistence Configuration
 const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const DATA_DIR = IS_SERVERLESS ? path.join('/tmp', 'auracentra_data') : path.join(process.cwd(), 'data');
+const REPO_DATA_DIR = path.join(process.cwd(), 'data');
 const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
 const APPROVED_IDS_FILE = path.join(DATA_DIR, 'approved_ids.json');
 
@@ -99,16 +121,40 @@ function ensureDataDirectory() {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
+    // In serverless environments, seed from repository data if /tmp is fresh
+    if (IS_SERVERLESS) {
+      const repoBiz = path.join(REPO_DATA_DIR, 'businesses.json');
+      const repoIds = path.join(REPO_DATA_DIR, 'approved_ids.json');
+      if (!fs.existsSync(BUSINESSES_FILE) && fs.existsSync(repoBiz)) {
+        try {
+          fs.copyFileSync(repoBiz, BUSINESSES_FILE);
+        } catch (e) {
+          console.warn('[Serverless] Could not copy initial businesses file:', e);
+        }
+      }
+      if (!fs.existsSync(APPROVED_IDS_FILE) && fs.existsSync(repoIds)) {
+        try {
+          fs.copyFileSync(repoIds, APPROVED_IDS_FILE);
+        } catch (e) {
+          console.warn('[Serverless] Could not copy initial approved ids file:', e);
+        }
+      }
+    }
   } catch (e) {
     console.warn('Could not create data directory:', e);
   }
 }
 
 function loadApprovedIdsFromDisk(): Set<string> {
-  const set = new Set<string>(['biz-tonys-digital-marketing-hub']);
+  const set = new Set<string>();
   try {
-    if (fs.existsSync(APPROVED_IDS_FILE)) {
-      const content = fs.readFileSync(APPROVED_IDS_FILE, 'utf-8');
+    ensureDataDirectory();
+    let targetFile = APPROVED_IDS_FILE;
+    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'approved_ids.json'))) {
+      targetFile = path.join(REPO_DATA_DIR, 'approved_ids.json');
+    }
+    if (fs.existsSync(targetFile)) {
+      const content = fs.readFileSync(targetFile, 'utf-8');
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) {
         parsed.forEach((id: string) => {
@@ -126,6 +172,12 @@ function saveApprovedIdsToDisk(ids: Set<string>) {
   try {
     ensureDataDirectory();
     fs.writeFileSync(APPROVED_IDS_FILE, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
+    if (!IS_SERVERLESS) {
+      try {
+        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
+        fs.writeFileSync(path.join(REPO_DATA_DIR, 'approved_ids.json'), JSON.stringify(Array.from(ids), null, 2), 'utf-8');
+      } catch {}
+    }
   } catch (e) {
     console.warn('Could not save approved ids to disk:', e);
   }
@@ -137,6 +189,12 @@ function saveBusinessesToDisk(businesses: any[]) {
   try {
     ensureDataDirectory();
     fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2), 'utf-8');
+    if (!IS_SERVERLESS) {
+      try {
+        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
+        fs.writeFileSync(path.join(REPO_DATA_DIR, 'businesses.json'), JSON.stringify(businesses, null, 2), 'utf-8');
+      } catch {}
+    }
   } catch (e) {
     console.warn('Could not save businesses to disk:', e);
   }
@@ -144,8 +202,13 @@ function saveBusinessesToDisk(businesses: any[]) {
 
 function loadBusinessesFromDisk(): any[] {
   try {
-    if (fs.existsSync(BUSINESSES_FILE)) {
-      const content = fs.readFileSync(BUSINESSES_FILE, 'utf-8');
+    ensureDataDirectory();
+    let targetFile = BUSINESSES_FILE;
+    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'businesses.json'))) {
+      targetFile = path.join(REPO_DATA_DIR, 'businesses.json');
+    }
+    if (fs.existsSync(targetFile)) {
+      const content = fs.readFileSync(targetFile, 'utf-8');
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) {
         return parsed.filter((b) => !isDeletedBusinessRecord(b));
@@ -157,102 +220,20 @@ function loadBusinessesFromDisk(): any[] {
   return [];
 }
 
-const DEFAULT_INITIAL_BUSINESSES = [
-  {
-    id: 'biz-tonys-digital-marketing-hub',
-    name: "Tony's Digital Marketing and Business Hub",
-    tagline: 'We offer quality digital and tech services',
-    slug: 'tonys-digital-marketing-and-business-hub',
-    category: 'digital-marketing',
-    description: "We offer quality digital and tech services. Tony's Digital Marketing and Business Hub provides high-impact digital marketing, search engine optimization, social media strategy, custom website architecture, and technology consulting in Ho and nationwide.",
-    logo: '/tonys-digital-marketing-logo.svg',
-    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80'
-    ],
-    phone: '0508203673',
-    whatsapp: '233508203673',
-    email: 'tonysdigitalmarketing@gmail.com',
-    website: 'https://tonysdigitalmarketing.com',
-    city: 'Ho',
-    region: 'Volta',
-    address: 'Ho Central Commercial District, Near Civic Centre',
-    digitalAddress: 'VH-0012-4821',
-    coordinates: { lat: 6.6108, lng: 0.4785 },
-    priceLevel: '$$',
-    rating: 5.0,
-    reviewCount: 1,
-    verificationStatus: 'verified',
-    listingStatus: 'active',
-    isApproved: true,
-    permanentlyEnlisted: true,
-    isFeatured: true,
-    views: 24,
-    leadsCount: 12,
-    ownerId: 'admin-tony-02',
-    ownerEmail: 'tonysdigitalmarketing@gmail.com',
-    createdAt: '2026-09-06T15:00:00.000Z',
-    updatedAt: '2026-09-09T08:00:00.000Z',
-    verificationDocuments: [
-      {
-        id: 'doc-tony-hub-1',
-        type: 'ghana_card',
-        documentNumber: 'GHA-729184029-1',
-        holderName: "Tony's Digital Marketing and Business Hub",
-        expiryDate: '2034-10-15',
-        frontImageUrl: 'https://images.unsplash.com/photo-1589330694653-ded6df03f754?auto=format&fit=crop&w=600&q=80',
-        submittedAt: '2026-09-06T15:00:00.000Z',
-        status: 'verified',
-        reviewedAt: '2026-09-09T08:00:00.000Z'
-      }
-    ],
-    verificationDetails: {
-      badgeType: 'Gold Enterprise',
-      gpsVerified: true,
-      tinNumber: 'TIN-GH-882194',
-      businessRegNumber: 'BN-GH-2024-9128',
-      verifiedByAdmin: 'Executive Desk',
-      verifiedAt: '2026-09-09T08:00:00.000Z'
-    },
-    openingHours: {
-      monday: '08:00 - 18:00',
-      tuesday: '08:00 - 18:00',
-      wednesday: '08:00 - 18:00',
-      thursday: '08:00 - 18:00',
-      friday: '08:00 - 18:00',
-      saturday: '09:00 - 16:00',
-      sunday: 'Closed'
-    },
-    services: [
-      'Digital Marketing Strategy',
-      'Social Media Advertising & Brand Growth',
-      'Search Engine Optimization (SEO)',
-      'Graphic Design & Brand Collateral',
-      'Custom Web & Tech Development'
-    ],
-    features: [
-      'Official AuraCentra Member',
-      'Direct Contact Verified',
-      'Ho Commercial District Branch'
-    ]
-  }
-];
+const DEFAULT_INITIAL_BUSINESSES: any[] = [];
 
 let businessesCache: any[] = (() => {
   const fromDisk = loadBusinessesFromDisk();
   let baseList: any[] = [];
   if (fromDisk && fromDisk.length > 0) {
-    const existingIds = new Set(fromDisk.map(b => b.id));
-    const toAdd = DEFAULT_INITIAL_BUSINESSES.filter(b => !existingIds.has(b.id) && !isDeletedBusinessRecord(b));
-    baseList = [...fromDisk, ...toAdd];
+    baseList = fromDisk.filter(b => !isDeletedBusinessRecord(b));
   } else {
-    baseList = [...DEFAULT_INITIAL_BUSINESSES];
+    baseList = [];
   }
 
   // Guarantee permanent active and verified status for approved businesses
   baseList.forEach(b => {
-    if (approvedIdsCache.has(b.id) || b.isApproved || b.permanentlyEnlisted) {
+    if (approvedIdsCache.has(b.id) || (b.isApproved === true && b.listingStatus === 'active')) {
       b.listingStatus = 'active';
       b.verificationStatus = 'verified';
       b.isApproved = true;
@@ -1874,7 +1855,7 @@ app.get('/api/businesses', (req, res) => {
 
   // Guarantee permanently approved businesses keep active and verified status
   results.forEach(b => {
-    if (approvedIdsCache.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true) {
+    if (approvedIdsCache.has(b.id) || (b.isApproved === true && b.listingStatus === 'active')) {
       b.listingStatus = 'active';
       b.verificationStatus = 'verified';
       b.isApproved = true;
@@ -1928,10 +1909,7 @@ app.post('/api/businesses', (req, res) => {
 
     const businessId = data.id || `biz-${Date.now()}`;
     const isPermanentlyApproved = approvedIdsCache.has(businessId) || 
-                                  data.listingStatus === 'active' || 
-                                  data.verificationStatus === 'verified' || 
-                                  data.isApproved === true || 
-                                  data.permanentlyEnlisted === true;
+                                  Boolean(data.isApproved);
 
     if (isPermanentlyApproved) {
       approvedIdsCache.add(businessId);
@@ -1945,9 +1923,9 @@ app.post('/api/businesses', (req, res) => {
       rating: data.rating !== undefined ? data.rating : (isPermanentlyApproved ? 5.0 : 0),
       reviewCount: data.reviewCount || 0,
       verificationStatus: isPermanentlyApproved ? 'verified' : (data.verificationStatus || 'pending'),
-      listingStatus: isPermanentlyApproved ? 'active' : (data.listingStatus || 'pending_approval'),
-      isApproved: isPermanentlyApproved ? true : Boolean(data.isApproved),
-      permanentlyEnlisted: isPermanentlyApproved ? true : Boolean(data.permanentlyEnlisted),
+      listingStatus: isPermanentlyApproved ? 'active' : 'pending_approval',
+      isApproved: isPermanentlyApproved,
+      permanentlyEnlisted: isPermanentlyApproved,
       isFeatured: data.isFeatured !== undefined ? data.isFeatured : false,
       verificationDetails: data.verificationDetails || (isPermanentlyApproved ? {
         badgeType: 'Gold Enterprise',
@@ -2232,7 +2210,7 @@ async function startServer() {
 }
 
 // Only launch listening server in non-serverless container or local environment
-if (!process.env.VERCEL && !process.env.NOW_REGION && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+if (!process.env.VERCEL && !process.env.NOW_REGION && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.SKIP_SERVER_LISTEN) {
   startServer();
 }
 

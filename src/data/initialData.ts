@@ -219,8 +219,8 @@ export const TONYS_DIGITAL_MARKETING_BUSINESS: Business = {
   ]
 };
 
-// Initial businesses array containing newly enlisted businesses awaiting admin approval
-export const INITIAL_BUSINESSES: Business[] = [TONYS_DIGITAL_MARKETING_BUSINESS];
+// Clean empty initial businesses array - businesses must pass through registration, due process, and admin approval
+export const INITIAL_BUSINESSES: Business[] = [];
 
 // Empty initial reviews - reviews will come only from verified users.
 export const INITIAL_REVIEWS: BusinessReview[] = [];
