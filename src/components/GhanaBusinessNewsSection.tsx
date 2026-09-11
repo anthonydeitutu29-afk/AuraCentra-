@@ -36,12 +36,14 @@ interface GhanaBusinessNewsSectionProps {
   onSelectArticle?: (article: GhanaNewsArticle) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
   isOpenAsModalInitially?: boolean;
+  onOpenNewsPage?: () => void;
 }
 
 export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> = ({
   onSelectArticle,
   onShowToast,
   isOpenAsModalInitially = false,
+  onOpenNewsPage,
 }) => {
   // Pop-up Modal State
   const [isPopUpOpen, setIsPopUpOpen] = useState(isOpenAsModalInitially);
@@ -175,7 +177,13 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div 
-            onClick={() => setIsPopUpOpen(true)}
+            onClick={() => {
+              if (onOpenNewsPage) {
+                onOpenNewsPage();
+              } else {
+                setIsPopUpOpen(true);
+              }
+            }}
             className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1c47] via-[#103b9b] to-[#0c2461] border-2 border-blue-300/40 dark:border-blue-500/40 p-6 sm:p-8 shadow-2xl hover:shadow-blue-600/30 hover:border-white/70 transition-all duration-300 cursor-pointer text-white"
           >
             {/* Ambient Background Glows */}
@@ -248,7 +256,11 @@ export const GhanaBusinessNewsSection: React.FC<GhanaBusinessNewsSectionProps> =
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsPopUpOpen(true);
+                    if (onOpenNewsPage) {
+                      onOpenNewsPage();
+                    } else {
+                      setIsPopUpOpen(true);
+                    }
                   }}
                   className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white hover:bg-blue-50 text-[#0c2461] text-sm font-black shadow-xl hover:shadow-2xl flex items-center justify-center gap-2 group-hover:scale-105 transition-all cursor-pointer"
                 >

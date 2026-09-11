@@ -155,7 +155,7 @@ export function getStoredBusinesses(): Business[] {
 
         // Enforce approved and verified status for permanently approved businesses
         clean.forEach((b) => {
-          if (approvedIds.has(b.id)) {
+          if (approvedIds.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true) {
             b.listingStatus = 'active';
             b.verificationStatus = 'verified';
             b.isApproved = true;
@@ -178,20 +178,18 @@ export function saveBusinesses(businesses: Business[]): void {
     const approvedIds = getApprovedBusinessIds();
     const clean = Array.isArray(businesses) ? businesses.filter((b) => !isDeletedBusiness(b)) : [];
     clean.forEach((b) => {
-      if (b.isApproved && (b.listingStatus === 'active' || b.verificationStatus === 'verified' || b.permanentlyEnlisted)) {
+      if (b.isApproved || b.permanentlyEnlisted || approvedIds.has(b.id)) {
         b.listingStatus = 'active';
         b.verificationStatus = 'verified';
         b.isApproved = true;
         b.permanentlyEnlisted = true;
         markBusinessPermanentlyApproved(b.id);
-      } else if (approvedIds.has(b.id)) {
-        b.listingStatus = 'active';
-        b.verificationStatus = 'verified';
-        b.isApproved = true;
-        b.permanentlyEnlisted = true;
       }
     });
     localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('auracentra_storage_updated', { detail: { key: STORAGE_KEYS.BUSINESSES } }));
+    }
   } catch (e) {
     console.error('Failed to save businesses to storage', e);
   }

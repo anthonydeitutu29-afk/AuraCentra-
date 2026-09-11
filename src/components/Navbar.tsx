@@ -122,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`transition-colors cursor-pointer py-1 font-bold ${
                 currentSection === 'home'
                   ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               Explore
@@ -139,11 +139,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
                 currentSection === 'sectors'
                   ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               <span>Sectors</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/70 text-[10px] font-black shadow-2xs">
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/70 text-[10px] font-black shadow-2xs">
                 All Categories
               </span>
             </button>
@@ -158,7 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
                 currentSection === 'news'
                   ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               <span>Business News</span>
@@ -171,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button 
               type="button" 
               onClick={onOpenPricing}
-              className="text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8] transition-colors cursor-pointer py-1 font-bold"
+              className="text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8] transition-colors cursor-pointer py-1 font-bold"
             >
               Pricing
             </button>
@@ -183,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`transition-colors cursor-pointer py-1 font-bold ${
                 currentSection === 'about'
                   ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-700 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
               }`}
             >
               About Us
@@ -365,8 +365,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className={`p-2.5 rounded-xl text-left transition-colors font-bold ${
                 currentSection === 'home'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               Explore (Home)
@@ -380,12 +380,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
                 currentSection === 'sectors'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               <span>Sectors & Business Categories</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-700/60 text-[10px] font-black">
+              <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 text-[10px] font-black">
                 All Categories
               </span>
             </button>
@@ -398,8 +398,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className={`p-2.5 rounded-xl text-left flex items-center justify-between transition-colors font-bold ${
                 currentSection === 'news'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               <span>Business News & Live Forex</span>
@@ -412,7 +412,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenPricing();
                 setMobileMenuOpen(false);
               }}
-              className="p-2.5 rounded-xl text-left text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white font-bold transition-colors"
+              className="p-2.5 rounded-xl text-left text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white font-bold transition-colors"
             >
               Pricing & Enlistment
             </button>
@@ -425,8 +425,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}
               className={`p-2.5 rounded-xl text-left font-bold transition-colors ${
                 currentSection === 'about'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-700 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-white'
+                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
               }`}
             >
               About AuraCentra

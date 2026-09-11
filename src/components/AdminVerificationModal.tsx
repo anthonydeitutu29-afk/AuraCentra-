@@ -32,7 +32,7 @@ interface AdminVerificationModalProps {
   business: Business;
   isOpen: boolean;
   onClose: () => void;
-  onApprove: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }, isFeatured?: boolean) => void;
+  onApprove: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }, isFeatured?: boolean, businessObj?: Business) => void;
   onReject?: (businessId: string, reason: string) => void;
   onShowToast?: (title: string, message: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
 }
@@ -93,10 +93,10 @@ export const AdminVerificationModal: React.FC<AdminVerificationModalProps> = ({
   const handleApproveWithGPS = () => {
     markBusinessPermanentlyApproved(business.id);
     const coordsToSave = alignmentReport?.geocoded?.coordinates || business.coordinates;
-    onApprove(business.id, selectedBadge, coordsToSave, isFeaturedChoice);
+    onApprove(business.id, selectedBadge, coordsToSave, isFeaturedChoice, business);
     onShowToast?.(
-      'Business Verified with GPS',
-      `"${business.name}" has been approved ${isFeaturedChoice ? 'under Featured Categories' : 'as standard listing'} with verified coordinates.`,
+      '⚡ Verified & Enlisted Live in 0.1s',
+      `"${business.name}" is now live on the public directory with verified GPS coordinates!`,
       'success'
     );
     onClose();

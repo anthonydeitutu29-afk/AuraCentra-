@@ -16,7 +16,8 @@ import {
   Globe,
   ExternalLink,
   ShieldCheck,
-  Star
+  Star,
+  Sparkles
 } from 'lucide-react';
 import { Business } from '../types';
 
@@ -62,6 +63,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
   const todayHours = business.openingHours ? business.openingHours[currentDay] : 'Open';
   const isOpen = todayHours && todayHours.toLowerCase() !== 'closed';
 
+  // Check if recently approved/enlisted by admin within the last 48 hours
+  const isJustEnlisted = Boolean(
+    business.isApproved && 
+    business.approvedAt && 
+    (Date.now() - new Date(business.approvedAt).getTime()) < 172800000
+  );
+
   const handleShareClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onShare) {
@@ -102,6 +110,13 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         {/* Top Badges: Category, Distance & Quick Utility Actions */}
         <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {isJustEnlisted && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-600 text-white backdrop-blur-md shadow-md border border-emerald-400/50 animate-pulse">
+                <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
+                <span>⚡ Just Enlisted</span>
+              </span>
+            )}
+
             <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-black/80 text-slate-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-slate-200/80 dark:border-slate-800">
               {business.category}
             </span>

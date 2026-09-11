@@ -39,6 +39,7 @@ interface TriColumnMainLayoutProps {
   onOpenRegister?: () => void;
   onRequestLocation?: () => void;
   isLocating?: boolean;
+  newlyApprovedBizId?: string | null;
 }
 
 export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
@@ -55,6 +56,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
   onOpenRegister,
   onRequestLocation,
   isLocating = false,
+  newlyApprovedBizId = null,
 }) => {
   const [activeTab, setActiveTab] = useState<'trending' | 'near_you' | 'newly_verified' | 'featured'>('trending');
   const [visibleCount, setVisibleCount] = useState(12);
@@ -92,8 +94,13 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     // 0. Only show businesses that passed the due process and are approved by the website admin
     let list = businesses.filter((b) => {
       if (!b || isDeletedBusiness(b)) return false;
-      const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true;
-      if (!isApproved || b.listingStatus !== 'active' || b.verificationStatus === 'rejected') return false;
+      if (b.verificationStatus === 'rejected' || b.listingStatus === 'rejected') return false;
+      const isApproved = 
+        isBusinessPermanentlyApproved(b.id) || 
+        b.isApproved === true || 
+        b.permanentlyEnlisted === true || 
+        (b.listingStatus === 'active' && b.verificationStatus === 'verified');
+      if (!isApproved) return false;
       return true;
     });
 
@@ -160,15 +167,22 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     // Apply Tab specific sorting - all enlisted/approved businesses are displayed
     if (activeTab === 'trending') {
       list = [...list].sort((a, b) => {
-        const isFreshA = (Date.now() - new Date(a.approvedAt || a.enlistedAt || a.createdAt || 0).getTime()) < 172800000 ? 60 : 0;
-        const isFreshB = (Date.now() - new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime()) < 172800000 ? 60 : 0;
+        const now = Date.now();
+        const ageA = now - new Date(a.approvedAt || a.enlistedAt || a.createdAt || 0).getTime();
+        const ageB = now - new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime();
+        const isFreshA = ageA < 3600000 ? 2500 : ageA < 86400000 ? 1000 : ageA < 172800000 ? 400 : 0;
+        const isFreshB = ageB < 3600000 ? 2500 : ageB < 86400000 ? 1000 : ageB < 172800000 ? 400 : 0;
         const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + (b.isFeatured ? 50 : 0) + isFreshB;
         const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + (a.isFeatured ? 50 : 0) + isFreshA;
         return scoreB - scoreA;
       });
     } else if (activeTab === 'featured') {
       // Dedicated tab for businesses approved under Featured Business Categories
-      list = list.filter((b) => b.isFeatured);
+      list = list.filter((b) => b.isFeatured).sort((a, b) => {
+        const timeA = new Date(a.approvedAt || a.enlistedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
     } else if (activeTab === 'near_you') {
       // Proximity-based distance sorting using user location
       const userLat = filters.userLat || 5.6037;
@@ -184,14 +198,13 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
       });
     } else if (activeTab === 'newly_verified') {
       list = [...list].sort((a, b) => {
-        // Verified businesses first
-        const isVerA = a.verificationStatus === 'verified' ? 1 : 0;
-        const isVerB = b.verificationStatus === 'verified' ? 1 : 0;
+        const isVerA = a.verificationStatus === 'verified' || a.isApproved ? 1 : 0;
+        const isVerB = b.verificationStatus === 'verified' || b.isApproved ? 1 : 0;
         if (isVerB !== isVerA) return isVerB - isVerA;
 
-        // Then sorted by newest verification date or update/creation date
-        const timeA = new Date(a.verificationDetails?.verifiedAt || a.updatedAt || a.createdAt || 0).getTime();
-        const timeB = new Date(b.verificationDetails?.verifiedAt || b.updatedAt || b.createdAt || 0).getTime();
+        // Sort by newest approval/enlistment timestamp
+        const timeA = new Date(a.approvedAt || a.verificationDetails?.verifiedAt || a.enlistedAt || a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.approvedAt || b.verificationDetails?.verifiedAt || b.enlistedAt || b.updatedAt || b.createdAt || 0).getTime();
         return timeB - timeA;
       });
     }
@@ -209,6 +222,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
   }, [businesses, categories, filters, activeTab]);
 
   const displayedList = filteredAndSortedBusinesses.slice(0, visibleCount);
+  const newlyApprovedBiz = newlyApprovedBizId ? businesses.find((b) => b.id === newlyApprovedBizId) : null;
 
   // View All Businesses handler (resets filters, sets tab to trending, expands list and scrolls smoothly)
   const handleViewAllBusinessesClick = () => {
@@ -464,6 +478,37 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
             </div>
           )}
 
+          {/* Newly Approved Enlistment Alert Banner */}
+          {newlyApprovedBiz && (
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-teal-950/50 to-slate-900 border border-emerald-500/50 flex items-center justify-between gap-3 shadow-lg animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-wider border border-emerald-500/30">
+                      ⚡ Enlisted Live Just Now
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-white">
+                      {newlyApprovedBiz.name}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Officially approved by admin and published live to the public directory in 0.1s.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onSelectBusiness(newlyApprovedBiz)}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md"
+              >
+                View Listing
+              </button>
+            </div>
+          )}
+
           {/* Business Rows List */}
           <div className="space-y-3.5">
             {displayedList.length === 0 ? (
@@ -496,6 +541,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                 const distKm = (filters.userLat && filters.userLng && biz.coordinates)
                   ? calculateDistanceKm(filters.userLat, filters.userLng, biz.coordinates.lat, biz.coordinates.lng)
                   : null;
+                const isRecentlyApproved = Boolean(
+                  biz.isApproved && 
+                  biz.approvedAt && 
+                  (Date.now() - new Date(biz.approvedAt).getTime()) < 172800000
+                );
 
                 return (
                   <div
@@ -510,7 +560,12 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                         alt={biz.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      {biz.isFeatured ? (
+                      {isRecentlyApproved ? (
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md animate-pulse">
+                          <Sparkles className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />
+                          <span>⚡ ENLISTED</span>
+                        </div>
+                      ) : biz.isFeatured ? (
                         <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-extrabold flex items-center gap-1 shadow-md">
                           <Star className="w-2.5 h-2.5 fill-white" />
                           <span>FEATURED</span>

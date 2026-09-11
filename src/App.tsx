@@ -77,6 +77,7 @@ import { BusinessPage } from './components/BusinessPage';
 import { BusinessComparisonModal } from './components/BusinessComparisonModal';
 import { LocationMapModal } from './components/LocationMapModal';
 import { AuthModal } from './components/AuthModal';
+import { AuthPage } from './components/AuthPage';
 import { BusinessRegistrationModal } from './components/BusinessRegistrationModal';
 import { SavedBusinessesModal } from './components/SavedBusinessesModal';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -95,6 +96,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { SuggestCategoryModal } from './components/SuggestCategoryModal';
 import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
 import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection';
+import { GhanaNewsPage } from './components/GhanaNewsPage';
 import { NewsArticleModal } from './components/NewsArticleModal';
 import { SecureLogoutModal } from './components/SecureLogoutModal';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
@@ -150,8 +152,9 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // View state: 'portal', 'admin', 'business_dashboard', or 'personal_dashboard'
-  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard' | 'personal_dashboard'>('portal');
+  // View state: 'portal', 'admin', 'business_dashboard', 'personal_dashboard', or 'auth'
+  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard' | 'personal_dashboard' | 'auth'>('portal');
+  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [targetDashboardBusinessId, setTargetDashboardBusinessId] = useState<string | null>(null);
 
   // Suggestions & Feedback State
@@ -191,6 +194,7 @@ export default function App() {
   const [selectedBusinessForReview, setSelectedBusinessForReview] = useState<Business | null>(null);
   const [isSectorsModalOpen, setIsSectorsModalOpen] = useState(false);
   const [initialCategoryForSectors, setInitialCategoryForSectors] = useState<string | null>(null);
+  const [newlyApprovedBizId, setNewlyApprovedBizId] = useState<string | null>(null);
 
   // Filters & Location Auto-Detection State
   const initialFilters: FilterState = {
@@ -361,6 +365,31 @@ export default function App() {
     const handleHash = () => {
       const hash = window.location.hash;
       
+      // Authentication deep link (#login, #signup, #auth, #register)
+      if (hash === '#auth' || hash === '#login' || hash === '#signin') {
+        setSelectedBusiness(null);
+        setAuthInitialMode('signin');
+        setCurrentView('auth');
+        document.title = 'Log In | AuraCentra Ghana';
+        return;
+      } else if (hash === '#signup' || hash === '#register') {
+        setSelectedBusiness(null);
+        setAuthInitialMode('signup');
+        setCurrentView('auth');
+        document.title = 'Sign Up | AuraCentra Ghana';
+        return;
+      } else if (hash === '#news' || hash === '#business-news' || hash === '#forex' || hash === '#rates') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('news');
+        document.title = 'Ghana Business News & Live FX Exchange | AuraCentra';
+        return;
+      } else if (hash === '#sectors' || hash === '#categories') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('sectors');
+        document.title = 'Explore Ghana Business Sectors | AuraCentra';
+        return;
+      }
+
       // Direct Link back to Business Dashboard to Edit and Resubmit (e.g. #dashboard-biz-123 or #edit-business-biz-123)
       if (hash.startsWith('#dashboard-') || hash.startsWith('#edit-business-')) {
         const idOrSlug = hash.replace('#dashboard-', '').replace('#edit-business-', '');
@@ -675,37 +704,46 @@ export default function App() {
     clearStoredSearchHistory();
   };
 
+  const handleOpenAuth = useCallback((mode: 'signin' | 'signup' = 'signin') => {
+    setSelectedBusiness(null);
+    setAuthInitialMode(mode);
+    setCurrentView('auth');
+    setIsAuthModalOpen(false);
+    window.location.hash = mode === 'signup' ? '#signup' : '#login';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const handleOpenRegisterModal = useCallback(() => {
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      handleOpenAuth('signup');
       showToast('Account Required', 'Please sign in or create a verified account to enlist a business on AuraCentra.', 'info');
       return;
     }
     setIsRegisterModalOpen(true);
-  }, [currentUser, showToast]);
+  }, [currentUser, handleOpenAuth, showToast]);
 
   const handleOpenSuggestCategoryModal = useCallback(() => {
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      handleOpenAuth('signin');
       showToast('Account Required', 'Please sign in or create an account to suggest categories.', 'info');
       return;
     }
     setIsSuggestCategoryOpen(true);
-  }, [currentUser, showToast]);
+  }, [currentUser, handleOpenAuth, showToast]);
 
   const handleOpenCustomerFeedbackModal = useCallback((biz?: Business) => {
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      handleOpenAuth('signin');
       showToast('Account Required', 'Please sign in or create an account to rate businesses or leave platform feedback.', 'info');
       return;
     }
     setSelectedBusinessForReview(biz || null);
     setIsCustomerFeedbackOpen(true);
-  }, [currentUser, showToast]);
+  }, [currentUser, handleOpenAuth, showToast]);
 
   const handleToggleSave = (businessId: string) => {
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      handleOpenAuth('signin');
       showToast('Sign In Required', 'Please sign in or create an account to save businesses to your profile.', 'info');
       return;
     }
@@ -877,17 +915,21 @@ export default function App() {
     businessId: string, 
     badgeType: string = 'Gold Enterprise', 
     verifiedCoords?: { lat: number; lng: number },
-    isFeatured?: boolean
+    isFeatured?: boolean,
+    businessObj?: Business
   ) => {
     // 1. Immediately mark permanently approved in storage so it can never revert to pending
     markBusinessPermanentlyApproved(businessId);
+    setNewlyApprovedBizId(businessId);
 
     const nowIso = new Date().toISOString();
     const shouldBeFeatured = isFeatured !== undefined ? isFeatured : true;
 
-    // 2. Synchronously find current business from state or local storage
-    const currentBiz: Business | undefined = businesses.find((b) => b.id === businessId) || 
-                                 getStoredBusinesses().find((b) => b.id === businessId);
+    // 2. Synchronously find current business from passed object, state or local storage
+    const currentBiz: Business | undefined = 
+      businessObj || 
+      businesses.find((b) => b.id === businessId) || 
+      getStoredBusinesses().find((b) => b.id === businessId);
     if (!currentBiz) return;
 
     const approvedBiz: Business = {
@@ -1091,12 +1133,12 @@ export default function App() {
 
   const handleOpenQuote = useCallback((business: Business) => {
     if (!currentUser) {
-      setIsAuthModalOpen(true);
+      handleOpenAuth('signin');
       showToast('Sign In Required', 'Please sign in or create an account to request quotes from businesses.', 'info');
       return;
     }
     setQuoteBusiness(business);
-  }, [currentUser, showToast]);
+  }, [currentUser, handleOpenAuth, showToast]);
 
   const handleSubmitInquiry = useCallback((newInquiry: BusinessInquiry) => {
     setInquiries((prev) => [newInquiry, ...prev]);
@@ -1518,6 +1560,42 @@ export default function App() {
     );
   }
 
+  // Dedicated Full-Page View for Authentication (Lies Directly on Background - No Floating Card)
+  if (currentView === 'auth') {
+    return (
+      <div className={theme === 'dark' ? 'dark' : ''}>
+        <AuthPage
+          initialMode={authInitialMode}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onBackToPortal={() => {
+            setCurrentView('portal');
+            if (window.location.hash === '#auth' || window.location.hash === '#login' || window.location.hash === '#signup' || window.location.hash === '#register') {
+              window.history.pushState(null, '', window.location.pathname + window.location.search);
+            }
+          }}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            if (window.location.hash === '#auth' || window.location.hash === '#login' || window.location.hash === '#signup' || window.location.hash === '#register') {
+              window.history.pushState(null, '', window.location.pathname + window.location.search);
+            }
+            if (user.role === 'business_owner' || user.role === 'verified_owner' || (user.ownedBusinessIds && user.ownedBusinessIds.length > 0)) {
+              setCurrentView('business_dashboard');
+              showToast('Welcome to your Business Dashboard!', `Managing your business listings as ${user.name}`, 'success');
+            } else if (user.role === 'admin') {
+              setCurrentView('admin');
+              showToast('Admin Console Active', `Signed in as Platform Administrator ${user.name}`, 'info');
+            } else {
+              setCurrentView('personal_dashboard');
+              showToast('Welcome Back!', `Signed in as ${user.name}`, 'success');
+            }
+          }}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-x-hidden ${theme === 'dark' ? 'dark' : ''}`} id="auracentra-app-root">
       {/* 0. Subtle Exploration Progress Bar at the Very Top of Screen */}
@@ -1546,7 +1624,7 @@ export default function App() {
         inquiriesCount={inquiries.filter((i) => i.status === 'new').length}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => handleOpenAuth('signin')}
         onOpenRegister={handleOpenRegisterModal}
         onOpenSavedModal={() => setIsSavedModalOpen(true)}
         onOpenCompareModal={() => setIsCompareModalOpen(true)}
@@ -1580,7 +1658,7 @@ export default function App() {
           onHelpfulVote={handleHelpfulVote}
           theme={theme}
           onToggleTheme={handleToggleTheme}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenAuth={() => handleOpenAuth('signin')}
           onOpenRegister={handleOpenRegisterModal}
           onOpenAdminDashboard={() => {
             setSelectedBusiness(null);
@@ -1606,34 +1684,15 @@ export default function App() {
           onShowToast={showToast}
         />
       ) : currentNavTab === 'news' ? (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <div className="flex items-center gap-2 text-blue-600 dark:text-cyan-400 text-xs font-bold uppercase tracking-wider">
-                <span>Ghana Economic & Business Desk</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-                Ghana Business News & Live Forex Hub
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Real-time Cedi (GHS) exchange rates, BoG monetary policy updates, trade tenders, and market reports.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setCurrentNavTab('home')}
-              className="px-4 py-2 rounded-xl bg-blue-50 dark:bg-slate-850 text-blue-600 dark:text-cyan-400 text-xs font-bold hover:bg-blue-100 transition-colors cursor-pointer"
-            >
-              ← Back to Discovery
-            </button>
-          </div>
-
-          <GhanaBusinessNewsSection
-            onSelectArticle={(article) => setSelectedNewsArticle(article)}
-            onShowToast={showToast}
-          />
-        </main>
+        <GhanaNewsPage
+          onBackToHome={() => {
+            setCurrentNavTab('home');
+            window.location.hash = '';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onSelectArticle={(article) => setSelectedNewsArticle(article)}
+          onShowToast={showToast}
+        />
       ) : currentNavTab === 'sectors' ? (
         <SectorsPage
           categories={categories}
@@ -1686,6 +1745,7 @@ export default function App() {
               onOpenRegister={handleOpenRegisterModal}
               onRequestLocation={() => handleRequestUserLocation(true)}
               isLocating={isLocatingUser}
+              newlyApprovedBizId={newlyApprovedBizId}
             />
 
           </main>
@@ -1788,7 +1848,7 @@ export default function App() {
         onClose={() => setIsRegisterModalOpen(false)}
         categories={categories}
         currentUser={currentUser}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => handleOpenAuth('signin')}
         onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
         onRegisterBusiness={(newBiz) => {
           handleRegisterBusiness(newBiz);
@@ -1889,7 +1949,7 @@ export default function App() {
         onOpenSaved={() => setIsSavedModalOpen(true)}
         onOpenInquiries={() => setIsInquiriesModalOpen(true)}
         onOpenCompare={() => setIsCompareModalOpen(true)}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onOpenAuth={() => handleOpenAuth('signin')}
         onSignOut={handleSignOut}
         onOpenAdminDashboard={() => setCurrentView('admin')}
         onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
