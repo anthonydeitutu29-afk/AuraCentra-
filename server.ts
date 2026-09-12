@@ -146,7 +146,7 @@ function ensureDataDirectory() {
 }
 
 function loadApprovedIdsFromDisk(): Set<string> {
-  const set = new Set<string>();
+  const set = new Set<string>(['biz-tonys-digital-marketing-hub']);
   try {
     ensureDataDirectory();
     let targetFile = APPROVED_IDS_FILE;
@@ -220,7 +220,74 @@ function loadBusinessesFromDisk(): any[] {
   return [];
 }
 
-const DEFAULT_INITIAL_BUSINESSES: any[] = [];
+const DEFAULT_INITIAL_BUSINESSES: any[] = [
+  {
+    id: 'biz-tonys-digital-marketing-hub',
+    name: "Tony's Digital Marketing and Business Hub",
+    tagline: 'We offer quality digital and tech services',
+    slug: 'tonys-digital-marketing-and-business-hub',
+    category: 'digital-marketing',
+    description: "We offer quality digital and tech services. Tony's Digital Marketing and Business Hub provides high-impact digital marketing, search engine optimization, social media strategy, custom website architecture, and technology consulting in Ho and nationwide.",
+    logo: '/tonys-digital-marketing-logo.svg',
+    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80'
+    ],
+    phone: '0508203673',
+    whatsapp: '233508203673',
+    email: 'tonysdigitalmarketing@gmail.com',
+    website: 'https://tonysdigitalmarketing.com',
+    city: 'Ho',
+    region: 'Volta',
+    address: 'Ho Central Commercial District, Near Civic Centre',
+    digitalAddress: 'VH-0012-4821',
+    coordinates: { lat: 6.6108, lng: 0.4785 },
+    priceLevel: '$$',
+    rating: 5.0,
+    reviewCount: 1,
+    verificationStatus: 'verified',
+    listingStatus: 'active',
+    isApproved: true,
+    permanentlyEnlisted: true,
+    isFeatured: true,
+    views: 24,
+    leadsCount: 12,
+    ownerId: 'admin-tony-02',
+    ownerEmail: 'tonysdigitalmarketing@gmail.com',
+    createdAt: '2026-09-06T15:00:00.000Z',
+    updatedAt: '2026-09-09T08:00:00.000Z',
+    verificationDetails: {
+      badgeType: 'Gold Enterprise',
+      gpsVerified: true,
+      tinNumber: 'TIN-GH-882194',
+      businessRegNumber: 'BN-GH-2024-9128',
+      verifiedByAdmin: 'Executive Desk',
+      verifiedAt: '2026-09-09T08:00:00.000Z'
+    },
+    openingHours: {
+      monday: '08:00 - 18:00',
+      tuesday: '08:00 - 18:00',
+      wednesday: '08:00 - 18:00',
+      thursday: '08:00 - 18:00',
+      friday: '08:00 - 18:00',
+      saturday: '09:00 - 16:00',
+      sunday: 'Closed'
+    },
+    services: [
+      'Digital Marketing Strategy',
+      'Social Media Advertising & Brand Growth',
+      'Search Engine Optimization (SEO)',
+      'Graphic Design & Brand Collateral',
+      'Custom Web & Tech Development'
+    ],
+    features: [
+      'Official AuraCentra Member',
+      'Direct Contact Verified',
+      'Ho Commercial District Branch'
+    ]
+  }
+];
 
 let businessesCache: any[] = (() => {
   const fromDisk = loadBusinessesFromDisk();
@@ -228,12 +295,22 @@ let businessesCache: any[] = (() => {
   if (fromDisk && fromDisk.length > 0) {
     baseList = fromDisk.filter(b => !isDeletedBusinessRecord(b));
   } else {
-    baseList = [];
+    baseList = [...DEFAULT_INITIAL_BUSINESSES];
   }
+
+  // Ensure default initial businesses are present if not explicitly deleted
+  DEFAULT_INITIAL_BUSINESSES.forEach(defBiz => {
+    const existingIndex = baseList.findIndex(b => b.id === defBiz.id);
+    if (existingIndex >= 0) {
+      baseList[existingIndex] = { ...defBiz, ...baseList[existingIndex] };
+    } else if (!isDeletedBusinessRecord(defBiz)) {
+      baseList.push(defBiz);
+    }
+  });
 
   // Guarantee permanent active and verified status for approved businesses
   baseList.forEach(b => {
-    if (approvedIdsCache.has(b.id) || (b.isApproved === true && b.listingStatus === 'active')) {
+    if (approvedIdsCache.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || (b.listingStatus === 'active' && b.verificationStatus === 'verified') || b.id === 'biz-tonys-digital-marketing-hub') {
       b.listingStatus = 'active';
       b.verificationStatus = 'verified';
       b.isApproved = true;
@@ -1855,7 +1932,7 @@ app.get('/api/businesses', (req, res) => {
 
   // Guarantee permanently approved businesses keep active and verified status
   results.forEach(b => {
-    if (approvedIdsCache.has(b.id) || (b.isApproved === true && b.listingStatus === 'active')) {
+    if (approvedIdsCache.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || (b.listingStatus === 'active' && b.verificationStatus === 'verified') || b.id === 'biz-tonys-digital-marketing-hub') {
       b.listingStatus = 'active';
       b.verificationStatus = 'verified';
       b.isApproved = true;

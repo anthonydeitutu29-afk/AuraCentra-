@@ -32,6 +32,7 @@ import {
   Home
 } from 'lucide-react';
 import { Business, BusinessReview, UserProfile, BusinessReport } from '../types';
+import { isBusinessPermanentlyApproved } from '../utils/storage';
 import confetti from 'canvas-confetti';
 import { useWhatsAppContact } from '../hooks/useWhatsAppContact';
 
@@ -90,6 +91,16 @@ export const BusinessPage: React.FC<BusinessPageProps> = ({
   theme,
   onToggleTheme,
 }) => {
+  const isApproved = Boolean(
+    isBusinessPermanentlyApproved(business.id) || 
+    business.isApproved === true || 
+    business.permanentlyEnlisted === true || 
+    (business.listingStatus === 'active' && business.verificationStatus === 'verified')
+  );
+  const effectiveStatus = (isApproved && business.verificationStatus !== 'rejected') 
+    ? 'verified' 
+    : business.verificationStatus;
+
   // Gallery Carousel State
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -492,13 +503,13 @@ export const BusinessPage: React.FC<BusinessPageProps> = ({
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
                   {business.name}
                 </h1>
-                {business.verificationStatus === 'verified' && (
+                {effectiveStatus === 'verified' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 text-xs font-bold border border-blue-200 dark:border-blue-800">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Verified</span>
                   </span>
                 )}
-                {business.verificationStatus === 'pending' && (
+                {effectiveStatus === 'pending' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 text-xs font-bold border border-amber-200 dark:border-amber-800">
                     <Clock className="w-3.5 h-3.5" />
                     <span>Pending Verification</span>
@@ -597,7 +608,7 @@ export const BusinessPage: React.FC<BusinessPageProps> = ({
         </section>
 
         {/* 4. Official AuraCentra Verified Enterprise Section - DIRECTLY ON BACKGROUND (NOT A CARD) */}
-        {business.verificationStatus === 'verified' && (
+        {effectiveStatus === 'verified' && (
           <section className="py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -629,7 +640,7 @@ export const BusinessPage: React.FC<BusinessPageProps> = ({
           </section>
         )}
 
-        {business.verificationStatus === 'pending' && (
+        {effectiveStatus === 'pending' && (
           <section className="py-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 text-xs sm:text-sm text-amber-800 dark:text-amber-300">
             <Clock className="w-5 h-5 text-amber-600 shrink-0" />
             <div>

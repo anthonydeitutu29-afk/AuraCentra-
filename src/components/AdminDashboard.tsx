@@ -2407,7 +2407,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           onClose={() => setVerifyingBusiness(null)}
           onApprove={(bizId, badge, coords, isFeatured) => {
             markBusinessPermanentlyApproved(bizId);
-            onApproveVerification(bizId, badge, coords, isFeatured);
+            onApproveVerification(bizId, badge, coords, isFeatured, verifyingBusiness);
             confetti({ particleCount: 80, spread: 70 });
             setVerifyingBusiness(null);
           }}

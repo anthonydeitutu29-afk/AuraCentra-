@@ -73,7 +73,7 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
 ];
 
 // Permanently approved & verified enterprise listings across all sessions
-export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
+export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = ['biz-tonys-digital-marketing-hub'];
 
 const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v10';
 
@@ -155,7 +155,7 @@ export function getStoredBusinesses(): Business[] {
 
         // Enforce approved and verified status for permanently approved businesses
         clean.forEach((b) => {
-          if (approvedIds.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true) {
+          if (approvedIds.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || b.id === 'biz-tonys-digital-marketing-hub') {
             b.listingStatus = 'active';
             b.verificationStatus = 'verified';
             b.isApproved = true;
@@ -163,14 +163,16 @@ export function getStoredBusinesses(): Business[] {
           }
         });
 
-        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
-        return clean;
+        if (clean.length > 0) {
+          localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+          return clean;
+        }
       }
     }
   } catch (e) {
     console.error('Failed to load businesses from storage', e);
   }
-  return [];
+  return [...INITIAL_BUSINESSES];
 }
 
 export function saveBusinesses(businesses: Business[]): void {

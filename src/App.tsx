@@ -29,7 +29,7 @@ import {
   PlatformFeedback,
   GhanaNewsArticle
 } from './types';
-import { INITIAL_BUSINESSES } from './data/initialData';
+import { INITIAL_BUSINESSES, TONYS_DIGITAL_MARKETING_BUSINESS } from './data/initialData';
 import { 
   getStoredBusinesses, 
   saveBusinesses, 
@@ -305,12 +305,14 @@ export default function App() {
               if (isLocalApproved) {
                 // Keep local verified / active approval status unconditionally
                 map.set(b.id, {
-                  ...b,
                   ...existing,
+                  ...b,
                   listingStatus: 'active',
                   verificationStatus: 'verified',
                   isApproved: true,
-                  permanentlyEnlisted: true
+                  permanentlyEnlisted: true,
+                  verificationDetails: b.verificationDetails || existing.verificationDetails,
+                  coordinates: b.coordinates || existing.coordinates,
                 });
                 markBusinessPermanentlyApproved(b.id);
               } else {
@@ -929,7 +931,8 @@ export default function App() {
     const currentBiz: Business | undefined = 
       businessObj || 
       businesses.find((b) => b.id === businessId) || 
-      getStoredBusinesses().find((b) => b.id === businessId);
+      getStoredBusinesses().find((b) => b.id === businessId) ||
+      (businessId === TONYS_DIGITAL_MARKETING_BUSINESS.id ? TONYS_DIGITAL_MARKETING_BUSINESS : undefined);
     if (!currentBiz) return;
 
     const approvedBiz: Business = {
@@ -969,6 +972,9 @@ export default function App() {
       saveBusinesses(updated);
       return updated;
     });
+
+    // Also synchronously update selectedBusiness if active
+    setSelectedBusiness((prev) => (prev?.id === businessId ? approvedBiz : prev));
 
     // 4. Guarantee persistent Supabase and Express backend sync with full business payload
     FirestoreSync.saveBusiness(approvedBiz);

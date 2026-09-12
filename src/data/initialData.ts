@@ -219,8 +219,8 @@ export const TONYS_DIGITAL_MARKETING_BUSINESS: Business = {
   ]
 };
 
-// Clean empty initial businesses array - businesses must pass through registration, due process, and admin approval
-export const INITIAL_BUSINESSES: Business[] = [];
+// Verified initial businesses array with Tony's Digital Marketing and Business Hub
+export const INITIAL_BUSINESSES: Business[] = [TONYS_DIGITAL_MARKETING_BUSINESS];
 
 // Empty initial reviews - reviews will come only from verified users.
 export const INITIAL_REVIEWS: BusinessReview[] = [];

@@ -218,8 +218,16 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
       list = [...list].sort((a, b) => a.name.localeCompare(b.name));
     }
 
+    // If a business was just approved by the admin, ensure it is surfaced at the top of the directory so it is immediately visible
+    if (newlyApprovedBizId) {
+      const target = businesses.find((b) => b.id === newlyApprovedBizId && !isDeletedBusiness(b));
+      if (target) {
+        list = [target, ...list.filter((b) => b.id !== newlyApprovedBizId)];
+      }
+    }
+
     return list;
-  }, [businesses, categories, filters, activeTab]);
+  }, [businesses, categories, filters, activeTab, newlyApprovedBizId]);
 
   const displayedList = filteredAndSortedBusinesses.slice(0, visibleCount);
   const newlyApprovedBiz = newlyApprovedBizId ? businesses.find((b) => b.id === newlyApprovedBizId) : null;
