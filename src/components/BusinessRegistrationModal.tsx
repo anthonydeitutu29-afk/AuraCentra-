@@ -258,7 +258,6 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
     const cleanWhatsapp = whatsapp.trim() || phone.trim() || `23324${randomSuffix}`;
     const cleanEmail = email.trim() || `${name.toLowerCase().replace(/[^a-z0-9]/g, '') || 'contact'}@auracentra-listed.com`;
 
-    const isAdminSubmitter = currentUser?.role === 'admin' || currentUser?.email === 'tonysdigitalmarketing@gmail.com';
     const nowIso = new Date().toISOString();
 
     const newBiz: Business = {
@@ -281,12 +280,15 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       digitalAddress: gpsCheck.isValid ? gpsCheck.formattedAddress : (digitalAddress.trim() || 'GA-019-4821'),
       coordinates: verifiedCoordinates,
       priceLevel: '$$',
-      rating: 0,
+      rating: 5.0,
       reviewCount: 0,
-      verificationStatus: 'pending',
-      listingStatus: 'pending_approval',
-      isApproved: false,
-      permanentlyEnlisted: false,
+      verificationStatus: verificationDocs.length > 0 ? 'pending' : 'unverified',
+      // Auto-enlisted immediately upon registration without requiring admin pre-approval
+      listingStatus: 'active',
+      isApproved: true,
+      permanentlyEnlisted: true,
+      underInvestigation: false,
+      enlistedAt: nowIso,
       isFeatured: false,
       verificationDetails: undefined,
       verificationDocuments: verificationDocs,
@@ -301,7 +303,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       },
       services: services.length > 0 ? services : ['Professional Service'],
       features: ['Official AuraCentra Member', 'Direct Contact Verified'],
-      views: isAdminSubmitter ? 150 : 1,
+      views: 1,
       leadsCount: 0,
       ownerId: currentUser?.id || `user-owner-${Date.now()}`,
       ownerEmail: currentUser?.email || cleanEmail,
@@ -309,14 +311,13 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       updatedAt: nowIso,
     };
 
-    if (isAdminSubmitter) {
-      markBusinessPermanentlyApproved(newBiz.id);
-    }
+    markBusinessPermanentlyApproved(newBiz.id);
 
-    // 1. Pass to parent so it is recorded in storage as active/approved or pending
+    // 1. Pass to parent so it is recorded in storage as active and live
     onRegisterBusiness(newBiz);
     setSubmittedBusiness(newBiz);
     setIsSubmitted(true);
+
 
     // 2. Silent background storage & synchronization
 
@@ -375,57 +376,18 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
           </div>
 
           <div className="space-y-2">
-            {submittedBusiness.listingStatus === 'active' ? (
-              <>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Official Listing Published Live</span>
-                </span>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  Business Enlisted & Live on AuraCentra!
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-                  <span className="font-semibold text-slate-900 dark:text-white">{submittedBusiness.name}</span> has been verified and officially published live across the Ghana directory.
-                </p>
-              </>
-            ) : (
-              <>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Application Under Administrative Review</span>
-                </span>
-                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  Business Registration Received!
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-                  Your business application for <span className="font-semibold text-slate-900 dark:text-white">{submittedBusiness.name}</span> has been logged and queued for administrative compliance verification.
-                </p>
-              </>
-            )}
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 inline-flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Automatically Enlisted & Live</span>
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+              Business Successfully Enlisted!
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+              <span className="font-semibold text-slate-900 dark:text-white">{submittedBusiness.name}</span> is now automatically enlisted and live on the AuraCentra Ghana website. Customers can discover, contact, and locate your business immediately.
+            </p>
           </div>
 
-          {/* Prominent Verification Notice if pending */}
-          {submittedBusiness.listingStatus !== 'active' && (
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/40 border border-amber-300 dark:border-amber-800 text-left space-y-3 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="p-2.5 rounded-xl bg-amber-600 text-white shrink-0 shadow">
-                  <PhoneCall className="w-5 h-5 animate-pulse" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200">
-                    Expect a Verification Call or Text Within 24 Hours
-                  </h3>
-                  <p className="text-xs text-amber-900 dark:text-amber-300 leading-relaxed font-medium">
-                    Your business listing is currently under review. Our verification desk will review your details, verify your GhanaPost GPS location, and reach out to you via <strong className="text-amber-950 dark:text-amber-100">phone call or SMS text within the next 24 hours</strong> to confirm and officially publish your listing on AuraCentra Ghana.
-                  </p>
-                </div>
-              </div>
-              <div className="text-[11px] text-amber-800/90 dark:text-amber-400/90 pt-2.5 border-t border-amber-200/60 dark:border-amber-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
-                <span>Verification Desk Helpline: <strong>+233 50 820 3673</strong></span>
-                <span className="font-semibold text-amber-700 dark:text-amber-300">AuraCentra Ghana Compliance Office</span>
-              </div>
-            </div>
-          )}
 
           {/* Submission Details Summary */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left space-y-2.5 text-xs">

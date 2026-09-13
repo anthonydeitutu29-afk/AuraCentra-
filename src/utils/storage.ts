@@ -51,6 +51,7 @@ try {
 
 // Initial state getters and setters
 export const PERMANENTLY_DELETED_BUSINESS_IDS = [
+  'biz-tonys-digital-marketing-hub',
   'biz-buka-accra',
   'biz-kempinski-accra',
   'biz-nyaho-clinic',
@@ -66,6 +67,8 @@ export const PERMANENTLY_DELETED_BUSINESS_IDS = [
 ];
 
 export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
+  "tony's digital marketing",
+  "tonys digital marketing",
   'sweet gardens hotel',
   'buka restaurant',
   'nyaho medical',
@@ -73,9 +76,33 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
 ];
 
 // Permanently approved & verified enterprise listings across all sessions
-export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = ['biz-tonys-digital-marketing-hub'];
+export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
 
 const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v10';
+const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v1';
+
+export function getDynamicallyDeletedBusinessIds(): Set<string> {
+  const set = new Set<string>();
+  try {
+    const raw = localStorage.getItem(DYNAMIC_DELETED_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id) => set.add(id));
+      }
+    }
+  } catch (e) {}
+  return set;
+}
+
+export function markBusinessPermanentlyDeleted(businessId: string): void {
+  if (!businessId) return;
+  try {
+    const ids = getDynamicallyDeletedBusinessIds();
+    ids.add(businessId);
+    localStorage.setItem(DYNAMIC_DELETED_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {}
+}
 
 export function getApprovedBusinessIds(): Set<string> {
   const set = new Set<string>(PERMANENTLY_APPROVED_BUSINESS_IDS);
@@ -122,10 +149,11 @@ export function isBusinessPermanentlyApproved(businessId?: string | null): boole
 
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
-  if (b.id && PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id)) return true;
+  if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || getDynamicallyDeletedBusinessIds().has(b.id))) return true;
   if (b.slug) {
     const s = b.slug.toLowerCase();
     if (
+      s.includes('tonys-digital-marketing') ||
       s.includes('sweet-gardens') ||
       s.includes('buka-restaurant') ||
       s.includes('nyaho-medical') ||
@@ -153,13 +181,19 @@ export function getStoredBusinesses(): Business[] {
         // Strip any residual legacy or permanently deleted businesses
         let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
 
-        // Enforce approved and verified status for permanently approved businesses
+        // Preserve probation / investigation status; default newly registered businesses to active
         clean.forEach((b) => {
-          if (approvedIds.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || b.id === 'biz-tonys-digital-marketing-hub') {
+          if (b.listingStatus === 'probation' || b.listingStatus === 'under_investigation' || b.underInvestigation) {
+            b.listingStatus = 'probation';
+            b.underInvestigation = true;
+          } else if (b.listingStatus === 'rejected') {
+            b.listingStatus = 'rejected';
+          } else {
+            // Auto-enlisted and active by default
             b.listingStatus = 'active';
-            b.verificationStatus = 'verified';
             b.isApproved = true;
             b.permanentlyEnlisted = true;
+            b.underInvestigation = false;
           }
         });
 
@@ -180,11 +214,18 @@ export function saveBusinesses(businesses: Business[]): void {
     const approvedIds = getApprovedBusinessIds();
     const clean = Array.isArray(businesses) ? businesses.filter((b) => !isDeletedBusiness(b)) : [];
     clean.forEach((b) => {
-      if (b.isApproved || b.permanentlyEnlisted || approvedIds.has(b.id)) {
+      if (b.listingStatus === 'probation' || b.listingStatus === 'under_investigation' || b.underInvestigation) {
+        b.listingStatus = 'probation';
+        b.underInvestigation = true;
+        unmarkBusinessPermanentlyApproved(b.id);
+      } else if (b.listingStatus === 'rejected') {
+        b.listingStatus = 'rejected';
+        unmarkBusinessPermanentlyApproved(b.id);
+      } else {
         b.listingStatus = 'active';
-        b.verificationStatus = 'verified';
         b.isApproved = true;
         b.permanentlyEnlisted = true;
+        b.underInvestigation = false;
         markBusinessPermanentlyApproved(b.id);
       }
     });
@@ -193,6 +234,7 @@ export function saveBusinesses(businesses: Business[]): void {
       window.dispatchEvent(new CustomEvent('auracentra_storage_updated', { detail: { key: STORAGE_KEYS.BUSINESSES } }));
     }
   } catch (e) {
+
     console.error('Failed to save businesses to storage', e);
   }
 }

@@ -58,8 +58,10 @@ import { Logo } from './Logo';
 import { AdminVerificationModal } from './AdminVerificationModal';
 import { BusinessRejectionModal } from './BusinessRejectionModal';
 import { AdminLocationTracker } from './AdminLocationTracker';
-import { dispatchApprovalNotification } from '../utils/notificationService';
-import { SupabaseService, SUPABASE_SQL_SCHEMA, isSupabaseConfigured } from '../lib/supabase';
+import { 
+  dispatchApprovalNotification 
+} from '../utils/notificationService';
+import { isSupabaseConfigured, SUPABASE_SQL_SCHEMA, SupabaseService } from '../lib/supabase';
 import confetti from 'canvas-confetti';
 
 interface AdminDashboardProps {
@@ -74,6 +76,7 @@ interface AdminDashboardProps {
   onUpdateBusiness: (business: Business) => void;
   onAddBusiness: (business: Business) => void;
   onDeleteBusiness: (businessId: string) => void;
+  onPutOnInvestigation?: (businessId: string, reason?: string, adminNotes?: string) => void;
   onApproveVerification: (businessId: string, badgeType: string, verifiedCoords?: { lat: number; lng: number }, isFeatured?: boolean, businessObj?: Business) => void;
   onRejectVerification: (businessId: string, reason: string, resolutionGuide?: string, adminNotes?: string) => void;
   onAddCategory: (category: Category) => void;
@@ -104,6 +107,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onUpdateBusiness,
   onAddBusiness,
   onDeleteBusiness,
+  onPutOnInvestigation,
   onApproveVerification,
   onRejectVerification,
   onAddCategory,
@@ -124,7 +128,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'verification' | 'location_tracker' | 'reports' | 'suggestions' | 'feedback' | 'users' | 'businesses' | 'categories' | 'settings'>('verification');
   const [searchQuery, setSearchQuery] = useState('');
   const [reportFilterStatus, setReportFilterStatus] = useState<string>('all');
-  const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'pending' | 'verified' | 'unverified' | 'rejected' | 'featured'>('all');
+  const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'live' | 'investigation' | 'pending' | 'verified' | 'unverified' | 'rejected' | 'featured'>('all');
   const [userFilterProvider, setUserFilterProvider] = useState<string>('all');
 
   // Strict RBAC Guard: If not admin, completely block render
@@ -165,6 +169,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Business Rejection Modal State with Automated Notification
   const [rejectingBusiness, setRejectingBusiness] = useState<Business | null>(null);
 
+  // Business Investigation / Probation Modal State
+  const [investigatingBusiness, setInvestigatingBusiness] = useState<Business | null>(null);
+  const [investigationReasonInput, setInvestigationReasonInput] = useState('Quality compliance audit and address verification check');
+  const [investigationNotesInput, setInvestigationNotesInput] = useState('');
+
+  // Dedicated Permanent Deletion Confirmation Modal State
+  const [deletingBusiness, setDeletingBusiness] = useState<Business | null>(null);
+
   // Dedicated Business Approval Modal State (Choice of Featured Categories & Verification Tier)
   const [approvingBusiness, setApprovingBusiness] = useState<{
     business: Business;
@@ -196,21 +208,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [showSqlModal, setShowSqlModal] = useState(false);
 
   // Helper to reliably determine status
+  const isBizUnderInvestigation = (b: Business) =>
+    b.listingStatus === 'probation' ||
+    b.listingStatus === 'under_investigation' ||
+    b.verificationStatus === 'investigation' ||
+    Boolean(b.underInvestigation);
+
+  const isBizLive = (b: Business) =>
+    !isBizUnderInvestigation(b) &&
+    b.listingStatus === 'active' &&
+    b.verificationStatus !== 'rejected';
+
   const isBizPermanentlyApproved = (b: Business) => 
-    isBusinessPermanentlyApproved(b.id) || 
-    b.isApproved === true || 
-    b.permanentlyEnlisted === true || 
-    (b.listingStatus === 'active' && b.verificationStatus === 'verified');
+    !isBizUnderInvestigation(b) && (
+      isBusinessPermanentlyApproved(b.id) || 
+      b.isApproved === true || 
+      b.permanentlyEnlisted === true || 
+      (b.listingStatus === 'active' && b.verificationStatus === 'verified')
+    );
 
   const isBizPending = (b: Business) => 
+    !isBizUnderInvestigation(b) &&
     !isBizPermanentlyApproved(b) && 
     (b.verificationStatus === 'pending' || b.listingStatus === 'pending_approval');
 
   const isBizRejected = (b: Business) => 
+    !isBizUnderInvestigation(b) &&
     !isBizPermanentlyApproved(b) && 
     (b.verificationStatus === 'rejected' || b.listingStatus === 'rejected');
 
   // Stats Calculations
+  const liveCount = businesses.filter((b) => isBizLive(b)).length;
+  const investigationCount = businesses.filter((b) => isBizUnderInvestigation(b)).length;
   const verifiedCount = businesses.filter((b) => isBizPermanentlyApproved(b)).length;
   const pendingCount = businesses.filter((b) => isBizPending(b)).length;
   const rejectedCount = businesses.filter((b) => isBizRejected(b)).length;
@@ -219,11 +248,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const totalLeads = businesses.reduce((acc, b) => acc + (b.leadsCount || 0), 0);
 
   const filteredBusinesses = businesses.filter((b) => {
+    if (bizStatusFilter === 'live' && !isBizLive(b)) return false;
+    if (bizStatusFilter === 'investigation' && !isBizUnderInvestigation(b)) return false;
     if (bizStatusFilter === 'pending' && !isBizPending(b)) return false;
     if (bizStatusFilter === 'verified' && !isBizPermanentlyApproved(b)) return false;
     if (bizStatusFilter === 'featured' && !b.isFeatured) return false;
     if (bizStatusFilter === 'rejected' && !isBizRejected(b)) return false;
-    if (bizStatusFilter === 'unverified' && (isBizPermanentlyApproved(b) || isBizPending(b) || isBizRejected(b))) return false;
+    if (bizStatusFilter === 'unverified' && (isBizPermanentlyApproved(b) || isBizPending(b) || isBizRejected(b) || isBizUnderInvestigation(b))) return false;
 
     if (!searchQuery) return true;
     return (
@@ -351,7 +382,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={onBackToPortal}
@@ -381,25 +412,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Building2 className="w-4 h-4 text-blue-400" />
             </div>
             <div className="text-2xl font-black text-white">{businesses.length}</div>
-            <div className="text-[11px] text-emerald-400 font-medium">Active in directory</div>
+            <div className="text-[11px] text-slate-400 font-medium">All registered businesses</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+          <div className="p-4 rounded-2xl bg-slate-800/80 border border-emerald-900/50 space-y-1">
             <div className="flex items-center justify-between text-slate-400 text-xs">
-              <span>Pending ID Review</span>
-              <Clock className="w-4 h-4 text-amber-400" />
+              <span>Live on Website</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-black text-amber-400">{pendingCount}</div>
-            <div className="text-[11px] text-amber-300">Requires review</div>
+            <div className="text-2xl font-black text-emerald-400">{liveCount}</div>
+            <div className="text-[11px] text-emerald-400/90 font-medium">Auto-enlisted & published</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
+          <div className={`p-4 rounded-2xl border space-y-1 ${
+            investigationCount > 0 
+              ? 'bg-amber-950/40 border-amber-600/80 shadow-lg shadow-amber-950/20' 
+              : 'bg-slate-800/80 border-slate-700/80'
+          }`}>
             <div className="flex items-center justify-between text-slate-400 text-xs">
-              <span>Flagged Reports</span>
-              <Flag className="w-4 h-4 text-rose-400" />
+              <span>On Investigation</span>
+              <AlertTriangle className={`w-4 h-4 ${investigationCount > 0 ? 'text-amber-400 animate-pulse' : 'text-slate-400'}`} />
             </div>
-            <div className="text-2xl font-black text-rose-400">{pendingReportsCount}</div>
-            <div className="text-[11px] text-rose-300">Requires moderation</div>
+            <div className={`text-2xl font-black ${investigationCount > 0 ? 'text-amber-400' : 'text-slate-400'}`}>{investigationCount}</div>
+            <div className="text-[11px] text-amber-300 font-medium">
+              {investigationCount > 0 ? 'Hidden from website' : 'None on probation'}
+            </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1">
@@ -408,7 +445,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="text-2xl font-black text-emerald-400">{verifiedCount}</div>
-            <div className="text-[11px] text-slate-400">Gold & Standard</div>
+            <div className="text-[11px] text-slate-400">Gold & Standard Verified</div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700/80 space-y-1 col-span-2 sm:col-span-1">
@@ -1459,18 +1496,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             href={directWhatsAppUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-bold transition-all"
+                            className="inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 text-xs font-bold transition-all"
                             title="Direct WhatsApp Chat"
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
-                            <span>WhatsApp User</span>
+                            <span>WhatsApp</span>
                           </a>
 
                           <a
                             href={adminWhatsAppLogUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-600"
+                            className="inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-600"
                             title="Send user details to Tony's WhatsApp (0508203673)"
                           >
                             <Send className="w-3.5 h-3.5 text-emerald-400" />
@@ -1504,6 +1541,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <button
                 type="button"
+                onClick={() => setBizStatusFilter('live')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  bizStatusFilter === 'live'
+                    ? 'bg-emerald-600 text-white shadow'
+                    : 'bg-slate-800 text-emerald-400 hover:text-white'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Live on Website ({liveCount})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBizStatusFilter('investigation')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  bizStatusFilter === 'investigation'
+                    ? 'bg-amber-600 text-white shadow'
+                    : 'bg-slate-800 text-amber-400 hover:text-white'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>Under Investigation / Probation ({investigationCount})</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setBizStatusFilter('pending')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   bizStatusFilter === 'pending'
@@ -1512,7 +1575,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 }`}
               >
                 <Clock className="w-3.5 h-3.5 text-amber-400" />
-                <span>Pending Approval ({pendingCount})</span>
+                <span>Pending Review ({pendingCount})</span>
               </button>
 
               <button
@@ -1551,19 +1614,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 }`}
               >
                 <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                <span>Rejected / Banned ({rejectedCount})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setBizStatusFilter('unverified')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  bizStatusFilter === 'unverified'
-                    ? 'bg-slate-700 text-white shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                Unverified ({businesses.length - verifiedCount - pendingCount - rejectedCount})
+                <span>Rejected / Excluded ({rejectedCount})</span>
               </button>
             </div>
 
@@ -1728,9 +1779,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </button>
                           </td>
                           <td className="p-3.5">
-                            {isApproved ? (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 font-semibold text-[10px]">
-                                Verified ({b.verificationDetails?.badgeType || 'Gold'})
+                            {isBizUnderInvestigation(b) ? (
+                              <span className="px-2.5 py-1 rounded-full bg-amber-950/90 border border-amber-500/80 text-amber-300 font-bold text-[10px] inline-flex items-center gap-1.5 shadow-xs shadow-amber-950/50">
+                                <AlertTriangle className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
+                                <span>Under Investigation (Hidden)</span>
+                              </span>
+                            ) : isApproved ? (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 font-semibold text-[10px] inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                <span>Live & Verified ({b.verificationDetails?.badgeType || 'Gold'})</span>
                               </span>
                             ) : isRejected ? (
                               <span className="px-2 py-0.5 rounded-full bg-rose-950/90 border border-rose-800 text-rose-300 font-bold text-[10px] inline-flex items-center gap-1">
@@ -1739,11 +1796,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               </span>
                             ) : isPending ? (
                               <span className="px-2 py-0.5 rounded-full bg-amber-950 border border-amber-800 text-amber-400 font-semibold text-[10px] animate-pulse">
-                                Pending Approval
+                                Pending Review
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px]">
-                                Unverified
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-800/90 text-emerald-300 text-[10px] inline-flex items-center gap-1 font-semibold">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                <span>Live on Website</span>
                               </span>
                             )}
                           </td>
@@ -1759,6 +1817,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               >
                                 <Compass className="w-3.5 h-3.5" />
                               </button>
+
+                              {/* If business is under investigation / probation: Quick Verify & Restore to Live Website */}
+                              {isBizUnderInvestigation(b) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    markBusinessPermanentlyApproved(b.id);
+                                    onApproveVerification(
+                                      b.id,
+                                      'Gold Enterprise',
+                                      b.coordinates,
+                                      b.isFeatured ?? true,
+                                      b
+                                    );
+                                    confetti({ particleCount: 80, spread: 70 });
+                                    if (onShowToast) {
+                                      onShowToast(
+                                        'Investigation Concluded & Verified',
+                                        `"${b.name}" has been verified and restored to the live website!`,
+                                        'success'
+                                      );
+                                    }
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black transition-all inline-flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+                                  title="Investigation complete: verify business and immediately restore to live website"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
+                                  <span>Verify & Restore Live</span>
+                                </button>
+                              )}
 
                               {/* Direct Approve Action for Pending or Rejected Business */}
                               {(isPending || isRejected) && (
@@ -1806,19 +1894,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </div>
                               )}
 
+                              {/* Put on Investigation / Probation Action (For any active live business) */}
+                              {!isBizUnderInvestigation(b) && !isRejected && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setInvestigatingBusiness(b);
+                                    setInvestigationReasonInput('Quality compliance audit and address verification check');
+                                    setInvestigationNotesInput('');
+                                  }}
+                                  className="px-2 py-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-600 border border-amber-700/80 text-amber-300 hover:text-white text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer"
+                                  title="Put business on investigation/probation (removes from live website until verified)"
+                                >
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                                  <span className="hidden xl:inline">Put on Investigation</span>
+                                </button>
+                              )}
+
                               {/* Reject Action if active/pending and not yet rejected */}
-                              {!isRejected && (
+                              {!isRejected && !isBizUnderInvestigation(b) && (
                                 <button
                                   type="button"
                                   onClick={() => setRejectingBusiness(b)}
-                                  className="p-1.5 rounded-lg bg-amber-950/80 hover:bg-amber-600 border border-amber-800/80 text-amber-300 hover:text-white transition-colors"
+                                  className="p-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-600 border border-rose-800/80 text-rose-300 hover:text-white transition-colors"
                                   title="Reject and exclude business listing"
                                 >
                                   <XCircle className="w-3.5 h-3.5" />
                                 </button>
                               )}
 
-                               {onSelectBusiness && (
+                              {onSelectBusiness && !isBizUnderInvestigation(b) && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1838,21 +1943,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   setEditingBusiness(b);
                                   setIsCreatingBusiness(false);
                                 }}
-                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white transition-colors"
+                                className="p-1.5 rounded-lg bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white transition-colors cursor-pointer"
                                 title="Edit business"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
 
+                              {/* Dedicated Permanent Deletion Action */}
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (confirm(`Are you sure you want to permanently delete "${b.name}"? This removes the business permanently from the database and it will never appear on the site.`)) {
-                                    onDeleteBusiness(b.id);
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors"
-                                title="Permanently delete business from database"
+                                onClick={() => setDeletingBusiness(b)}
+                                className="p-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors cursor-pointer"
+                                title="Permanently delete business from site"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -2656,6 +2758,192 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             setRejectingBusiness(null);
           }}
         />
+      )}
+
+      {/* Business Investigation / Probation Modal */}
+      {investigatingBusiness && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-slate-900 rounded-3xl border border-amber-600/60 shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-amber-950/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Put Business on Investigation</h3>
+                  <p className="text-xs text-amber-300/80">Temporarily hide from public website</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInvestigatingBusiness(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center gap-3">
+                <img
+                  src={investigatingBusiness.logo}
+                  alt=""
+                  className="w-11 h-11 rounded-xl object-cover border border-slate-700 shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="font-bold text-white text-sm truncate">{investigatingBusiness.name}</div>
+                  <div className="text-xs text-slate-400">{investigatingBusiness.category} • {investigatingBusiness.city}, {investigatingBusiness.region}</div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-800/60 text-xs text-amber-200 space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5 text-amber-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Website Visibility Impact:
+                </p>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  While on investigation or probation, this business will be <strong>completely removed from the live website</strong> and public search. Once you complete the investigation and verify the business, it will immediately return to the live website.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Reason for Investigation / Probation</label>
+                <select
+                  value={investigationReasonInput}
+                  onChange={(e) => setInvestigationReasonInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="Quality compliance audit and address verification check">Quality compliance audit and address verification check</option>
+                  <option value="Customer complaint inquiry and service audit">Customer complaint inquiry and service audit</option>
+                  <option value="Physical premises verification pending inspection">Physical premises verification pending inspection</option>
+                  <option value="Documentation authenticity and legitimacy review">Documentation authenticity and legitimacy review</option>
+                  <option value="Temporary probation due to flagged community reports">Temporary probation due to flagged community reports</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Internal Admin Notes (Optional)</label>
+                <textarea
+                  value={investigationNotesInput}
+                  onChange={(e) => setInvestigationNotesInput(e.target.value)}
+                  rows={2}
+                  placeholder="Add any specific details, officer assigned, or findings..."
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setInvestigatingBusiness(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onPutOnInvestigation) {
+                    onPutOnInvestigation(investigatingBusiness.id, investigationReasonInput, investigationNotesInput);
+                  }
+                  if (onShowToast) {
+                    onShowToast(
+                      'Business Put on Investigation',
+                      `"${investigatingBusiness.name}" is now on probation and hidden from live site.`,
+                      'warning'
+                    );
+                  }
+                  setInvestigatingBusiness(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-md shadow-amber-600/20 inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                <span>Confirm & Hide from Website</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Permanent Deletion Modal */}
+      {deletingBusiness && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-slate-900 rounded-3xl border border-rose-600/60 shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-rose-950/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Permanently Delete Business</h3>
+                  <p className="text-xs text-rose-300/80">Permanent purge from database & site</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeletingBusiness(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center gap-3">
+                <img
+                  src={deletingBusiness.logo}
+                  alt=""
+                  className="w-11 h-11 rounded-xl object-cover border border-slate-700 shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="font-bold text-white text-sm truncate">{deletingBusiness.name}</div>
+                  <div className="text-xs text-slate-400">{deletingBusiness.category} • {deletingBusiness.city}</div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-rose-950/40 border border-rose-800/60 text-xs text-rose-200 space-y-1.5">
+                <p className="font-bold flex items-center gap-1.5 text-rose-300">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  Irreversible Action:
+                </p>
+                <p className="text-[11px] text-rose-200/90 leading-relaxed">
+                  Are you sure you want to permanently delete <strong>{deletingBusiness.name}</strong>? This will permanently delete it from the persistent storage and it will <strong>never appear on the live website</strong>.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-900/90 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeletingBusiness(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const bizId = deletingBusiness.id;
+                  const bizName = deletingBusiness.name;
+                  onDeleteBusiness(bizId);
+                  setDeletingBusiness(null);
+                  if (onShowToast) {
+                    onShowToast(
+                      'Business Permanently Deleted',
+                      `"${bizName}" was permanently removed from the website and database.`,
+                      'info'
+                    );
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Permanently Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Supabase Production SQL Schema Copy & Instructions Modal */}

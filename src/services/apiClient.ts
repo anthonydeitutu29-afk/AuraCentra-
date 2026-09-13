@@ -147,7 +147,7 @@ export const ApiClient = {
   // Admin Moderation
   async moderateBusiness(
     businessId: string, 
-    action: 'approve' | 'reject', 
+    action: 'approve' | 'reject' | 'investigate' | 'probation' | 'reinstate', 
     notes?: string,
     extra?: { 
       badgeType?: string; 

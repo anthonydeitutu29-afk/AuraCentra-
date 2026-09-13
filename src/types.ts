@@ -1,4 +1,4 @@
-export type VerificationStatus = 'verified' | 'pending' | 'rejected' | 'unverified';
+export type VerificationStatus = 'verified' | 'pending' | 'rejected' | 'unverified' | 'investigation';
 
 export type DocumentType = 'ghana_card' | 'voters_id' | 'drivers_license' | 'passport' | 'business_registration' | 'tin_certificate';
 
@@ -98,9 +98,14 @@ export interface Business {
   rating: number;
   reviewCount: number;
   verificationStatus: VerificationStatus;
-  listingStatus?: 'active' | 'pending_approval' | 'rejected';
+  listingStatus?: 'active' | 'pending_approval' | 'rejected' | 'probation' | 'under_investigation';
   permanentlyEnlisted?: boolean;
   isApproved?: boolean;
+  underInvestigation?: boolean;
+  investigationReason?: string;
+  moderationNotes?: string;
+  investigationStartedAt?: string;
+  investigationConcludedAt?: string;
   enlistedAt?: string;
   approvedAt?: string;
   verificationDetails?: {
@@ -204,6 +209,8 @@ export interface UserAccountRecord {
   lastLoginAt?: string;
   updatedAt?: string;
 }
+
+export type RegisteredUser = UserAccountRecord;
 
 export interface BusinessInquiry {
   id: string;

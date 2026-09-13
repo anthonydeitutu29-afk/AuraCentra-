@@ -29,7 +29,7 @@ import {
   PlatformFeedback,
   GhanaNewsArticle
 } from './types';
-import { INITIAL_BUSINESSES, TONYS_DIGITAL_MARKETING_BUSINESS } from './data/initialData';
+import { INITIAL_BUSINESSES } from './data/initialData';
 import { 
   getStoredBusinesses, 
   saveBusinesses, 
@@ -58,6 +58,7 @@ import {
   isDeletedBusiness,
   markBusinessPermanentlyApproved,
   unmarkBusinessPermanentlyApproved,
+  markBusinessPermanentlyDeleted,
   isBusinessPermanentlyApproved,
   getApprovedBusinessIds
 } from './utils/storage';
@@ -778,19 +779,18 @@ export default function App() {
   };
 
   const handleRegisterBusiness = (newBusiness: Business) => {
-    const isAlreadyApproved = Boolean(newBusiness.isApproved);
     const enlistedBusiness: Business = {
       ...newBusiness,
-      listingStatus: isAlreadyApproved ? 'active' : 'pending_approval',
-      verificationStatus: isAlreadyApproved ? 'verified' : 'pending',
-      isApproved: isAlreadyApproved,
-      permanentlyEnlisted: isAlreadyApproved,
+      // Auto-enlist on website immediately upon registration without admin pre-approval
+      listingStatus: 'active',
+      verificationStatus: newBusiness.verificationStatus || 'unverified',
+      isApproved: true,
+      permanentlyEnlisted: true,
+      underInvestigation: false,
       enlistedAt: newBusiness.enlistedAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    if (isAlreadyApproved) {
-      markBusinessPermanentlyApproved(enlistedBusiness.id);
-    }
+    markBusinessPermanentlyApproved(enlistedBusiness.id);
     setBusinesses((prev) => {
       const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
       saveBusinesses(updated);
@@ -798,19 +798,11 @@ export default function App() {
     });
     FirestoreSync.saveBusiness(enlistedBusiness);
     ApiClient.createBusiness(enlistedBusiness).catch(() => {});
-    if (isAlreadyApproved) {
-      showToast(
-        'Business Enlisted & Approved',
-        `"${enlistedBusiness.name}" is now approved and live on AuraCentra Ghana.`,
-        'success'
-      );
-    } else {
-      showToast(
-        'Enlistment Submitted for Due Process',
-        `"${enlistedBusiness.name}" has been queued for verification. It will appear live on the website once approved by the website admin.`,
-        'success'
-      );
-    }
+    showToast(
+      'Business Enlisted & Live on Website',
+      `"${enlistedBusiness.name}" is now automatically enlisted and live on AuraCentra Ghana.`,
+      'success'
+    );
   };
 
   const handleAddReview = (newReview: BusinessReview) => {
@@ -895,6 +887,7 @@ export default function App() {
 
   const handleDeleteBusiness = (businessId: string) => {
     unmarkBusinessPermanentlyApproved(businessId);
+    markBusinessPermanentlyDeleted(businessId);
     setBusinesses((prev) => {
       const updated = prev.filter((b) => b.id !== businessId);
       saveBusinesses(updated);
@@ -908,9 +901,51 @@ export default function App() {
     ApiClient.deleteBusiness(businessId).catch(() => {});
     showToast(
       'Business Permanently Deleted',
-      'The business listing has been permanently removed from AuraCentra.',
+      'The business listing has been permanently removed from the website and database.',
       'info'
     );
+  };
+
+  const handlePutOnInvestigation = (
+    businessId: string, 
+    reason: string = 'Under administrative investigation / probation', 
+    adminNotes?: string
+  ) => {
+    unmarkBusinessPermanentlyApproved(businessId);
+    const nowIso = new Date().toISOString();
+    let updatedBiz: Business | null = null;
+
+    setBusinesses((prev) => {
+      const updated = prev.map((b) => {
+        if (b.id === businessId) {
+          updatedBiz = {
+            ...b,
+            listingStatus: 'probation',
+            verificationStatus: 'investigation',
+            underInvestigation: true,
+            investigationReason: reason,
+            investigationStartedAt: nowIso,
+            isApproved: false,
+            moderationNotes: adminNotes || reason,
+            updatedAt: nowIso,
+          };
+          return updatedBiz;
+        }
+        return b;
+      });
+      saveBusinesses(updated);
+      return updated;
+    });
+
+    if (updatedBiz) {
+      FirestoreSync.saveBusiness(updatedBiz);
+      ApiClient.moderateBusiness(businessId, 'investigate', adminNotes || reason, { business: updatedBiz }).catch(() => {});
+      showToast(
+        'Placed on Investigation / Probation',
+        `"${(updatedBiz as Business).name}" has been placed on investigation/probation and taken down from the live website until verified.`,
+        'warning'
+      );
+    }
   };
 
   const handleApproveVerification = (
@@ -920,7 +955,7 @@ export default function App() {
     isFeatured?: boolean,
     businessObj?: Business
   ) => {
-    // 1. Immediately mark permanently approved in storage so it can never revert to pending
+    // 1. Immediately mark permanently approved in storage
     markBusinessPermanentlyApproved(businessId);
     setNewlyApprovedBizId(businessId);
 
@@ -931,16 +966,19 @@ export default function App() {
     const currentBiz: Business | undefined = 
       businessObj || 
       businesses.find((b) => b.id === businessId) || 
-      getStoredBusinesses().find((b) => b.id === businessId) ||
-      (businessId === TONYS_DIGITAL_MARKETING_BUSINESS.id ? TONYS_DIGITAL_MARKETING_BUSINESS : undefined);
+      getStoredBusinesses().find((b) => b.id === businessId);
     if (!currentBiz) return;
+
+    const wasUnderInvestigation = Boolean(currentBiz.underInvestigation || currentBiz.listingStatus === 'probation');
 
     const approvedBiz: Business = {
       ...currentBiz,
-      listingStatus: 'active', // Permanently enlist officially on the site
+      listingStatus: 'active', // Restored / Officially live on the site
       verificationStatus: 'verified',
       isApproved: true,
       permanentlyEnlisted: true,
+      underInvestigation: false,
+      investigationConcludedAt: wasUnderInvestigation ? nowIso : currentBiz.investigationConcludedAt,
       isFeatured: shouldBeFeatured, // Configured by admin (Featured vs Standard)
       enlistedAt: currentBiz.enlistedAt || nowIso,
       approvedAt: nowIso,
@@ -962,6 +1000,7 @@ export default function App() {
         reviewedAt: nowIso,
       })) || [],
     };
+
 
     // 3. Update React state and immediate permanent storage
     setBusinesses((prev) => {
@@ -1319,10 +1358,16 @@ export default function App() {
   // Compute filtered & sorted businesses
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b) => {
-      // 0. Only show businesses that passed the due process and are approved by the website admin
       if (!b || isDeletedBusiness(b)) return false;
-      const isApproved = isBusinessPermanentlyApproved(b.id) || b.isApproved === true || b.permanentlyEnlisted === true;
-      if (!isApproved || b.listingStatus !== 'active' || b.verificationStatus === 'rejected') {
+      
+      // Strict rule: businesses on investigation / probation or rejected are NOT on the live website
+      const isUnderInvestigation = 
+        b.listingStatus === 'probation' || 
+        b.listingStatus === 'under_investigation' || 
+        b.verificationStatus === 'investigation' || 
+        Boolean(b.underInvestigation);
+
+      if (isUnderInvestigation || b.listingStatus === 'rejected' || b.verificationStatus === 'rejected' || b.listingStatus !== 'active') {
         return false;
       }
 
@@ -1364,7 +1409,7 @@ export default function App() {
       }
 
       // Verified only
-      if (filters.verificationOnly && b.verificationStatus !== 'verified' && !isBusinessPermanentlyApproved(b.id) && !b.isApproved) {
+      if (filters.verificationOnly && b.verificationStatus !== 'verified') {
         return false;
       }
 
@@ -1393,16 +1438,31 @@ export default function App() {
   }, [businesses, filters]);
 
   const comparedBusinesses = useMemo(() => {
-    return businesses.filter((b) => comparedBusinessIds.includes(b.id) && b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
+    return businesses.filter((b) => 
+      comparedBusinessIds.includes(b.id) && 
+      b.listingStatus === 'active' && 
+      !b.underInvestigation && 
+      b.verificationStatus !== 'rejected'
+    );
   }, [businesses, comparedBusinessIds]);
 
   const savedBusinesses = useMemo(() => {
-    return businesses.filter((b) => savedBusinessIds.includes(b.id) && b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
+    return businesses.filter((b) => 
+      savedBusinessIds.includes(b.id) && 
+      b.listingStatus === 'active' && 
+      !b.underInvestigation && 
+      b.verificationStatus !== 'rejected'
+    );
   }, [businesses, savedBusinessIds]);
 
   // Executive Spotlight businesses
   const executiveBusinesses = useMemo(() => {
-    return businesses.filter((b) => b.isFeatured && b.listingStatus === 'active' && b.verificationStatus !== 'rejected');
+    return businesses.filter((b) => 
+      b.isFeatured && 
+      b.listingStatus === 'active' && 
+      !b.underInvestigation && 
+      b.verificationStatus !== 'rejected'
+    );
   }, [businesses]);
 
   // If in Admin Dashboard view
@@ -1421,6 +1481,7 @@ export default function App() {
           onUpdateBusiness={handleUpdateBusiness}
           onAddBusiness={handleAddBusinessDirect}
           onDeleteBusiness={handleDeleteBusiness}
+          onPutOnInvestigation={handlePutOnInvestigation}
           onApproveVerification={handleApproveVerification}
           onRejectVerification={handleRejectVerification}
           onAddCategory={handleAddCategory}
@@ -1441,6 +1502,7 @@ export default function App() {
       </div>
     );
   }
+
 
   // If in Business Owner Dashboard view
   if (currentView === 'business_dashboard' && currentUser) {

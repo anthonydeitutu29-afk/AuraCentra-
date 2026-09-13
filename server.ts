@@ -55,6 +55,7 @@ app.use((req, res, next) => {
       urlWithoutQuery.startsWith('/newsletter') ||
       urlWithoutQuery.startsWith('/inquiries') ||
       urlWithoutQuery.startsWith('/reviews') ||
+      urlWithoutQuery.startsWith('/sms') ||
       urlWithoutQuery.startsWith('/test-brevo-email')
     ) {
       req.url = '/api' + req.url;
@@ -65,6 +66,7 @@ app.use((req, res, next) => {
 
 // In-memory persistent cache for server-side state
 const PERMANENTLY_DELETED_BUSINESS_IDS = [
+  'biz-tonys-digital-marketing-hub',
   'biz-buka-accra',
   'biz-kempinski-accra',
   'biz-nyaho-clinic',
@@ -80,18 +82,91 @@ const PERMANENTLY_DELETED_BUSINESS_IDS = [
 ];
 
 const PERMANENTLY_DELETED_BUSINESS_NAMES = [
+  "tony's digital marketing",
+  "tonys digital marketing",
   'sweet gardens hotel',
   'buka restaurant',
   'nyaho medical',
   'kempinski hotel'
 ];
 
+// Server Disk Persistence Configuration
+const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const DATA_DIR = IS_SERVERLESS ? path.join('/tmp', 'auracentra_data') : path.join(process.cwd(), 'data');
+const REPO_DATA_DIR = path.join(process.cwd(), 'data');
+const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
+const APPROVED_IDS_FILE = path.join(DATA_DIR, 'approved_ids.json');
+const DELETED_IDS_FILE = path.join(DATA_DIR, 'deleted_ids.json');
+
+function ensureDataDirectory() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (IS_SERVERLESS) {
+      const repoBiz = path.join(REPO_DATA_DIR, 'businesses.json');
+      const repoIds = path.join(REPO_DATA_DIR, 'approved_ids.json');
+      const repoDel = path.join(REPO_DATA_DIR, 'deleted_ids.json');
+      if (!fs.existsSync(BUSINESSES_FILE) && fs.existsSync(repoBiz)) {
+        try { fs.copyFileSync(repoBiz, BUSINESSES_FILE); } catch {}
+      }
+      if (!fs.existsSync(APPROVED_IDS_FILE) && fs.existsSync(repoIds)) {
+        try { fs.copyFileSync(repoIds, APPROVED_IDS_FILE); } catch {}
+      }
+      if (!fs.existsSync(DELETED_IDS_FILE) && fs.existsSync(repoDel)) {
+        try { fs.copyFileSync(repoDel, DELETED_IDS_FILE); } catch {}
+      }
+    }
+  } catch (e) {
+    console.warn('Could not create data directory:', e);
+  }
+}
+
+function loadDeletedIdsFromDisk(): Set<string> {
+  const set = new Set<string>(['biz-tonys-digital-marketing-hub']);
+  try {
+    ensureDataDirectory();
+    let targetFile = DELETED_IDS_FILE;
+    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'deleted_ids.json'))) {
+      targetFile = path.join(REPO_DATA_DIR, 'deleted_ids.json');
+    }
+    if (fs.existsSync(targetFile)) {
+      const content = fs.readFileSync(targetFile, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((id: string) => set.add(id));
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load deleted ids from disk:', e);
+  }
+  return set;
+}
+
+function saveDeletedIdsToDisk(ids: Set<string>) {
+  try {
+    ensureDataDirectory();
+    fs.writeFileSync(DELETED_IDS_FILE, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
+    if (!IS_SERVERLESS) {
+      try {
+        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
+        fs.writeFileSync(path.join(REPO_DATA_DIR, 'deleted_ids.json'), JSON.stringify(Array.from(ids), null, 2), 'utf-8');
+      } catch {}
+    }
+  } catch (e) {
+    console.warn('Could not save deleted ids to disk:', e);
+  }
+}
+
+const deletedBusinessIdsCache: Set<string> = loadDeletedIdsFromDisk();
+
 function isDeletedBusinessRecord(b: any): boolean {
   if (!b) return true;
-  if (b.id && PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id)) return true;
+  if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || deletedBusinessIdsCache.has(b.id))) return true;
   if (b.slug) {
     const s = String(b.slug).toLowerCase();
     if (
+      s.includes('tonys-digital-marketing') ||
       s.includes('sweet-gardens') ||
       s.includes('buka-restaurant') ||
       s.includes('nyaho-medical') ||
@@ -109,44 +184,8 @@ function isDeletedBusinessRecord(b: any): boolean {
   return false;
 }
 
-// Server Disk Persistence Configuration
-const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
-const DATA_DIR = IS_SERVERLESS ? path.join('/tmp', 'auracentra_data') : path.join(process.cwd(), 'data');
-const REPO_DATA_DIR = path.join(process.cwd(), 'data');
-const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
-const APPROVED_IDS_FILE = path.join(DATA_DIR, 'approved_ids.json');
-
-function ensureDataDirectory() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    // In serverless environments, seed from repository data if /tmp is fresh
-    if (IS_SERVERLESS) {
-      const repoBiz = path.join(REPO_DATA_DIR, 'businesses.json');
-      const repoIds = path.join(REPO_DATA_DIR, 'approved_ids.json');
-      if (!fs.existsSync(BUSINESSES_FILE) && fs.existsSync(repoBiz)) {
-        try {
-          fs.copyFileSync(repoBiz, BUSINESSES_FILE);
-        } catch (e) {
-          console.warn('[Serverless] Could not copy initial businesses file:', e);
-        }
-      }
-      if (!fs.existsSync(APPROVED_IDS_FILE) && fs.existsSync(repoIds)) {
-        try {
-          fs.copyFileSync(repoIds, APPROVED_IDS_FILE);
-        } catch (e) {
-          console.warn('[Serverless] Could not copy initial approved ids file:', e);
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Could not create data directory:', e);
-  }
-}
-
 function loadApprovedIdsFromDisk(): Set<string> {
-  const set = new Set<string>(['biz-tonys-digital-marketing-hub']);
+  const set = new Set<string>();
   try {
     ensureDataDirectory();
     let targetFile = APPROVED_IDS_FILE;
@@ -158,7 +197,9 @@ function loadApprovedIdsFromDisk(): Set<string> {
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed)) {
         parsed.forEach((id: string) => {
-          set.add(id);
+          if (!deletedBusinessIdsCache.has(id) && id !== 'biz-tonys-digital-marketing-hub') {
+            set.add(id);
+          }
         });
       }
     }
@@ -167,6 +208,7 @@ function loadApprovedIdsFromDisk(): Set<string> {
   }
   return set;
 }
+
 
 function saveApprovedIdsToDisk(ids: Set<string>) {
   try {
@@ -220,74 +262,7 @@ function loadBusinessesFromDisk(): any[] {
   return [];
 }
 
-const DEFAULT_INITIAL_BUSINESSES: any[] = [
-  {
-    id: 'biz-tonys-digital-marketing-hub',
-    name: "Tony's Digital Marketing and Business Hub",
-    tagline: 'We offer quality digital and tech services',
-    slug: 'tonys-digital-marketing-and-business-hub',
-    category: 'digital-marketing',
-    description: "We offer quality digital and tech services. Tony's Digital Marketing and Business Hub provides high-impact digital marketing, search engine optimization, social media strategy, custom website architecture, and technology consulting in Ho and nationwide.",
-    logo: '/tonys-digital-marketing-logo.svg',
-    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-    gallery: [
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80'
-    ],
-    phone: '0508203673',
-    whatsapp: '233508203673',
-    email: 'tonysdigitalmarketing@gmail.com',
-    website: 'https://tonysdigitalmarketing.com',
-    city: 'Ho',
-    region: 'Volta',
-    address: 'Ho Central Commercial District, Near Civic Centre',
-    digitalAddress: 'VH-0012-4821',
-    coordinates: { lat: 6.6108, lng: 0.4785 },
-    priceLevel: '$$',
-    rating: 5.0,
-    reviewCount: 1,
-    verificationStatus: 'verified',
-    listingStatus: 'active',
-    isApproved: true,
-    permanentlyEnlisted: true,
-    isFeatured: true,
-    views: 24,
-    leadsCount: 12,
-    ownerId: 'admin-tony-02',
-    ownerEmail: 'tonysdigitalmarketing@gmail.com',
-    createdAt: '2026-09-06T15:00:00.000Z',
-    updatedAt: '2026-09-09T08:00:00.000Z',
-    verificationDetails: {
-      badgeType: 'Gold Enterprise',
-      gpsVerified: true,
-      tinNumber: 'TIN-GH-882194',
-      businessRegNumber: 'BN-GH-2024-9128',
-      verifiedByAdmin: 'Executive Desk',
-      verifiedAt: '2026-09-09T08:00:00.000Z'
-    },
-    openingHours: {
-      monday: '08:00 - 18:00',
-      tuesday: '08:00 - 18:00',
-      wednesday: '08:00 - 18:00',
-      thursday: '08:00 - 18:00',
-      friday: '08:00 - 18:00',
-      saturday: '09:00 - 16:00',
-      sunday: 'Closed'
-    },
-    services: [
-      'Digital Marketing Strategy',
-      'Social Media Advertising & Brand Growth',
-      'Search Engine Optimization (SEO)',
-      'Graphic Design & Brand Collateral',
-      'Custom Web & Tech Development'
-    ],
-    features: [
-      'Official AuraCentra Member',
-      'Direct Contact Verified',
-      'Ho Commercial District Branch'
-    ]
-  }
-];
+const DEFAULT_INITIAL_BUSINESSES: any[] = [];
 
 let businessesCache: any[] = (() => {
   const fromDisk = loadBusinessesFromDisk();
@@ -295,26 +270,24 @@ let businessesCache: any[] = (() => {
   if (fromDisk && fromDisk.length > 0) {
     baseList = fromDisk.filter(b => !isDeletedBusinessRecord(b));
   } else {
-    baseList = [...DEFAULT_INITIAL_BUSINESSES];
+    baseList = [];
   }
 
-  // Ensure default initial businesses are present if not explicitly deleted
-  DEFAULT_INITIAL_BUSINESSES.forEach(defBiz => {
-    const existingIndex = baseList.findIndex(b => b.id === defBiz.id);
-    if (existingIndex >= 0) {
-      baseList[existingIndex] = { ...defBiz, ...baseList[existingIndex] };
-    } else if (!isDeletedBusinessRecord(defBiz)) {
-      baseList.push(defBiz);
-    }
-  });
-
-  // Guarantee permanent active and verified status for approved businesses
+  // Retain probation status or auto-enlist as active
+  baseList = baseList.filter(b => !isDeletedBusinessRecord(b));
   baseList.forEach(b => {
-    if (approvedIdsCache.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || (b.listingStatus === 'active' && b.verificationStatus === 'verified') || b.id === 'biz-tonys-digital-marketing-hub') {
+    if (b.listingStatus === 'probation' || b.listingStatus === 'under_investigation' || b.underInvestigation) {
+      b.listingStatus = 'probation';
+      b.underInvestigation = true;
+      approvedIdsCache.delete(b.id);
+    } else if (b.listingStatus === 'rejected') {
+      b.listingStatus = 'rejected';
+      approvedIdsCache.delete(b.id);
+    } else {
       b.listingStatus = 'active';
-      b.verificationStatus = 'verified';
       b.isApproved = true;
       b.permanentlyEnlisted = true;
+      b.underInvestigation = false;
       approvedIdsCache.add(b.id);
     }
   });
@@ -324,7 +297,7 @@ let businessesCache: any[] = (() => {
 })();
 let inquiriesCache: any[] = [];
 let reviewsCache: any[] = [];
-let newsletterCache: string[] = ['tonysdigitalmarketing@gmail.com'];
+let newsletterCache: string[] = [];
 let userLocationsCache: any[] = [];
 let registeredUsersRegistry: Array<{
   id: string;
@@ -1588,7 +1561,6 @@ app.post('/api/auth/verify-phone-otp', (req, res) => {
   }
 });
 
-
 // Verification Status Check
 app.get('/api/auth/status', (req, res) => {
   const email = (req.query.email as string || '').trim().toLowerCase();
@@ -1927,19 +1899,18 @@ app.post('/api/auth/delete-account', async (req, res) => {
 
 // 5. Query / Search Businesses
 app.get('/api/businesses', (req, res) => {
-  const { category, region, city, search, verified, sort } = req.query;
+  const { category, region, city, search, verified, sort, includeAll } = req.query;
   let results = businessesCache.filter(b => !isDeletedBusinessRecord(b));
 
-  // Guarantee permanently approved businesses keep active and verified status
-  results.forEach(b => {
-    if (approvedIdsCache.has(b.id) || b.isApproved === true || b.permanentlyEnlisted === true || (b.listingStatus === 'active' && b.verificationStatus === 'verified') || b.id === 'biz-tonys-digital-marketing-hub') {
-      b.listingStatus = 'active';
-      b.verificationStatus = 'verified';
-      b.isApproved = true;
-      b.permanentlyEnlisted = true;
-      approvedIdsCache.add(b.id);
-    }
-  });
+  // By default, live directory shows only active businesses (not under investigation / probation and not rejected)
+  if (includeAll !== 'true') {
+    results = results.filter(b => 
+      b.listingStatus !== 'probation' && 
+      b.listingStatus !== 'under_investigation' && 
+      b.underInvestigation !== true &&
+      b.listingStatus !== 'rejected'
+    );
+  }
 
   if (category && typeof category === 'string') {
     results = results.filter(b => b.category?.toLowerCase() === category.toLowerCase());
@@ -1975,7 +1946,7 @@ app.get('/api/businesses', (req, res) => {
   });
 });
 
-// 6. Register or Update Business
+// 6. Register or Update Business (Auto-enlisted on the website upon registration)
 app.post('/api/businesses', (req, res) => {
   try {
     const data = req.body;
@@ -1985,10 +1956,11 @@ app.post('/api/businesses', (req, res) => {
     }
 
     const businessId = data.id || `biz-${Date.now()}`;
-    const isPermanentlyApproved = approvedIdsCache.has(businessId) || 
-                                  Boolean(data.isApproved);
+    const isUnderInvestigation = data.listingStatus === 'probation' || 
+                                 data.listingStatus === 'under_investigation' || 
+                                 Boolean(data.underInvestigation);
 
-    if (isPermanentlyApproved) {
+    if (!isUnderInvestigation) {
       approvedIdsCache.add(businessId);
       saveApprovedIdsToDisk(approvedIdsCache);
     }
@@ -1997,19 +1969,17 @@ app.post('/api/businesses', (req, res) => {
       ...data,
       id: businessId,
       slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      rating: data.rating !== undefined ? data.rating : (isPermanentlyApproved ? 5.0 : 0),
+      rating: data.rating !== undefined ? data.rating : 5.0,
       reviewCount: data.reviewCount || 0,
-      verificationStatus: isPermanentlyApproved ? 'verified' : (data.verificationStatus || 'pending'),
-      listingStatus: isPermanentlyApproved ? 'active' : 'pending_approval',
-      isApproved: isPermanentlyApproved,
-      permanentlyEnlisted: isPermanentlyApproved,
+      verificationStatus: data.verificationStatus || 'unverified',
+      // Auto-enlisted immediately upon registration unless explicitly under investigation
+      listingStatus: isUnderInvestigation ? 'probation' : 'active',
+      isApproved: !isUnderInvestigation,
+      permanentlyEnlisted: true,
+      underInvestigation: isUnderInvestigation,
+      investigationReason: data.investigationReason || undefined,
       isFeatured: data.isFeatured !== undefined ? data.isFeatured : false,
-      verificationDetails: data.verificationDetails || (isPermanentlyApproved ? {
-        badgeType: 'Gold Enterprise',
-        gpsVerified: true,
-        verifiedByAdmin: 'Executive Desk',
-        verifiedAt: new Date().toISOString()
-      } : null),
+      verificationDetails: data.verificationDetails || null,
       views: data.views !== undefined ? data.views : 1,
       leadsCount: data.leadsCount || 0,
       createdAt: data.createdAt || new Date().toISOString(),
@@ -2028,6 +1998,7 @@ app.post('/api/businesses', (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create business listing' });
   }
 });
+
 
 // Update Existing Business
 app.put('/api/businesses/:id', (req, res) => {
@@ -2150,10 +2121,11 @@ app.post('/api/subscribe', (req, res) => {
   });
 });
 
-// 12. Admin Moderation Action
+// 12. Admin Moderation Action (approve, investigate/probation, reject, reinstate)
 app.post('/api/moderation/action', (req, res) => {
   const { businessId, action, notes, badgeType, isFeatured, coordinates, business } = req.body;
-  if (!businessId || !['approve', 'reject'].includes(action)) {
+  const validActions = ['approve', 'reject', 'investigate', 'probation', 'reinstate'];
+  if (!businessId || !validActions.includes(action)) {
     res.status(400).json({ error: 'Invalid moderation action parameters.' });
     return;
   }
@@ -2161,7 +2133,25 @@ app.post('/api/moderation/action', (req, res) => {
   let biz = businessesCache.find(b => b.id === businessId);
   const nowIso = new Date().toISOString();
 
-  if (action === 'approve') {
+  if (action === 'investigate' || action === 'probation') {
+    approvedIdsCache.delete(businessId);
+    saveApprovedIdsToDisk(approvedIdsCache);
+
+    if (!biz && business && typeof business === 'object') {
+      biz = { ...business };
+      businessesCache.unshift(biz);
+    }
+
+    if (biz) {
+      biz.listingStatus = 'probation';
+      biz.underInvestigation = true;
+      biz.investigationReason = notes || 'Under administrative investigation / probation';
+      biz.investigationStartedAt = nowIso;
+      biz.isApproved = false;
+      biz.moderationNotes = notes || '';
+      biz.updatedAt = nowIso;
+    }
+  } else if (action === 'approve' || action === 'reinstate') {
     approvedIdsCache.add(businessId);
     saveApprovedIdsToDisk(approvedIdsCache);
 
@@ -2173,20 +2163,16 @@ app.post('/api/moderation/action', (req, res) => {
         businessesCache.unshift(biz);
       }
     } else if (!biz) {
-      const defaultBiz = DEFAULT_INITIAL_BUSINESSES.find(b => b.id === businessId);
       biz = {
-        ...(defaultBiz || {
-          id: businessId,
-          name: 'Verified Business Listing',
-          category: 'digital-marketing',
-          city: 'Ho',
-          region: 'Volta',
-          phone: '0508203673',
-          rating: 5.0,
-          reviewCount: 1,
-          createdAt: nowIso
-        }),
-        id: businessId
+        id: businessId,
+        name: 'Verified Business Listing',
+        category: 'general',
+        city: 'Accra',
+        region: 'Greater Accra',
+        phone: '0500000000',
+        rating: 5.0,
+        reviewCount: 0,
+        createdAt: nowIso
       };
       businessesCache.unshift(biz);
     }
@@ -2195,6 +2181,8 @@ app.post('/api/moderation/action', (req, res) => {
     biz.verificationStatus = 'verified';
     biz.isApproved = true;
     biz.permanentlyEnlisted = true;
+    biz.underInvestigation = false;
+    biz.investigationConcludedAt = nowIso;
     if (isFeatured !== undefined) {
       biz.isFeatured = isFeatured;
     }
@@ -2219,20 +2207,21 @@ app.post('/api/moderation/action', (req, res) => {
         reviewedAt: nowIso
       }));
     }
+    biz.moderationNotes = notes || 'Investigation concluded & verified by admin';
+    biz.updatedAt = nowIso;
   } else {
+    // action === 'reject'
     approvedIdsCache.delete(businessId);
     saveApprovedIdsToDisk(approvedIdsCache);
     if (biz) {
       biz.listingStatus = 'rejected';
       biz.verificationStatus = 'rejected';
       biz.isApproved = false;
+      biz.moderationNotes = notes || '';
+      biz.updatedAt = nowIso;
     }
   }
 
-  if (biz) {
-    biz.moderationNotes = notes || '';
-    biz.updatedAt = nowIso;
-  }
   saveBusinessesToDisk(businessesCache);
 
   res.json({
@@ -2246,6 +2235,8 @@ app.post('/api/moderation/action', (req, res) => {
 // 13. Admin Permanently Delete Business
 app.delete('/api/businesses/:id', (req, res) => {
   const { id } = req.params;
+  deletedBusinessIdsCache.add(id);
+  saveDeletedIdsToDisk(deletedBusinessIdsCache);
   approvedIdsCache.delete(id);
   saveApprovedIdsToDisk(approvedIdsCache);
   const index = businessesCache.findIndex(b => b.id === id);
