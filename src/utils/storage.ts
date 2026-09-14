@@ -3,7 +3,7 @@ import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS, TONY_DIGITAL_M
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v12',
+  BUSINESSES: 'auracentra_businesses_clean_v15',
   CATEGORIES: 'auracentra_categories_clean_v12',
   REVIEWS: 'auracentra_reviews_clean_v12',
   CURRENT_USER: 'auracentra_user_clean_v12',
@@ -25,6 +25,9 @@ const STORAGE_KEYS = {
 try {
   const legacyKeys = [
     'auracentra_businesses',
+    'auracentra_businesses_clean_v14',
+    'auracentra_businesses_clean_v13',
+    'auracentra_businesses_clean_v12',
     'auracentra_businesses_clean_v11',
     'auracentra_businesses_clean_v10',
     'auracentra_businesses_clean_v9',
@@ -61,7 +64,7 @@ export const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [];
 export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [];
 
 // Permanently approved & verified enterprise listings across all sessions
-export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = ['biz-tonys-digital-marketing-hub'];
+export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
 
 const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v12';
 const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v12';
@@ -164,22 +167,10 @@ export function isTonysDigitalMarketingHub(b: Partial<Business> | null | undefin
 
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
-  // Tony's Digital Marketing and Business Hub is permanently protected and never deleted
-  if (isTonysDigitalMarketingHub(b)) return false;
-
   // Check explicit delete markers
   if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || getDynamicallyDeletedBusinessIds().has(b.id))) {
     return true;
   }
-
-  // Per explicit user instruction: "Remove all the businesses on the website excluding Tony's Digital Marketing and Business Hub"
-  // Only Tony's Digital Marketing and Business Hub is retained (or newly registered user businesses in the active session)
-  const isTony = isTonysDigitalMarketingHub(b);
-  const isNewlyRegistered = Boolean((b as any).isNewlyUserRegistered);
-  if (!isTony && !isNewlyRegistered) {
-    return true;
-  }
-
   return false;
 }
 
@@ -191,12 +182,6 @@ export function getStoredBusinesses(): Business[] {
       if (Array.isArray(parsed)) {
         // Strip any residual legacy or permanently deleted businesses
         let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
-
-        // Always ensure Tony's Digital Marketing and Business Hub is present
-        const hasTony = clean.some((b) => isTonysDigitalMarketingHub(b));
-        if (!hasTony) {
-          clean.unshift(TONY_DIGITAL_MARKETING_HUB);
-        }
 
         // Preserve probation / investigation status; default newly registered businesses to active
         clean.forEach((b) => {

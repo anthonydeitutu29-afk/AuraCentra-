@@ -283,7 +283,22 @@ export default function App() {
     });
 
     const unsubscribe = FirestoreSync.subscribeBusinesses((liveBusinesses) => {
-      if (liveBusinesses && liveBusinesses.length > 0) {
+      if (Array.isArray(liveBusinesses)) {
+        if (liveBusinesses.length === 0) {
+          setBusinesses((prev) => {
+            const newlyCreated = prev.filter((b) => (b as any).isNewlyUserRegistered && !isDeletedBusiness(b));
+            if (newlyCreated.length > 0) {
+              return newlyCreated;
+            }
+            if (prev.length > 0) {
+              saveBusinesses([]);
+              return [];
+            }
+            return prev;
+          });
+          return;
+        }
+
         setBusinesses((prev) => {
           const approvedIds = getApprovedBusinessIds();
           // Merge live businesses with state

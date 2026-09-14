@@ -161,20 +161,12 @@ function isTonysDigitalMarketingHub(b: any): boolean {
 
 function isDeletedBusinessRecord(b: any): boolean {
   if (!b) return true;
-  // Tony's Digital Marketing and Business Hub is permanently protected and never deleted
-  if (isTonysDigitalMarketingHub(b)) return false;
   if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || deletedBusinessIdsCache.has(b.id))) return true;
-
-  // Per explicit user instruction: "Remove all the businesses on the website excluding Tony's Digital Marketing and Business Hub"
-  if (!isTonysDigitalMarketingHub(b) && !b.isNewlyUserRegistered) {
-    return true;
-  }
   return false;
 }
 
 function loadApprovedIdsFromDisk(): Set<string> {
   const set = new Set<string>();
-  set.add('biz-tonys-digital-marketing-hub');
   try {
     ensureDataDirectory();
     let targetFile = APPROVED_IDS_FILE;
@@ -251,57 +243,7 @@ function loadBusinessesFromDisk(): any[] {
   return [];
 }
 
-const DEFAULT_INITIAL_BUSINESSES: any[] = [
-  {
-    id: "biz-tonys-digital-marketing-hub",
-    name: "Tony's Digital Marketing and Business Hub",
-    slug: "tonys-digital-marketing-and-business-hub",
-    tagline: "Premier Digital Marketing, SEO, and Business Strategy Agency in Accra",
-    description: "Tony's Digital Marketing and Business Hub is Ghana's premier enterprise acceleration and digital growth powerhouse. We offer comprehensive digital marketing, search engine optimization (SEO), performance ads, social media management, brand identity design, and high-converting web applications across Accra and nationwide.",
-    category: "digital-marketing",
-    city: "Accra",
-    region: "Greater Accra",
-    address: "Accra Central Commercial District, Greater Accra, Ghana",
-    digitalAddress: "GA-183-4921",
-    phone: "0508203673",
-    whatsapp: "233508203673",
-    email: "tonysdigitalmarketing@gmail.com",
-    website: "https://auracentra.com",
-    rating: 5.0,
-    reviewCount: 1,
-    priceLevel: "$$",
-    verificationStatus: "verified",
-    listingStatus: "active",
-    isApproved: true,
-    permanentlyEnlisted: true,
-    isFeatured: true,
-    underInvestigation: false,
-    coordinates: {
-      lat: 5.6037,
-      lng: -0.1870
-    },
-    coverImage: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
-    logo: "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=200&h=200&q=80",
-    gallery: [
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80"
-    ],
-    services: [
-      "Search Engine Optimization (SEO)",
-      "Social Media Growth & Marketing",
-      "Performance Google & Meta Ads",
-      "Corporate Web & Software Development",
-      "Brand Identity & Commercial Strategy"
-    ],
-    views: 184,
-    leadsCount: 26,
-    createdAt: "2026-09-14T08:00:00.000Z",
-    updatedAt: "2026-09-14T08:00:00.000Z",
-    enlistedAt: "2026-09-14T08:00:00.000Z",
-    approvedAt: "2026-09-14T08:00:00.000Z"
-  }
-];
+const DEFAULT_INITIAL_BUSINESSES: any[] = [];
 
 let businessesCache: any[] = (() => {
   const fromDisk = loadBusinessesFromDisk();
@@ -309,12 +251,8 @@ let businessesCache: any[] = (() => {
   if (fromDisk && fromDisk.length > 0) {
     baseList = fromDisk.filter(b => !isDeletedBusinessRecord(b));
   }
-  if (!baseList.some(b => isTonysDigitalMarketingHub(b))) {
-    baseList.unshift(DEFAULT_INITIAL_BUSINESSES[0]);
-  }
 
-  // Retain probation status or auto-enlist as active
-  baseList = baseList.filter(b => !isDeletedBusinessRecord(b));
+  // Retain probation status or enlist active
   baseList.forEach(b => {
     if (b.listingStatus === 'probation' || b.listingStatus === 'under_investigation' || b.underInvestigation) {
       b.listingStatus = 'probation';

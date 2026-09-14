@@ -79,7 +79,7 @@ export const FirestoreSync = {
 
       try {
         const list = await ApiClient.getBusinesses();
-        if (isSubscribed && Array.isArray(list) && list.length > 0) {
+        if (isSubscribed && Array.isArray(list)) {
           const currentHash = computeHash(list);
           if (currentHash !== lastFetchedHash) {
             lastFetchedHash = currentHash;
@@ -111,7 +111,7 @@ export const FirestoreSync = {
       // 4. Prefer Supabase Realtime if configured
       if (isSupabaseConfigured) {
         unsubscribeSupabase = SupabaseService.subscribeBusinesses((list) => {
-          if (isSubscribed && Array.isArray(list) && list.length > 0) {
+          if (isSubscribed && Array.isArray(list)) {
             const currentHash = computeHash(list);
             if (currentHash !== lastFetchedHash) {
               lastFetchedHash = currentHash;
@@ -122,7 +122,7 @@ export const FirestoreSync = {
 
         // Also fetch initial list from Supabase
         SupabaseService.fetchBusinesses().then((list) => {
-          if (isSubscribed && list && list.length > 0) {
+          if (isSubscribed && Array.isArray(list)) {
             const currentHash = computeHash(list);
             if (currentHash !== lastFetchedHash) {
               lastFetchedHash = currentHash;
