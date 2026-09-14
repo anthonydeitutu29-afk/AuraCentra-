@@ -66,13 +66,25 @@ export const FirestoreSync = {
     let isSubscribed = true;
     let pollTimer: any = null;
     let unsubscribeSupabase: (() => void) | null = null;
+    let lastFetchedHash = '';
+
+    const computeHash = (list: Business[]) => {
+      return `${list.length}_${list.map((b) => `${b.id}:${b.updatedAt || ''}:${b.listingStatus}`).join(',')}`;
+    };
 
     const fetchBackendBusinesses = async () => {
       if (!isSubscribed) return;
+      // Skip background polling if document is hidden to conserve CPU/network
+      if (typeof document !== 'undefined' && document.hidden) return;
+
       try {
         const list = await ApiClient.getBusinesses();
         if (isSubscribed && Array.isArray(list) && list.length > 0) {
-          onUpdate(list);
+          const currentHash = computeHash(list);
+          if (currentHash !== lastFetchedHash) {
+            lastFetchedHash = currentHash;
+            onUpdate(list);
+          }
         }
       } catch (e) {
         // Silent fallback
@@ -83,21 +95,39 @@ export const FirestoreSync = {
       // 1. Initial immediate fetch from backend
       fetchBackendBusinesses();
 
-      // 2. Poll backend every 4 seconds for immediate multi-device/client sync (< 10 seconds)
-      pollTimer = setInterval(fetchBackendBusinesses, 4000);
+      // 2. Poll backend every 12 seconds when active
+      pollTimer = setInterval(fetchBackendBusinesses, 12000);
 
-      // 3. Prefer Supabase Realtime if configured
+      // 3. Fast re-sync when window regains visibility
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          fetchBackendBusinesses();
+        }
+      };
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+      }
+
+      // 4. Prefer Supabase Realtime if configured
       if (isSupabaseConfigured) {
         unsubscribeSupabase = SupabaseService.subscribeBusinesses((list) => {
           if (isSubscribed && Array.isArray(list) && list.length > 0) {
-            onUpdate(list);
+            const currentHash = computeHash(list);
+            if (currentHash !== lastFetchedHash) {
+              lastFetchedHash = currentHash;
+              onUpdate(list);
+            }
           }
         });
 
         // Also fetch initial list from Supabase
         SupabaseService.fetchBusinesses().then((list) => {
           if (isSubscribed && list && list.length > 0) {
-            onUpdate(list);
+            const currentHash = computeHash(list);
+            if (currentHash !== lastFetchedHash) {
+              lastFetchedHash = currentHash;
+              onUpdate(list);
+            }
           }
         }).catch(() => {});
       }
@@ -106,6 +136,9 @@ export const FirestoreSync = {
         isSubscribed = false;
         if (pollTimer) clearInterval(pollTimer);
         if (unsubscribeSupabase) unsubscribeSupabase();
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
       };
     } catch (err) {
       console.warn('[Data Sync] Subscribe listener error:', err);

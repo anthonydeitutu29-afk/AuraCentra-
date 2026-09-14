@@ -138,8 +138,75 @@ export const INITIAL_CATEGORIES: Category[] = [
   }
 ];
 
-// Initial businesses array (businesses are automatically enlisted upon registration)
-export const INITIAL_BUSINESSES: Business[] = [];
+// Tony's Digital Marketing and Business Hub - Premier Enlisted Business
+export const TONY_DIGITAL_MARKETING_HUB: Business = {
+  id: 'biz-tonys-digital-marketing-hub',
+  name: "Tony's Digital Marketing and Business Hub",
+  slug: 'tonys-digital-marketing-and-business-hub',
+  tagline: 'Premier Digital Marketing, SEO, and Business Strategy Agency in Accra',
+  description: "Tony's Digital Marketing and Business Hub is Ghana's premier enterprise acceleration and digital growth powerhouse. We offer comprehensive digital marketing, search engine optimization (SEO), performance ads, social media management, brand identity design, and high-converting web applications across Accra and nationwide.",
+  category: 'digital-marketing',
+  city: 'Accra',
+  region: 'Greater Accra',
+  address: 'Accra Central Commercial District, Greater Accra, Ghana',
+  digitalAddress: 'GA-183-4921',
+  phone: '0508203673',
+  whatsapp: '233508203673',
+  email: 'tonysdigitalmarketing@gmail.com',
+  website: 'https://auracentra.com',
+  rating: 5.0,
+  reviewCount: 1,
+  priceLevel: '$$',
+  verificationStatus: 'verified',
+  listingStatus: 'active',
+  isApproved: true,
+  permanentlyEnlisted: true,
+  isFeatured: true,
+  underInvestigation: false,
+  coordinates: {
+    lat: 5.6037,
+    lng: -0.1870,
+  },
+  coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+  logo: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=200&h=200&q=80',
+  gallery: [
+    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=80',
+    'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80',
+  ],
+  services: [
+    'Search Engine Optimization (SEO)',
+    'Social Media Growth & Marketing',
+    'Performance Google & Meta Ads',
+    'Corporate Web & Software Development',
+    'Brand Identity & Commercial Strategy',
+  ],
+  features: [
+    'GhanaPost GPS Verified',
+    'Free Digital Audit & Strategy Consultation',
+    'High-ROI Targeted Ad Campaigns',
+    'Enterprise SLA & Dedicated Growth Manager',
+    'Certified Analytics Reporting',
+  ],
+  openingHours: {
+    monday: '08:00 - 18:00',
+    tuesday: '08:00 - 18:00',
+    wednesday: '08:00 - 18:00',
+    thursday: '08:00 - 18:00',
+    friday: '08:00 - 18:00',
+    saturday: '09:00 - 15:00',
+    sunday: 'Closed',
+  },
+  views: 184,
+  leadsCount: 26,
+  createdAt: '2026-09-14T08:00:00.000Z',
+  updatedAt: '2026-09-14T08:00:00.000Z',
+  enlistedAt: '2026-09-14T08:00:00.000Z',
+  approvedAt: '2026-09-14T08:00:00.000Z',
+};
+
+// Initial businesses array containing exclusively Tony's Digital Marketing and Business Hub
+export const INITIAL_BUSINESSES: Business[] = [TONY_DIGITAL_MARKETING_HUB];
 
 // Empty initial reviews - reviews will come only from verified users.
 export const INITIAL_REVIEWS: BusinessReview[] = [];

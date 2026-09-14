@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { 
   Building2, 
   ShieldCheck, 
@@ -82,9 +82,6 @@ import { AuthModal } from './components/AuthModal';
 import { AuthPage } from './components/AuthPage';
 import { BusinessRegistrationModal } from './components/BusinessRegistrationModal';
 import { SavedBusinessesModal } from './components/SavedBusinessesModal';
-import { AdminDashboard } from './components/AdminDashboard';
-import { BusinessOwnerDashboard } from './components/BusinessOwnerDashboard';
-import { PersonalAccountDashboard } from './components/PersonalAccountDashboard';
 import { FloatingContactHub } from './components/FloatingContactHub';
 import { Footer } from './components/Footer';
 import { ToastContainer } from './components/Toast';
@@ -98,12 +95,18 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { SuggestCategoryModal } from './components/SuggestCategoryModal';
 import { CustomerFeedbackModal } from './components/CustomerFeedbackModal';
 import { GhanaBusinessNewsSection } from './components/GhanaBusinessNewsSection';
-import { GhanaNewsPage } from './components/GhanaNewsPage';
 import { NewsArticleModal } from './components/NewsArticleModal';
 import { SecureLogoutModal } from './components/SecureLogoutModal';
 import { AccountSettingsModal } from './components/AccountSettingsModal';
-import { SectorsPage } from './components/SectorsPage';
-import { AboutPage, AboutPageTab } from './components/AboutPage';
+import type { AboutPageTab } from './components/AboutPage';
+
+// Code-split heavy views to load instantly on home view
+const AdminDashboard = lazy(() => import('./components/AdminDashboard').then((m) => ({ default: m.AdminDashboard })));
+const BusinessOwnerDashboard = lazy(() => import('./components/BusinessOwnerDashboard').then((m) => ({ default: m.BusinessOwnerDashboard })));
+const PersonalAccountDashboard = lazy(() => import('./components/PersonalAccountDashboard').then((m) => ({ default: m.PersonalAccountDashboard })));
+const GhanaNewsPage = lazy(() => import('./components/GhanaNewsPage').then((m) => ({ default: m.GhanaNewsPage })));
+const SectorsPage = lazy(() => import('./components/SectorsPage').then((m) => ({ default: m.SectorsPage })));
+const AboutPage = lazy(() => import('./components/AboutPage').then((m) => ({ default: m.AboutPage })));
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 import { generateRejectionEmailTemplate } from './utils/rejectionEmailGenerator';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
@@ -337,6 +340,20 @@ export default function App() {
           });
 
           const clean = Array.from(map.values()).filter((b) => !isDeletedBusiness(b));
+          
+          // Avoid triggering unnecessary React re-renders and storage thrash if data hasn't changed
+          if (
+            clean.length === prev.length &&
+            clean.every((c, i) => 
+              c.id === prev[i]?.id && 
+              c.updatedAt === prev[i]?.updatedAt && 
+              c.listingStatus === prev[i]?.listingStatus && 
+              c.verificationStatus === prev[i]?.verificationStatus
+            )
+          ) {
+            return prev;
+          }
+
           saveBusinesses(clean);
           return clean;
         });
@@ -1398,8 +1415,24 @@ export default function App() {
       }
 
       // Category filter
-      if (filters.category && b.category !== filters.category) {
-        return false;
+      if (filters.category && filters.category !== 'All Categories' && filters.category !== 'all' && filters.category.trim() !== '') {
+        const target = filters.category.trim().toLowerCase();
+        const bCat = (b.category || '').trim().toLowerCase();
+        const isExactMatch = bCat === target;
+        const isMarketingMatch = 
+          (target.includes('market') || target.includes('digital')) &&
+          (bCat.includes('market') || bCat.includes('digital'));
+        if (!isExactMatch && !isMarketingMatch) {
+          const targetCatObj = categories.find(
+            (c) => c.id.toLowerCase() === target || c.name.toLowerCase() === target || c.slug.toLowerCase() === target
+          );
+          const bCatObj = categories.find(
+            (c) => c.id.toLowerCase() === bCat || c.name.toLowerCase() === bCat || c.slug.toLowerCase() === bCat
+          );
+          if (!(targetCatObj && bCatObj && targetCatObj.id === bCatObj.id)) {
+            return false;
+          }
+        }
       }
 
       // Region filter
@@ -1482,36 +1515,38 @@ export default function App() {
   if (currentView === 'admin' && currentUser?.role === 'admin') {
     return (
       <div className={theme === 'dark' ? 'dark' : ''}>
-        <AdminDashboard
-          currentUser={currentUser}
-          businesses={businesses}
-          categories={categories}
-          reports={reports}
-          suggestions={suggestions}
-          feedback={feedback}
-          showExecutiveSection={showExecutiveSection}
-          onToggleExecutiveSection={handleToggleExecutiveSection}
-          onUpdateBusiness={handleUpdateBusiness}
-          onAddBusiness={handleAddBusinessDirect}
-          onDeleteBusiness={handleDeleteBusiness}
-          onPutOnInvestigation={handlePutOnInvestigation}
-          onApproveVerification={handleApproveVerification}
-          onRejectVerification={handleRejectVerification}
-          onAddCategory={handleAddCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onUpdateReportStatus={handleUpdateReportStatus}
-          onDeleteReport={handleDeleteReport}
-          onUpdateSuggestionStatus={handleUpdateSuggestionStatus}
-          onDeleteSuggestion={handleDeleteSuggestion}
-          onApproveAndCreateCategory={handleApproveAndCreateCategory}
-          onUpdateFeedbackStatus={handleUpdateFeedbackStatus}
-          onDeleteFeedback={handleDeleteFeedback}
-          onShowToast={showToast}
-          onOpenRegisterModal={handleOpenRegisterModal}
-          onSelectBusiness={handleSelectBusiness}
-          onSignOut={handleSignOut}
-          onBackToPortal={() => setCurrentView('portal')}
-        />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <AdminDashboard
+            currentUser={currentUser}
+            businesses={businesses}
+            categories={categories}
+            reports={reports}
+            suggestions={suggestions}
+            feedback={feedback}
+            showExecutiveSection={showExecutiveSection}
+            onToggleExecutiveSection={handleToggleExecutiveSection}
+            onUpdateBusiness={handleUpdateBusiness}
+            onAddBusiness={handleAddBusinessDirect}
+            onDeleteBusiness={handleDeleteBusiness}
+            onPutOnInvestigation={handlePutOnInvestigation}
+            onApproveVerification={handleApproveVerification}
+            onRejectVerification={handleRejectVerification}
+            onAddCategory={handleAddCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onUpdateReportStatus={handleUpdateReportStatus}
+            onDeleteReport={handleDeleteReport}
+            onUpdateSuggestionStatus={handleUpdateSuggestionStatus}
+            onDeleteSuggestion={handleDeleteSuggestion}
+            onApproveAndCreateCategory={handleApproveAndCreateCategory}
+            onUpdateFeedbackStatus={handleUpdateFeedbackStatus}
+            onDeleteFeedback={handleDeleteFeedback}
+            onShowToast={showToast}
+            onOpenRegisterModal={handleOpenRegisterModal}
+            onSelectBusiness={handleSelectBusiness}
+            onSignOut={handleSignOut}
+            onBackToPortal={() => setCurrentView('portal')}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -1521,28 +1556,30 @@ export default function App() {
   if (currentView === 'business_dashboard' && currentUser) {
     return (
       <div className={theme === 'dark' ? 'dark' : ''}>
-        <BusinessOwnerDashboard
-          currentUser={currentUser}
-          businesses={businesses}
-          categories={categories}
-          inquiries={inquiries}
-          reviews={reviews}
-          initialBusinessId={targetDashboardBusinessId || undefined}
-          onUpdateBusiness={handleUpdateBusiness}
-          onAddBusiness={handleAddBusinessDirect}
-          onDeleteBusiness={handleDeleteBusiness}
-          onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
-          onShowToast={showToast}
-          onBackToPortal={() => setCurrentView('portal')}
-          onSignOut={handleSignOut}
-          onOpenLivePreview={(b) => {
-            handleSelectBusiness(b);
-            setCurrentView('portal');
-          }}
-          onOpenCertificateModal={(b) => {
-            setCertBusiness(b);
-          }}
-        />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <BusinessOwnerDashboard
+            currentUser={currentUser}
+            businesses={businesses}
+            categories={categories}
+            inquiries={inquiries}
+            reviews={reviews}
+            initialBusinessId={targetDashboardBusinessId || undefined}
+            onUpdateBusiness={handleUpdateBusiness}
+            onAddBusiness={handleAddBusinessDirect}
+            onDeleteBusiness={handleDeleteBusiness}
+            onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
+            onShowToast={showToast}
+            onBackToPortal={() => setCurrentView('portal')}
+            onSignOut={handleSignOut}
+            onOpenLivePreview={(b) => {
+              handleSelectBusiness(b);
+              setCurrentView('portal');
+            }}
+            onOpenCertificateModal={(b) => {
+              setCertBusiness(b);
+            }}
+          />
+        </Suspense>
         <AccountSettingsModal
           isOpen={isAccountSettingsModalOpen}
           currentUser={currentUser}
@@ -1576,27 +1613,29 @@ export default function App() {
   if (currentView === 'personal_dashboard' && currentUser) {
     return (
       <div className={theme === 'dark' ? 'dark' : ''}>
-        <PersonalAccountDashboard
-          currentUser={currentUser}
-          businesses={businesses}
-          categories={categories}
-          savedBusinessIds={savedBusinessIds}
-          onUpdateProfile={(updated) => {
-            const next = { ...currentUser, ...updated };
-            setCurrentUser(next);
-            saveCurrentUser(next);
-            showToast('Profile Updated', 'Your profile details have been saved.', 'success');
-          }}
-          onToggleSaveBusiness={handleToggleSave}
-          onOpenBusinessDetails={(biz) => {
-            handleSelectBusiness(biz);
-          }}
-          onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
-          onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
-          onBackToPortal={() => setCurrentView('portal')}
-          onSignOut={handleSignOut}
-          onShowToast={showToast}
-        />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <PersonalAccountDashboard
+            currentUser={currentUser}
+            businesses={businesses}
+            categories={categories}
+            savedBusinessIds={savedBusinessIds}
+            onUpdateProfile={(updated) => {
+              const next = { ...currentUser, ...updated };
+              setCurrentUser(next);
+              saveCurrentUser(next);
+              showToast('Profile Updated', 'Your profile details have been saved.', 'success');
+            }}
+            onToggleSaveBusiness={handleToggleSave}
+            onOpenBusinessDetails={(biz) => {
+              handleSelectBusiness(biz);
+            }}
+            onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
+            onOpenAccountSettings={() => setIsAccountSettingsModalOpen(true)}
+            onBackToPortal={() => setCurrentView('portal')}
+            onSignOut={handleSignOut}
+            onShowToast={showToast}
+          />
+        </Suspense>
         {selectedBusiness && (
           <BusinessDetailsModal
             business={selectedBusiness}
@@ -1755,42 +1794,48 @@ export default function App() {
           }}
         />
       ) : currentNavTab === 'about' ? (
-        <AboutPage
-          initialTab={aboutPageTab}
-          onBackToHome={() => {
-            setCurrentNavTab('home');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onOpenRegister={handleOpenRegisterModal}
-          onShowToast={showToast}
-        />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <AboutPage
+            initialTab={aboutPageTab}
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenRegister={handleOpenRegisterModal}
+            onShowToast={showToast}
+          />
+        </Suspense>
       ) : currentNavTab === 'news' ? (
-        <GhanaNewsPage
-          onBackToHome={() => {
-            setCurrentNavTab('home');
-            window.location.hash = '';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onSelectArticle={(article) => setSelectedNewsArticle(article)}
-          onShowToast={showToast}
-        />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <GhanaNewsPage
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.location.hash = '';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onSelectArticle={(article) => setSelectedNewsArticle(article)}
+            onShowToast={showToast}
+          />
+        </Suspense>
       ) : currentNavTab === 'sectors' ? (
-        <SectorsPage
-          categories={categories}
-          businesses={businesses}
-          initialCategoryId={initialCategoryForSectors}
-          onSelectBusiness={(b) => handleSelectBusiness(b)}
-          onFilterByCategoryOnHome={(catId) => {
-            handleFilterChange({ category: catId });
-            setCurrentNavTab('home');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          onOpenRegister={handleOpenRegisterModal}
-          onBackToHome={() => {
-            setCurrentNavTab('home');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-        />
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <SectorsPage
+            categories={categories}
+            businesses={businesses}
+            initialCategoryId={initialCategoryForSectors}
+            onSelectBusiness={(b) => handleSelectBusiness(b)}
+            onFilterByCategoryOnHome={(catId) => {
+              handleFilterChange({ category: catId });
+              setCurrentNavTab('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenRegister={handleOpenRegisterModal}
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        </Suspense>
       ) : (
         <>
           {/* 2. Hero & Unified Search Section matching Image 2 */}

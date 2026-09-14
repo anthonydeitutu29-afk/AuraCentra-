@@ -107,7 +107,12 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
     // 1. Region filter
     if (filters.region && filters.region !== 'All Regions' && filters.region !== 'all' && filters.region.trim() !== '') {
-      list = list.filter((b) => b.region?.toLowerCase() === filters.region.toLowerCase());
+      const reg = filters.region.toLowerCase().trim();
+      list = list.filter((b) => {
+        const bReg = (b.region || '').toLowerCase().trim();
+        const bCity = (b.city || '').toLowerCase().trim();
+        return bReg.includes(reg) || reg.includes(bReg) || bCity.includes(reg) || reg.includes(bCity);
+      });
     }
 
     // 2. City filter (safely handle 'All Cities' default)
@@ -126,6 +131,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
       list = list.filter((b) => {
         const bCat = (b.category || '').trim().toLowerCase();
         if (bCat === target) return true;
+        if ((target.includes('market') || target.includes('digital')) && (bCat.includes('market') || bCat.includes('digital'))) return true;
 
         const targetCatObj = categories.find(
           (c) => c.id.toLowerCase() === target || c.name.toLowerCase() === target || c.slug.toLowerCase() === target

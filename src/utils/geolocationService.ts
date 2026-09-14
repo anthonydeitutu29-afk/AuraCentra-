@@ -235,9 +235,9 @@ export function autoDetectUserLocation(): Promise<AutoDetectedLocationResult> {
         });
       },
       {
-        enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 300000, // 5 minutes cache
+        enableHighAccuracy: false,
+        timeout: 2000,
+        maximumAge: 600000, // 10 minutes cache
       }
     );
   });
