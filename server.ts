@@ -65,30 +65,9 @@ app.use((req, res, next) => {
 });
 
 // In-memory persistent cache for server-side state
-const PERMANENTLY_DELETED_BUSINESS_IDS = [
-  'biz-tonys-digital-marketing-hub',
-  'biz-buka-accra',
-  'biz-kempinski-accra',
-  'biz-nyaho-clinic',
-  'biz-vodam-kumasi',
-  'biz-zion-city',
-  'biz-veritas-motors',
-  'biz-buildright-supplies',
-  'biz-bonwire-kente',
-  'biz-apex-diagnostic',
-  'biz-pending-starbite-tema',
-  'biz-pending-northern-shea',
-  'biz-pending-technest-capecoast'
-];
+const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [];
 
-const PERMANENTLY_DELETED_BUSINESS_NAMES = [
-  "tony's digital marketing",
-  "tonys digital marketing",
-  'sweet gardens hotel',
-  'buka restaurant',
-  'nyaho medical',
-  'kempinski hotel'
-];
+const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [];
 
 // Server Disk Persistence Configuration
 const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
@@ -123,7 +102,7 @@ function ensureDataDirectory() {
 }
 
 function loadDeletedIdsFromDisk(): Set<string> {
-  const set = new Set<string>(['biz-tonys-digital-marketing-hub']);
+  const set = new Set<string>();
   try {
     ensureDataDirectory();
     let targetFile = DELETED_IDS_FILE;
@@ -163,24 +142,6 @@ const deletedBusinessIdsCache: Set<string> = loadDeletedIdsFromDisk();
 function isDeletedBusinessRecord(b: any): boolean {
   if (!b) return true;
   if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || deletedBusinessIdsCache.has(b.id))) return true;
-  if (b.slug) {
-    const s = String(b.slug).toLowerCase();
-    if (
-      s.includes('tonys-digital-marketing') ||
-      s.includes('sweet-gardens') ||
-      s.includes('buka-restaurant') ||
-      s.includes('nyaho-medical') ||
-      s.includes('kempinski-hotel')
-    ) {
-      return true;
-    }
-  }
-  if (b.name) {
-    const nameLower = String(b.name).toLowerCase();
-    if (PERMANENTLY_DELETED_BUSINESS_NAMES.some((term) => nameLower.includes(term))) {
-      return true;
-    }
-  }
   return false;
 }
 
@@ -1949,9 +1910,10 @@ app.get('/api/businesses', (req, res) => {
 // 6. Register or Update Business (Auto-enlisted on the website upon registration)
 app.post('/api/businesses', (req, res) => {
   try {
-    const data = req.body;
-    if (!data.name || !data.category || !data.phone || !data.city) {
-      res.status(400).json({ error: 'Missing required business details (name, category, phone, city).' });
+    const data = req.body || {};
+    const businessName = (data.name || '').trim();
+    if (!businessName) {
+      res.status(400).json({ error: 'Missing required business name.' });
       return;
     }
 
@@ -1959,6 +1921,10 @@ app.post('/api/businesses', (req, res) => {
     const isUnderInvestigation = data.listingStatus === 'probation' || 
                                  data.listingStatus === 'under_investigation' || 
                                  Boolean(data.underInvestigation);
+
+    // Remove from deleted list if re-enlisting
+    deletedBusinessIdsCache.delete(businessId);
+    saveDeletedIdsToDisk(deletedBusinessIdsCache);
 
     if (!isUnderInvestigation) {
       approvedIdsCache.add(businessId);
@@ -1968,7 +1934,11 @@ app.post('/api/businesses', (req, res) => {
     const newBusiness = {
       ...data,
       id: businessId,
-      slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      name: businessName,
+      category: data.category || 'general',
+      city: data.city || 'Accra',
+      phone: data.phone || data.whatsapp || '0240000000',
+      slug: data.slug || businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
       rating: data.rating !== undefined ? data.rating : 5.0,
       reviewCount: data.reviewCount || 0,
       verificationStatus: data.verificationStatus || 'unverified',
@@ -2004,11 +1974,31 @@ app.post('/api/businesses', (req, res) => {
 app.put('/api/businesses/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const data = req.body || {};
+    
+    // Remove from deleted set when updated/restored
+    deletedBusinessIdsCache.delete(id);
+    saveDeletedIdsToDisk(deletedBusinessIdsCache);
+
+    const isUnderInvestigation = data.listingStatus === 'probation' || 
+                                 data.listingStatus === 'under_investigation' || 
+                                 Boolean(data.underInvestigation);
+    if (!isUnderInvestigation) {
+      approvedIdsCache.add(id);
+      saveApprovedIdsToDisk(approvedIdsCache);
+    }
+
     const existingIndex = businessesCache.findIndex(b => b.id === id);
     if (existingIndex === -1) {
       // Add if not found
-      const newBiz = { ...data, id, updatedAt: new Date().toISOString() };
+      const newBiz = { 
+        ...data, 
+        id, 
+        listingStatus: isUnderInvestigation ? 'probation' : (data.listingStatus || 'active'),
+        isApproved: !isUnderInvestigation,
+        permanentlyEnlisted: true,
+        updatedAt: new Date().toISOString() 
+      };
       businessesCache.unshift(newBiz);
       saveBusinessesToDisk(businessesCache);
       res.json({ status: 'success', business: newBiz });
@@ -2019,6 +2009,9 @@ app.put('/api/businesses/:id', (req, res) => {
       ...businessesCache[existingIndex],
       ...data,
       id,
+      listingStatus: isUnderInvestigation ? 'probation' : (data.listingStatus || businessesCache[existingIndex].listingStatus || 'active'),
+      isApproved: !isUnderInvestigation,
+      permanentlyEnlisted: true,
       updatedAt: new Date().toISOString()
     };
     businessesCache[existingIndex] = updated;

@@ -1,1 +1,27 @@
-[]
+[
+  {
+    "id": "biz-tonys-digital-marketing-hub",
+    "name": "Tony's Digital Marketing and Business Hub",
+    "category": "marketing",
+    "city": "Accra",
+    "region": "Greater Accra",
+    "phone": "0508203673",
+    "whatsapp": "233508203673",
+    "email": "tonysdigitalmarketing@gmail.com",
+    "description": "Leading digital marketing, SEO, and business strategy agency in Accra.",
+    "listingStatus": "active",
+    "isApproved": true,
+    "permanentlyEnlisted": true,
+    "slug": "tony-s-digital-marketing-and-business-hub",
+    "rating": 5,
+    "reviewCount": 0,
+    "verificationStatus": "unverified",
+    "underInvestigation": false,
+    "isFeatured": false,
+    "verificationDetails": null,
+    "views": 1,
+    "leadsCount": 0,
+    "createdAt": "2026-09-14T08:16:39.705Z",
+    "updatedAt": "2026-09-14T08:16:39.705Z"
+  }
+]

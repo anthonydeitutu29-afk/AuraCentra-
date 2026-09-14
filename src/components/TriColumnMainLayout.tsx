@@ -91,15 +91,16 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
   // Robust category & tab filtering logic
   const filteredAndSortedBusinesses = useMemo(() => {
-    // 0. Only show businesses that passed the due process and are approved by the website admin
+    // 0. Only show businesses that passed the due process and are approved or enlisted
     let list = businesses.filter((b) => {
       if (!b || isDeletedBusiness(b)) return false;
       if (b.verificationStatus === 'rejected' || b.listingStatus === 'rejected') return false;
       const isApproved = 
-        isBusinessPermanentlyApproved(b.id) || 
+        b.listingStatus === 'active' ||
         b.isApproved === true || 
         b.permanentlyEnlisted === true || 
-        (b.listingStatus === 'active' && b.verificationStatus === 'verified');
+        isBusinessPermanentlyApproved(b.id) ||
+        b.verificationStatus === 'verified';
       if (!isApproved) return false;
       return true;
     });

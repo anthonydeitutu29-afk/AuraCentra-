@@ -45,8 +45,9 @@ export const DiscoverBusinessesSection: React.FC<DiscoverBusinessesSectionProps>
   const displayedBusinesses = useMemo(() => {
     let list = businesses.filter((b) => {
       if (!b || isDeletedBusiness(b)) return false;
-      if (isBusinessPermanentlyApproved(b.id)) return true;
-      return b.listingStatus !== 'pending_approval' && b.listingStatus !== 'rejected';
+      if (b.listingStatus === 'rejected' || b.verificationStatus === 'rejected') return false;
+      if (b.listingStatus === 'probation' || b.underInvestigation) return false;
+      return true;
     });
     
     if (activeTab === 'trending') {

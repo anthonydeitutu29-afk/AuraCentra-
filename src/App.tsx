@@ -59,6 +59,7 @@ import {
   markBusinessPermanentlyApproved,
   unmarkBusinessPermanentlyApproved,
   markBusinessPermanentlyDeleted,
+  unmarkBusinessPermanentlyDeleted,
   isBusinessPermanentlyApproved,
   getApprovedBusinessIds
 } from './utils/storage';
@@ -790,6 +791,7 @@ export default function App() {
       enlistedAt: newBusiness.enlistedAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    unmarkBusinessPermanentlyDeleted(enlistedBusiness.id);
     markBusinessPermanentlyApproved(enlistedBusiness.id);
     setBusinesses((prev) => {
       const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
@@ -800,7 +802,7 @@ export default function App() {
     ApiClient.createBusiness(enlistedBusiness).catch(() => {});
     showToast(
       'Business Enlisted & Live on Website',
-      `"${enlistedBusiness.name}" is now automatically enlisted and live on AuraCentra Ghana.`,
+      `"${enlistedBusiness.name}" is now automatically enlisted and permanently live on AuraCentra Ghana.`,
       'success'
     );
   };
@@ -876,13 +878,24 @@ export default function App() {
   };
 
   const handleAddBusinessDirect = (newBiz: Business) => {
+    const enlistedBusiness: Business = {
+      ...newBiz,
+      listingStatus: 'active',
+      isApproved: true,
+      permanentlyEnlisted: true,
+      underInvestigation: false,
+      enlistedAt: newBiz.enlistedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    unmarkBusinessPermanentlyDeleted(enlistedBusiness.id);
+    markBusinessPermanentlyApproved(enlistedBusiness.id);
     setBusinesses((prev) => {
-      const updated = [newBiz, ...prev.filter((b) => b.id !== newBiz.id)];
+      const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
       saveBusinesses(updated);
       return updated;
     });
-    FirestoreSync.saveBusiness(newBiz);
-    ApiClient.createBusiness(newBiz).catch(() => {});
+    FirestoreSync.saveBusiness(enlistedBusiness);
+    ApiClient.createBusiness(enlistedBusiness).catch(() => {});
   };
 
   const handleDeleteBusiness = (businessId: string) => {

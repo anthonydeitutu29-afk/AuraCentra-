@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { Business, Category, DocumentType, VerificationDocument, UserProfile } from '../types';
 import { verifyGhanaPostGPS, verifyGhanaPostGPSLive, GPSVerificationResult } from '../utils/gpsVerification';
-import { markBusinessPermanentlyApproved } from '../utils/storage';
+import { markBusinessPermanentlyApproved, unmarkBusinessPermanentlyDeleted } from '../utils/storage';
 import confetti from 'canvas-confetti';
 
 interface BusinessRegistrationModalProps {
@@ -311,6 +311,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
       updatedAt: nowIso,
     };
 
+    unmarkBusinessPermanentlyDeleted(newBiz.id);
     markBusinessPermanentlyApproved(newBiz.id);
 
     // 1. Pass to parent so it is recorded in storage as active and live

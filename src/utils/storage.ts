@@ -50,30 +50,9 @@ try {
 }
 
 // Initial state getters and setters
-export const PERMANENTLY_DELETED_BUSINESS_IDS = [
-  'biz-tonys-digital-marketing-hub',
-  'biz-buka-accra',
-  'biz-kempinski-accra',
-  'biz-nyaho-clinic',
-  'biz-vodam-kumasi',
-  'biz-zion-city',
-  'biz-veritas-motors',
-  'biz-buildright-supplies',
-  'biz-bonwire-kente',
-  'biz-apex-diagnostic',
-  'biz-pending-starbite-tema',
-  'biz-pending-northern-shea',
-  'biz-pending-technest-capecoast'
-];
+export const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [];
 
-export const PERMANENTLY_DELETED_BUSINESS_NAMES = [
-  "tony's digital marketing",
-  "tonys digital marketing",
-  'sweet gardens hotel',
-  'buka restaurant',
-  'nyaho medical',
-  'kempinski hotel'
-];
+export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [];
 
 // Permanently approved & verified enterprise listings across all sessions
 export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
@@ -104,6 +83,15 @@ export function markBusinessPermanentlyDeleted(businessId: string): void {
   } catch (e) {}
 }
 
+export function unmarkBusinessPermanentlyDeleted(businessId: string): void {
+  if (!businessId) return;
+  try {
+    const ids = getDynamicallyDeletedBusinessIds();
+    ids.delete(businessId);
+    localStorage.setItem(DYNAMIC_DELETED_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {}
+}
+
 export function getApprovedBusinessIds(): Set<string> {
   const set = new Set<string>(PERMANENTLY_APPROVED_BUSINESS_IDS);
   try {
@@ -123,6 +111,7 @@ export function getApprovedBusinessIds(): Set<string> {
 export function markBusinessPermanentlyApproved(businessId: string): void {
   if (!businessId) return;
   try {
+    unmarkBusinessPermanentlyDeleted(businessId);
     const ids = getApprovedBusinessIds();
     ids.add(businessId);
     localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
@@ -150,24 +139,6 @@ export function isBusinessPermanentlyApproved(businessId?: string | null): boole
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
   if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || getDynamicallyDeletedBusinessIds().has(b.id))) return true;
-  if (b.slug) {
-    const s = b.slug.toLowerCase();
-    if (
-      s.includes('tonys-digital-marketing') ||
-      s.includes('sweet-gardens') ||
-      s.includes('buka-restaurant') ||
-      s.includes('nyaho-medical') ||
-      s.includes('kempinski-hotel')
-    ) {
-      return true;
-    }
-  }
-  if (b.name) {
-    const nameLower = b.name.toLowerCase();
-    if (PERMANENTLY_DELETED_BUSINESS_NAMES.some((term) => nameLower.includes(term))) {
-      return true;
-    }
-  }
   return false;
 }
 
@@ -271,13 +242,11 @@ export function getStoredReviews(): BusinessReview[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        const demoReviewIds = ['rev-buka-1', 'rev-kempinski-1', 'rev-zion-1', 'rev-veritas-1', 'rev-buildright-1', 'rev-tony-1'];
         return parsed.filter(
           (r) =>
             r &&
             r.id &&
-            !demoReviewIds.includes(r.id) &&
-            !PERMANENTLY_DELETED_BUSINESS_IDS.includes(r.businessId)
+            !getDynamicallyDeletedBusinessIds().has(r.businessId)
         );
       }
     }
@@ -730,10 +699,7 @@ export function getStoredInquiries(): BusinessInquiry[] {
           (inq) =>
             inq &&
             inq.businessId &&
-            !PERMANENTLY_DELETED_BUSINESS_IDS.includes(inq.businessId) &&
-            !PERMANENTLY_DELETED_BUSINESS_NAMES.some((term) =>
-              (inq.businessName || '').toLowerCase().includes(term)
-            )
+            !getDynamicallyDeletedBusinessIds().has(inq.businessId)
         );
       }
     }
