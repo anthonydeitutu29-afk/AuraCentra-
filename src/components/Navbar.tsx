@@ -1,539 +1,653 @@
 import React, { useState } from 'react';
 import { 
-  Plus, 
-  Layers, 
-  Bookmark, 
-  User, 
-  ShieldCheck, 
-  LogOut, 
-  Building2, 
-  LayoutDashboard,
-  Search,
-  Menu,
-  X,
-  MessageSquare,
-  Share2,
-  Check,
-  Sun,
-  Moon,
-  Newspaper,
-  DollarSign,
-  Info,
-  Settings
+ Plus, 
+ Layers, 
+ Bookmark, 
+ User, 
+ ShieldCheck, 
+ LogOut, 
+ Building2, 
+ LayoutDashboard,
+ Search,
+ Menu,
+ X,
+ MessageSquare,
+ Share2,
+ Check,
+ Sun,
+ Moon,
+ Newspaper,
+ DollarSign,
+ Info,
+ Settings
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { Logo } from './Logo';
 
+export type NavSection = 'home' | 'news' | 'sectors' | 'pricing' | 'about' | 'support' | 'terms' | 'verification';
+
 interface NavbarProps {
-  currentSection: 'home' | 'news' | 'sectors' | 'about';
-  onNavigateSection: (section: 'home' | 'news' | 'sectors' | 'about') => void;
-  onOpenSectors?: () => void;
-  onOpenAboutUs: () => void;
-  onOpenPricing: () => void;
+ currentSection: NavSection;
+ onNavigateSection: (section: NavSection) => void;
+ onOpenSectors?: () => void;
+ onOpenAboutUs?: () => void;
+ onOpenPricing?: () => void;
+  onOpenSupport?: () => void;
+  onOpenTerms?: () => void;
+  onOpenVerification?: () => void;
   currentUser: UserProfile | null;
-  savedCount: number;
-  comparedCount: number;
-  inquiriesCount?: number;
-  theme: 'light' | 'dark';
-  onToggleTheme: () => void;
-  onOpenAuth: () => void;
-  onOpenRegister: () => void;
-  onOpenSavedModal: () => void;
-  onOpenCompareModal: () => void;
-  onOpenInquiriesModal?: () => void;
-  onOpenAdminDashboard: () => void;
-  onOpenBusinessDashboard?: () => void;
-  onOpenPersonalDashboard?: () => void;
-  onOpenAccountSettings?: () => void;
-  onSignOut: () => void;
-  onSharePlatform?: () => void;
+ savedCount: number;
+ comparedCount: number;
+ inquiriesCount?: number;
+ theme: 'light' | 'dark';
+ onToggleTheme: () => void;
+ onOpenAuth: () => void;
+ onOpenRegister: () => void;
+ onOpenSavedModal: () => void;
+ onOpenCompareModal: () => void;
+ onOpenInquiriesModal?: () => void;
+ onOpenAdminDashboard: () => void;
+ onOpenBusinessDashboard?: () => void;
+ onOpenPersonalDashboard?: () => void;
+ onOpenAccountSettings?: () => void;
+ onSignOut: () => void;
+ onSharePlatform?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentSection,
-  onNavigateSection,
-  onOpenSectors,
-  onOpenAboutUs,
-  onOpenPricing,
-  currentUser,
-  savedCount,
-  comparedCount,
-  inquiriesCount = 0,
-  theme,
-  onToggleTheme,
-  onOpenAuth,
-  onOpenRegister,
-  onOpenSavedModal,
-  onOpenCompareModal,
-  onOpenInquiriesModal,
-  onOpenAdminDashboard,
-  onOpenBusinessDashboard,
-  onOpenPersonalDashboard,
-  onOpenAccountSettings,
-  onSignOut,
-  onSharePlatform,
+ currentSection,
+ onNavigateSection,
+ onOpenSectors,
+ onOpenAboutUs,
+ onOpenPricing,
+ currentUser,
+ savedCount,
+ comparedCount,
+ inquiriesCount = 0,
+ theme,
+ onToggleTheme,
+ onOpenAuth,
+ onOpenRegister,
+ onOpenSavedModal,
+ onOpenCompareModal,
+ onOpenInquiriesModal,
+ onOpenAdminDashboard,
+ onOpenBusinessDashboard,
+ onOpenPersonalDashboard,
+ onOpenAccountSettings,
+ onSignOut,
+ onSharePlatform,
 }) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [sharedPlatform, setSharedPlatform] = useState(false);
+ const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+ const [sharedPlatform, setSharedPlatform] = useState(false);
 
-  const handleShareApp = () => {
-    if (onSharePlatform) {
-      onSharePlatform();
-    } else if (navigator.share) {
-      navigator.share({
-        title: 'AuraCentra Ghana - Connect • Discover • Grow',
-        text: 'A digital platform where businesses enlist and customers get access to what they need, without stress.',
-        url: window.location.origin,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(window.location.origin);
-      setSharedPlatform(true);
-      setTimeout(() => setSharedPlatform(false), 2000);
-    }
-  };
+ const handleShareApp = () => {
+ if (onSharePlatform) {
+ onSharePlatform();
+ } else if (navigator.share) {
+ navigator.share({
+ title: 'AuraCentra Ghana - Connect • Discover • Grow',
+ text: 'A digital platform where businesses enlist and customers get access to what they need, without stress.',
+ url: window.location.origin,
+ }).catch(() => {});
+ } else {
+ navigator.clipboard.writeText(window.location.origin);
+ setSharedPlatform(true);
+ setTimeout(() => setSharedPlatform(false), 2000);
+ }
+ };
 
-  return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-6">
-        
-        {/* Brand Logo & Desktop Navigation */}
-        <div className="flex items-center gap-4 lg:gap-10 shrink-0">
-          <div 
-            className="cursor-pointer shrink-0 flex items-center select-none" 
-            onClick={() => {
-              onNavigateSection('home');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-              setMobileMenuOpen(false);
-            }}
-          >
-            <Logo size="md" showTagline={false} className="shrink-0" />
-          </div>
+ return (
+ <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
+ <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-2 sm:gap-6">
+ 
+ {/* Brand Logo & Desktop Navigation */}
+ <div className="flex items-center gap-4 lg:gap-10 shrink-0">
+ <div 
+ className="cursor-pointer shrink-0 flex items-center select-none" 
+ onClick={() => {
+ onNavigateSection('home');
+ window.scrollTo({ top: 0, behavior: 'smooth' });
+ setMobileMenuOpen(false);
+ }}
+ >
+ <Logo size="md" showTagline={false} className="shrink-0" />
+ </div>
 
-          {/* Desktop Navigation Links matching Image 1 */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs sm:text-sm font-bold">
-            
-            {/* Explore (Home) */}
-            <button 
-              type="button" 
-              onClick={() => {
-                onNavigateSection('home');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`transition-colors cursor-pointer py-1 font-bold ${
-                currentSection === 'home'
-                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
-              }`}
-            >
-              Explore
-            </button>
+ {/* Desktop Navigation Links matching Image 1 */}
+ <nav className="hidden lg:flex items-center gap-7 text-xs sm:text-sm font-bold">
+ 
+ {/* Explore (Home) */}
+ <button 
+ type="button" 
+ onClick={() => {
+ onNavigateSection('home');
+ window.scrollTo({ top: 0, behavior: 'smooth' });
+ }}
+ className={`transition-colors cursor-pointer py-1 font-bold ${
+ currentSection === 'home'
+ ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+ : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ Explore
+ </button>
 
-            {/* Sectors / Business Categories Section */}
-            <button
-              type="button"
-              id="desktop-nav-sectors-btn"
-              onClick={() => {
-                onNavigateSection('sectors');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
-                currentSection === 'sectors'
-                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
-              }`}
-            >
-              <span>Sectors</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/70 text-[10px] font-black shadow-2xs">
-                All Categories
-              </span>
-            </button>
+ {/* Sectors / Business Categories Section */}
+ <button
+ type="button"
+ id="desktop-nav-sectors-btn"
+ onClick={() => {
+ onNavigateSection('sectors');
+ window.scrollTo({ top: 0, behavior: 'smooth' });
+ }}
+ className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
+ currentSection === 'sectors'
+ ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+ : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ <span>Sectors</span>
+ <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/70 text-[10px] font-black shadow-2xs">
+ All Categories
+ </span>
+ </button>
 
-            {/* Business News (Dedicated Section) */}
-            <button 
-              type="button" 
-              onClick={() => {
-                onNavigateSection('news');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
-                currentSection === 'news'
-                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
-              }`}
-            >
-              <span>Business News</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/90 text-blue-900 dark:text-cyan-200 border border-blue-200 dark:border-blue-700/80 text-[10px] font-black shadow-2xs">
-                Live FX
-              </span>
-            </button>
+ {/* Business News (Dedicated Section) */}
+ <button 
+ type="button" 
+ onClick={() => {
+ onNavigateSection('news');
+ window.scrollTo({ top: 0, behavior: 'smooth' });
+ }}
+ className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
+ currentSection === 'news'
+ ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+ : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ <span>Business News</span>
+ <span className="px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/90 text-blue-900 dark:text-cyan-200 border border-blue-200 dark:border-blue-700/80 text-[10px] font-black shadow-2xs">
+ Live FX
+ </span>
+ </button>
 
-            {/* Pricing / Resources */}
-            <button 
-              type="button" 
-              onClick={onOpenPricing}
-              className="text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8] transition-colors cursor-pointer py-1 font-bold"
-            >
-              Pricing
-            </button>
+ {/* Pricing / Resources */}
+ <button 
+ type="button" 
+ onClick={() => onNavigateSection('pricing')}
+ className={`transition-colors cursor-pointer py-1 font-bold ${
+  currentSection === 'pricing'
+  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ Pricing
+ </button>
 
-            {/* About Us */}
-            <button 
-              type="button" 
-              onClick={onOpenAboutUs}
-              className={`transition-colors cursor-pointer py-1 font-bold ${
-                currentSection === 'about'
-                  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
-                  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
-              }`}
-            >
-              About Us
-            </button>
+ {/* Ghana Card Verification */}
+ <button 
+ type="button" 
+ onClick={() => onNavigateSection('verification')}
+ className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
+  currentSection === 'verification'
+  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ <span>Verification</span>
+ <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
+  Ghana Card
+ </span>
+ </button>
 
-          </nav>
-        </div>
+ {/* About Us */}
+ <button 
+ type="button" 
+ onClick={() => onNavigateSection('about')}
+ className={`transition-colors cursor-pointer py-1 font-bold ${
+  currentSection === 'about'
+  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ About Us
+ </button>
 
-        {/* Action Controls: List Your Business, Theme Switcher & Sign In */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto">
-          
-          {/* Compare Shortcut Pill */}
-          {comparedCount > 0 && (
-            <button
-              type="button"
-              id="nav-compare-btn"
-              onClick={onOpenCompareModal}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/90 text-blue-600 dark:text-cyan-300 text-xs font-bold border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer shrink-0"
-              title="Compare selected businesses"
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Compare</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                {comparedCount}
-              </span>
-            </button>
-          )}
+ {/* Tony's Support Hub */}
+ <button 
+ type="button" 
+ onClick={() => onNavigateSection('support')}
+ className={`transition-colors cursor-pointer py-1 flex items-center gap-1.5 font-bold ${
+  currentSection === 'support'
+  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ <span>Support Hub</span>
+ <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold">
+  Online
+ </span>
+ </button>
 
-          {/* Saved Shortcut Pill */}
-          {savedCount > 0 && (
-            <button
-              type="button"
-              id="nav-saved-btn"
-              onClick={onOpenSavedModal}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 text-xs font-bold border border-slate-200 dark:border-slate-700/80 transition-colors cursor-pointer shrink-0"
-              title="Saved businesses"
-            >
-              <Bookmark className="w-3.5 h-3.5 text-blue-600 dark:text-[#38BDF8]" />
-              <span>Saved</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
-                {savedCount}
-              </span>
-            </button>
-          )}
+ {/* Terms of Service & Trust Standards */}
+ <button 
+ type="button" 
+ onClick={() => onNavigateSection('terms')}
+ className={`transition-colors cursor-pointer py-1 font-bold ${
+  currentSection === 'terms'
+  ? 'text-blue-600 dark:text-[#38BDF8] border-b-2 border-blue-600 dark:border-[#38BDF8] font-black'
+  : 'text-slate-800 dark:text-slate-100 hover:text-blue-600 dark:hover:text-[#38BDF8]'
+ }`}
+ >
+ Terms & Trust
+ </button>
 
-          {/* Desktop Theme Switcher Button */}
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            id="desktop-theme-toggle-btn"
-            className="hidden sm:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 hover:text-blue-600 dark:hover:text-[#38BDF8] text-xs font-bold transition-all cursor-pointer shadow-2xs"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle theme"
-          >
-            {theme === 'dark' ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="hidden xl:inline font-bold">Light</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                <span className="hidden xl:inline font-bold">Dark</span>
-              </>
-            )}
-          </button>
+ </nav>
+ </div>
 
-          {/* Button: List Your Business */}
-          <button
-            type="button"
-            id="nav-list-business-btn"
-            onClick={onOpenRegister}
-            className="hidden sm:inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-slate-800 text-slate-800 dark:text-white hover:bg-blue-50/50 dark:hover:bg-slate-750 transition-all cursor-pointer shadow-2xs"
-          >
-            <Plus className="w-4 h-4 text-blue-600 dark:text-[#38BDF8]" />
-            <span>List Your Business</span>
-          </button>
+ {/* Action Controls: List Your Business, Theme Switcher & Sign In */}
+ <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto">
+ 
+ {/* Compare Shortcut Pill */}
+ {comparedCount > 0 && (
+ <button
+ type="button"
+ id="nav-compare-btn"
+ onClick={onOpenCompareModal}
+ className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/90 text-blue-600 dark:text-cyan-300 text-xs font-bold border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer shrink-0"
+ title="Compare selected businesses"
+ >
+ <Layers className="w-3.5 h-3.5" />
+ <span>Compare</span>
+ <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
+ {comparedCount}
+ </span>
+ </button>
+ )}
 
-          {/* Button: Sign In / User Profile */}
-          {currentUser ? (
-            <div className="flex items-center gap-1 sm:gap-1.5 pl-1 sm:pl-1.5 border-l border-slate-200 dark:border-slate-800 shrink-0">
-              {currentUser.role === 'admin' ? (
-                <button
-                  type="button"
-                  id="nav-admin-dashboard-btn"
-                  onClick={onOpenAdminDashboard}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-750 text-white border border-slate-700 text-[11px] sm:text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
-                  title="Open Admin Dashboard"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-                  <span className="hidden xs:inline">Admin</span>
-                </button>
-              ) : (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) ? (
-                <button
-                  type="button"
-                  id="nav-owner-dashboard-btn"
-                  onClick={onOpenBusinessDashboard}
-                  className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white text-[11px] sm:text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer shrink-0"
-                  title="Open Business Owner Dashboard"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-amber-100 shrink-0" />
-                  {/* Shortened on mobile to ensure logo is never covered */}
-                  <span className="hidden sm:inline">My Business</span>
-                  <span className="inline sm:hidden font-semibold">Business</span>
-                </button>
-              ) : (
-                <button 
-                  type="button"
-                  id="nav-personal-dashboard-btn"
-                  onClick={onOpenPersonalDashboard}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-white border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
-                  title={`Signed in as ${currentUser.name} - Open Personal Dashboard`}
-                >
-                  <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
-                    {currentUser.name.charAt(0).toUpperCase()}
-                  </div>
-                  {/* Text hidden on small screens to guarantee full logo clearance */}
-                  <span className="hidden sm:inline max-w-[90px] truncate text-xs font-semibold">
-                    {currentUser.name.split(' ')[0]}
-                  </span>
-                </button>
-              )}
+ {/* Saved Shortcut Pill */}
+ {savedCount > 0 && (
+ <button
+ type="button"
+ id="nav-saved-btn"
+ onClick={onOpenSavedModal}
+ className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 text-xs font-bold border border-slate-200 dark:border-slate-700/80 transition-colors cursor-pointer shrink-0"
+ title="Saved businesses"
+ >
+ <Bookmark className="w-3.5 h-3.5 text-blue-600 dark:text-[#38BDF8]" />
+ <span>Saved</span>
+ <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-bold">
+ {savedCount}
+ </span>
+ </button>
+ )}
 
-              {/* Desktop-only individual settings and logout (mobile users access via hamburger drawer) */}
-              <button
-                type="button"
-                id="nav-account-settings-btn"
-                onClick={onOpenAccountSettings}
-                className="hidden md:inline-flex p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-blue-600 dark:hover:text-[#38BDF8] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                title="Account & Security Settings / Delete Account"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
+ {/* Desktop Theme Switcher Button */}
+ <button
+ type="button"
+ onClick={onToggleTheme}
+ id="desktop-theme-toggle-btn"
+ className="hidden sm:inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-750 hover:text-blue-600 dark:hover:text-[#38BDF8] text-xs font-bold transition-all cursor-pointer shadow-2xs"
+ title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+ aria-label="Toggle theme"
+ >
+ {theme === 'dark' ? (
+ <>
+ <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+ <span className="hidden xl:inline font-bold">Light</span>
+ </>
+ ) : (
+ <>
+ <Moon className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+ <span className="hidden xl:inline font-bold">Dark</span>
+ </>
+ )}
+ </button>
 
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="hidden md:inline-flex p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              id="nav-signin-btn"
-              onClick={onOpenAuth}
-              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-sm shadow-blue-600/30 transition-all cursor-pointer shrink-0"
-            >
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Sign In</span>
-            </button>
-          )}
+ {/* Button: List Your Business */}
+ <button
+ type="button"
+ id="nav-list-business-btn"
+ onClick={onOpenRegister}
+ className="hidden sm:inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 bg-white dark:bg-slate-800 text-slate-800 dark:text-white hover:bg-blue-50/50 dark:hover:bg-slate-750 transition-all cursor-pointer shadow-2xs"
+ >
+ <Plus className="w-4 h-4 text-blue-600 dark:text-[#38BDF8]" />
+ <span>List Your Business</span>
+ </button>
 
-          {/* Mobile Menu Hamburger Toggle */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-xl text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-            aria-label="Toggle navigation menu"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+ {/* Button: Sign In / User Profile */}
+ {currentUser ? (
+ <div className="flex items-center gap-1 sm:gap-1.5 pl-1 sm:pl-1.5 border-l border-slate-200 dark:border-slate-800 shrink-0">
+ {currentUser.role === 'admin' ? (
+ <button
+ type="button"
+ id="nav-admin-dashboard-btn"
+ onClick={onOpenAdminDashboard}
+ className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-750 text-white border border-slate-700 text-[11px] sm:text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0"
+ title="Open Admin Dashboard"
+ >
+ <LayoutDashboard className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+ <span className="hidden xs:inline">Admin</span>
+ </button>
+ ) : (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) ? (
+ <button
+ type="button"
+ id="nav-owner-dashboard-btn"
+ onClick={onOpenBusinessDashboard}
+ className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white text-[11px] sm:text-xs font-bold shadow-md transition-all cursor-pointer shrink-0"
+ title="Open Business Owner Dashboard"
+ >
+ <Building2 className="w-3.5 h-3.5 text-amber-100 shrink-0" />
+ {/* Shortened on mobile to ensure logo is never covered */}
+ <span className="hidden sm:inline">My Business</span>
+ <span className="inline sm:hidden font-semibold">Business</span>
+ </button>
+ ) : (
+ <button 
+ type="button"
+ id="nav-personal-dashboard-btn"
+ onClick={onOpenPersonalDashboard}
+ className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 text-xs font-bold text-blue-900 dark:text-white border border-blue-200/70 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer shrink-0"
+ title={`Signed in as ${currentUser.name} - Open Personal Dashboard`}
+ >
+ <div className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center shrink-0 shadow-xs">
+ {currentUser.name.charAt(0).toUpperCase()}
+ </div>
+ {/* Text hidden on small screens to guarantee full logo clearance */}
+ <span className="hidden sm:inline max-w-[90px] truncate text-xs font-semibold">
+ {currentUser.name.split(' ')[0]}
+ </span>
+ </button>
+ )}
 
-        </div>
+ {/* Desktop-only individual settings and logout (mobile users access via hamburger drawer) */}
+ <button
+ type="button"
+ id="nav-account-settings-btn"
+ onClick={onOpenAccountSettings}
+ className="hidden md:inline-flex p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-blue-600 dark:hover:text-[#38BDF8] hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+ title="Account & Security Settings / Delete Account"
+ >
+ <Settings className="w-4 h-4" />
+ </button>
 
-      </div>
+ <button
+ type="button"
+ onClick={onSignOut}
+ className="hidden md:inline-flex p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+ title="Sign Out"
+ >
+ <LogOut className="w-4 h-4" />
+ </button>
+ </div>
+ ) : (
+ <button
+ type="button"
+ id="nav-signin-btn"
+ onClick={onOpenAuth}
+ className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-bold shadow-sm transition-all cursor-pointer shrink-0"
+ >
+ <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+ <span>Sign In</span>
+ </button>
+ )}
 
-      {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-4 shadow-xl animate-in slide-in-from-top-2 duration-150">
-          <nav className="flex flex-col space-y-2 text-sm font-bold">
-            <button 
-              type="button" 
-              onClick={() => {
-                onNavigateSection('home');
-                setMobileMenuOpen(false);
-              }}
-              className={`p-2.5 rounded-xl text-left transition-colors font-bold ${
-                currentSection === 'home'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`}
-            >
-              Explore (Home)
-            </button>
+ {/* Mobile Menu Hamburger Toggle */}
+ <button
+ type="button"
+ onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+ className="lg:hidden p-2 rounded-xl text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+ aria-label="Toggle navigation menu"
+ >
+ {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+ </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                onNavigateSection('sectors');
-                setMobileMenuOpen(false);
-              }}
-              className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
-                currentSection === 'sectors'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`}
-            >
-              <span>Sectors & Business Categories</span>
-              <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 text-[10px] font-black">
-                All Categories
-              </span>
-            </button>
+ </div>
 
-            <button 
-              type="button" 
-              onClick={() => {
-                onNavigateSection('news');
-                setMobileMenuOpen(false);
-              }}
-              className={`p-2.5 rounded-xl text-left flex items-center justify-between transition-colors font-bold ${
-                currentSection === 'news'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`}
-            >
-              <span>Business News & Live Forex</span>
-              <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">Live FX</span>
-            </button>
+ </div>
 
-            <button 
-              type="button" 
-              onClick={() => {
-                onOpenPricing();
-                setMobileMenuOpen(false);
-              }}
-              className="p-2.5 rounded-xl text-left text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white font-bold transition-colors"
-            >
-              Pricing & Enlistment
-            </button>
+ {/* Mobile Drawer Menu */}
+ {mobileMenuOpen && (
+ <div className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-4 shadow-xl animate-in slide-in-from-top-2 duration-150">
+ <nav className="flex flex-col space-y-2 text-sm font-bold">
+ <button 
+ type="button" 
+ onClick={() => {
+ onNavigateSection('home');
+ setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left transition-colors font-bold ${
+ currentSection === 'home'
+ ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+ : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ Explore (Home)
+ </button>
 
-            <button 
-              type="button" 
-              onClick={() => {
-                onOpenAboutUs();
-                setMobileMenuOpen(false);
-              }}
-              className={`p-2.5 rounded-xl text-left font-bold transition-colors ${
-                currentSection === 'about'
-                  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
-                  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
-              }`}
-            >
-              About AuraCentra
-            </button>
+ <button
+ type="button"
+ onClick={() => {
+ onNavigateSection('sectors');
+ setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
+ currentSection === 'sectors'
+ ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+ : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ <span>Sectors & Business Categories</span>
+ <span className="px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 text-[10px] font-black">
+ All Categories
+ </span>
+ </button>
 
-            {/* Mobile Drawer Theme Switcher */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-100">
-                {theme === 'dark' ? <Moon className="w-4 h-4 text-cyan-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
-                <span>Appearance Theme</span>
-              </div>
-              <button
-                type="button"
-                onClick={onToggleTheme}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5" />}
-                <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-              </button>
-            </div>
-          </nav>
+ <button 
+ type="button" 
+ onClick={() => {
+ onNavigateSection('news');
+ setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left flex items-center justify-between transition-colors font-bold ${
+ currentSection === 'news'
+ ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+ : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ <span>Business News & Live Forex</span>
+ <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-bold">Live FX</span>
+ </button>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            {currentUser && (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) && (
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenBusinessDashboard?.();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <Building2 className="w-4 h-4 text-cyan-200" />
-                <span>My Business Dashboard</span>
-              </button>
-            )}
+ <button 
+ type="button" 
+ onClick={() => {
+  onNavigateSection('pricing');
+  setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left font-bold transition-colors ${
+  currentSection === 'pricing'
+  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ Pricing & Enlistment
+ </button>
 
-            {currentUser && currentUser.role === 'customer' && (
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenPersonalDashboard?.();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <User className="w-4 h-4 text-cyan-200" />
-                <span>My Personal Dashboard</span>
-              </button>
-            )}
+ <button 
+ type="button" 
+ onClick={() => {
+  onNavigateSection('verification');
+  setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
+  currentSection === 'verification'
+  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ <span>Ghana Card Verification</span>
+ <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+  Gold Badge
+ </span>
+ </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                onOpenRegister();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full py-2.5 px-4 rounded-xl border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold text-xs flex items-center justify-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              <span>List Your Business</span>
-            </button>
+ <button 
+ type="button" 
+ onClick={() => {
+  onNavigateSection('about');
+  setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left font-bold transition-colors ${
+  currentSection === 'about'
+  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ About AuraCentra
+ </button>
 
-            {currentUser && (
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenAccountSettings?.();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center justify-center gap-1.5"
-              >
-                <Settings className="w-4 h-4 text-blue-600 dark:text-[#38BDF8]" />
-                <span>Account & Security Settings</span>
-              </button>
-            )}
+ {/* Tony's Support Hub */}
+ <button 
+ type="button" 
+ onClick={() => {
+  onNavigateSection('support');
+  setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
+  currentSection === 'support'
+  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ <span>Tony&apos;s Support Hub</span>
+ <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold border border-emerald-300 dark:border-emerald-800">
+  Online Assistance
+ </span>
+ </button>
 
-            {currentUser && (
-              <button
-                type="button"
-                onClick={() => {
-                  onSignOut();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sign Out</span>
-              </button>
-            )}
+ {/* Terms of Service & Trust Standards */}
+ <button 
+ type="button" 
+ onClick={() => {
+  onNavigateSection('terms');
+  setMobileMenuOpen(false);
+ }}
+ className={`p-2.5 rounded-xl text-left flex items-center justify-between font-bold transition-colors ${
+  currentSection === 'terms'
+  ? 'bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-cyan-300 font-extrabold border-l-4 border-blue-600 dark:border-cyan-400'
+  : 'text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white'
+ }`}
+ >
+ <span>Terms of Service & Trust</span>
+ <span className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-cyan-300 text-[10px] font-bold">
+  Verified Trust
+ </span>
+ </button>
 
-            {!currentUser && (
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenAuth();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <User className="w-4 h-4" />
-                <span>Sign In to Account</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </header>
-  );
+ {/* Mobile Drawer Theme Switcher */}
+ <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+ <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-100">
+ {theme === 'dark' ? <Moon className="w-4 h-4 text-cyan-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
+ <span>Appearance Theme</span>
+ </div>
+ <button
+ type="button"
+ onClick={onToggleTheme}
+ className="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 cursor-pointer shadow-xs"
+ >
+ {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-300" /> : <Moon className="w-3.5 h-3.5" />}
+ <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+ </button>
+ </div>
+ </nav>
+
+ <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+ {currentUser && (currentUser.role === 'business_owner' || currentUser.role === 'verified_owner' || (currentUser.ownedBusinessIds && currentUser.ownedBusinessIds.length > 0)) && (
+ <button
+ type="button"
+ onClick={() => {
+ onOpenBusinessDashboard?.();
+ setMobileMenuOpen(false);
+ }}
+ className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+ >
+ <Building2 className="w-4 h-4 text-cyan-200" />
+ <span>My Business Dashboard</span>
+ </button>
+ )}
+
+ {currentUser && currentUser.role === 'customer' && (
+ <button
+ type="button"
+ onClick={() => {
+ onOpenPersonalDashboard?.();
+ setMobileMenuOpen(false);
+ }}
+ className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+ >
+ <User className="w-4 h-4 text-cyan-200" />
+ <span>My Personal Dashboard</span>
+ </button>
+ )}
+
+ <button
+ type="button"
+ onClick={() => {
+ onOpenRegister();
+ setMobileMenuOpen(false);
+ }}
+ className="w-full py-2.5 px-4 rounded-xl border border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-bold text-xs flex items-center justify-center gap-1.5"
+ >
+ <Plus className="w-4 h-4" />
+ <span>List Your Business</span>
+ </button>
+
+ {currentUser && (
+ <button
+ type="button"
+ onClick={() => {
+ onOpenAccountSettings?.();
+ setMobileMenuOpen(false);
+ }}
+ className="w-full py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs flex items-center justify-center gap-1.5"
+ >
+ <Settings className="w-4 h-4 text-blue-600 dark:text-[#38BDF8]" />
+ <span>Account & Security Settings</span>
+ </button>
+ )}
+
+ {currentUser && (
+ <button
+ type="button"
+ onClick={() => {
+ onSignOut();
+ setMobileMenuOpen(false);
+ }}
+ className="w-full py-2.5 px-4 rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+ >
+ <LogOut className="w-4 h-4" />
+ <span>Sign Out</span>
+ </button>
+ )}
+
+ {!currentUser && (
+ <button
+ type="button"
+ onClick={() => {
+ onOpenAuth();
+ setMobileMenuOpen(false);
+ }}
+ className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs"
+ >
+ <User className="w-4 h-4" />
+ <span>Sign In to Account</span>
+ </button>
+ )}
+ </div>
+ </div>
+ )}
+ </header>
+ );
 };

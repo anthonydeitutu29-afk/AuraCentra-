@@ -4,7 +4,10 @@ import {
   MapPin, 
   ArrowRight,
   ChevronDown,
-  Building2
+  Building2,
+  ShieldCheck,
+  CheckCircle2,
+  Sparkles
 } from 'lucide-react';
 import { Business, Category, FilterState } from '../types';
 import { GHANA_REGIONS } from '../utils/geolocationService';
@@ -104,39 +107,43 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
     : [];
 
   return (
-    <div className="relative w-full bg-gradient-to-b from-[#0a183d] via-[#0d2254] to-[#081534] text-white border-b border-blue-950/80 overflow-hidden">
-      {/* Ambient royal blue and indigo background glows */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#155DFC]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-10 w-[450px] h-[450px] bg-blue-400/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16">
+    <div className="relative w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 transition-colors" id="hero-search-section">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           
-          {/* Left Column: Typography, Search Bar, Popular Tags */}
+          {/* Left Column: Typography, Search Bar, Popular Tags, Platform Highlights */}
           <div className="lg:col-span-7 space-y-5 sm:space-y-6">
 
-            {/* Main Headline */}
-            <div className="space-y-1">
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-white">
+            {/* Official Nationwide Directory Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-800/80 text-blue-800 dark:text-blue-300 text-xs font-bold w-fit shadow-2xs">
+              <ShieldCheck className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
+              <span>Ghana's Official Verified Directory</span>
+              <span className="text-blue-300 dark:text-blue-700">•</span>
+              <span className="text-blue-700 dark:text-blue-300 font-semibold">All 16 Regions</span>
+            </div>
+
+            {/* Main Headline - High contrast on plain background */}
+            <div className="space-y-2">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] text-slate-950 dark:text-white">
                 Discover more.<br />
-                <span className="text-[#3b82f6] dark:text-[#60a5fa]">Get discovered.</span>
+                <span className="text-[#155DFC] dark:text-[#38BDF8]">Get discovered.</span>
               </h1>
             </div>
 
-            {/* Subtitle */}
-            <p className="text-sm sm:text-base text-blue-100/90 max-w-xl font-normal leading-relaxed">
+            {/* Subtitle - Sharp & readable */}
+            <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 max-w-xl font-medium leading-relaxed">
               Find verified businesses, vetted service providers, and authentic suppliers across all 16 regions of Ghana.
             </p>
 
-            {/* Integrated Search Bar with clean Blue & White Branding */}
+            {/* Integrated Search Bar with clean High-Contrast Borders */}
             <div ref={searchContainerRef} className="relative z-30 max-w-2xl pt-1">
               <form
                 onSubmit={handleSearchSubmit}
-                className="bg-white dark:bg-[#0c1c42] rounded-2xl sm:rounded-full p-1.5 sm:p-2 shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-blue-200/50 dark:border-blue-800/60 focus-within:border-[#155DFC] focus-within:ring-2 focus-within:ring-blue-500/20 transition-all"
+                className="bg-white dark:bg-slate-900 rounded-2xl p-2 sm:p-2.5 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-slate-300 dark:border-slate-700 focus-within:border-[#155DFC] dark:focus-within:border-[#38BDF8] transition-all"
               >
                 {/* Search Text Input */}
-                <div className="flex-1 flex items-center gap-2.5 px-3.5 py-2 min-w-0">
-                  <Search className="w-4 h-4 text-slate-400 dark:text-blue-300 shrink-0" />
+                <div className="flex-1 flex items-center gap-2.5 px-3 py-2 min-w-0">
+                  <Search className="w-4 h-4 text-slate-500 dark:text-blue-400 shrink-0" />
                   <input
                     type="text"
                     id="hero-main-search-input"
@@ -147,7 +154,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                     }}
                     onFocus={() => setIsFocused(true)}
                     placeholder="Search businesses, services or locations"
-                    className="w-full bg-transparent text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-blue-200/60 focus:outline-hidden"
+                    className="w-full bg-transparent text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder-slate-400 focus:outline-hidden"
                   />
                   {inputValue && (
                     <button
@@ -156,18 +163,19 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                         setInputValue('');
                         onFilterChange({ searchQuery: '' });
                       }}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1"
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1 cursor-pointer"
+                      title="Clear search input"
                     >
                       ✕
                     </button>
                   )}
                 </div>
 
-                <div className="hidden sm:block w-px h-6 bg-slate-200 dark:bg-blue-800/80" />
+                <div className="hidden sm:block w-px h-7 bg-slate-200 dark:bg-slate-700" />
 
                 {/* Region Dropdown */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-blue-950/60 sm:bg-transparent rounded-xl sm:rounded-none">
-                  <MapPin className="w-4 h-4 text-[#155DFC] dark:text-blue-400 shrink-0" />
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/80 sm:bg-transparent rounded-xl sm:rounded-none border border-slate-200 dark:border-slate-700 sm:border-0">
+                  <MapPin className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
                   <select
                     id="hero-region-select"
                     value={selectedRegion}
@@ -175,7 +183,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                       setSelectedRegion(e.target.value);
                       onFilterChange({ region: e.target.value === 'All Regions' ? '' : e.target.value });
                     }}
-                    className="bg-transparent text-xs sm:text-sm text-slate-800 dark:text-white font-medium focus:outline-hidden cursor-pointer"
+                    className="bg-transparent text-xs sm:text-sm font-bold text-slate-800 dark:text-white focus:outline-hidden cursor-pointer"
                   >
                     <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All Regions</option>
                     {GHANA_REGIONS.map((reg) => (
@@ -190,17 +198,18 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                 <button
                   type="submit"
                   id="hero-submit-search-btn"
-                  className="px-6 py-2.5 rounded-xl sm:rounded-full bg-[#155DFC] hover:bg-blue-700 text-white text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-full bg-[#155DFC] hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-black shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
+                  <Search className="w-4 h-4 shrink-0" />
                   <span>Search</span>
                 </button>
               </form>
 
               {/* Autocomplete Dropdown */}
               {isFocused && trimmed && matchedBusinesses.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50 animate-in fade-in duration-100">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in duration-100">
                   <div className="p-2 space-y-1">
-                    <div className="text-[11px] font-bold text-slate-500 dark:text-cyan-300 uppercase tracking-wider px-3 py-1.5">
+                    <div className="text-[11px] font-bold text-slate-600 dark:text-cyan-300 uppercase tracking-wider px-3 py-1.5">
                       Matching Verified Businesses
                     </div>
                     {matchedBusinesses.map((biz) => (
@@ -211,7 +220,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           onSelectBusiness(biz);
                           setIsFocused(false);
                         }}
-                        className="w-full px-3 py-2 rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors text-left"
+                        className="w-full px-3 py-2 rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors text-left cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
                           <img
@@ -221,7 +230,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           />
                           <div>
                             <div className="text-xs font-bold text-slate-900 dark:text-white">{biz.name}</div>
-                            <div className="text-[11px] text-slate-500 dark:text-slate-300">{biz.city}, {biz.region} • {biz.category}</div>
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">{biz.city}, {biz.region} • {biz.category}</div>
                           </div>
                         </div>
                         <ArrowRight className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8]" />
@@ -234,48 +243,30 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
 
             {/* Popular Searches Pills */}
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-              <span className="text-blue-200/80 font-medium">Popular searches:</span>
-              <button
-                type="button"
-                onClick={() => handleQuickTagClick('Restaurants')}
-                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium backdrop-blur-xs transition-all cursor-pointer"
-              >
-                Restaurants
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickTagClick('Building Materials')}
-                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium backdrop-blur-xs transition-all cursor-pointer"
-              >
-                Building Materials
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickTagClick('Fashion')}
-                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium backdrop-blur-xs transition-all cursor-pointer"
-              >
-                Fashion
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickTagClick('Automotive')}
-                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white border border-white/20 font-medium backdrop-blur-xs transition-all cursor-pointer"
-              >
-                Automotive
-              </button>
+              <span className="text-slate-700 dark:text-slate-300 font-bold">Popular searches:</span>
+              {['Restaurants', 'Building Materials', 'Fashion', 'Automotive'].map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => handleQuickTagClick(item)}
+                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold transition-all cursor-pointer shadow-2xs"
+                >
+                  {item}
+                </button>
+              ))}
 
               <div className="relative inline-block">
                 <button
                   type="button"
                   onClick={() => setShowMorePills(!showMorePills)}
-                  className="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/20 text-blue-200 border border-white/20 font-medium backdrop-blur-xs transition-all inline-flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
                 >
                   <span>More</span>
-                  <ChevronDown className="w-3 h-3" />
+                  <ChevronDown className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                 </button>
 
                 {showMorePills && (
-                  <div className="absolute left-0 mt-1.5 w-44 bg-white dark:bg-slate-900 border border-blue-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 z-40 space-y-1">
+                  <div className="absolute left-0 mt-1.5 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 z-40 space-y-1">
                     {['Technology', 'Real Estate', 'Healthcare', 'Legal Services', 'Digital Marketing', 'Agriculture', 'Hospitality'].map((item) => (
                       <button
                         key={item}
@@ -284,7 +275,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                           handleQuickTagClick(item);
                           setShowMorePills(false);
                         }}
-                        className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer font-medium"
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       >
                         {item}
                       </button>
@@ -294,25 +285,41 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               </div>
             </div>
 
+            {/* Value Guarantees Row */}
+            <div className="pt-2 flex flex-wrap items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>100% Verified Listings</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
+                <span>Direct WhatsApp & Call</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Zero Broker Fees</span>
+              </div>
+            </div>
+
           </div>
 
-          {/* Right Column: Clean, seamless Ghanaian Business Showcase without grey ash card container */}
+          {/* Right Column: Clean Ghanaian Business Showcase on plain background */}
           <div className="lg:col-span-5 relative">
-            <div className="space-y-4">
+            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
               
-              {/* Top Showcase Header directly on the canvas */}
-              <div className="flex items-center justify-between pb-3 border-b border-white/15 dark:border-blue-900/60">
+              {/* Top Showcase Header */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-200 flex items-center justify-center font-bold text-xs border border-blue-400/30">
+                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white flex items-center justify-center font-bold text-sm border border-slate-200 dark:border-slate-700">
                     🇬🇭
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Featured Enterprise Hub</h3>
-                    <p className="text-[11px] text-blue-200/80">Vetted & Licensed Ghanaian Providers</p>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Featured Enterprise Hub</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Vetted & Licensed Ghanaian Providers</p>
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-200 text-[10px] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Live Verified
                 </span>
               </div>
@@ -324,16 +331,16 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                   businesses.find((b) => !isDeletedBusiness(b) && b.verificationStatus === 'verified' && b.listingStatus === 'active');
                 if (!featuredBiz) {
                   return (
-                    <div className="py-10 px-4 rounded-2xl bg-white/5 border border-dashed border-white/20 flex flex-col items-center justify-center text-center space-y-2.5">
-                      <div className="w-11 h-11 rounded-2xl bg-blue-500/20 text-blue-300 flex items-center justify-center">
+                    <div className="py-10 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center space-y-2.5">
+                      <div className="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center">
                         <Building2 className="w-5 h-5" />
                       </div>
                       <div className="space-y-1">
-                        <h4 className="text-xs sm:text-sm font-bold text-white">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
                           Verified Enterprises
                         </h4>
-                        <p className="text-[11px] text-blue-200/80 max-w-xs mx-auto">
-                          Verified businesses approved by website administrators will be highlighted here.
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                          Verified businesses approved by administrators will be highlighted here.
                         </p>
                       </div>
                     </div>
@@ -343,10 +350,10 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                 return (
                   <div 
                     onClick={() => onSelectBusiness(featuredBiz)}
-                    className="p-4 rounded-2xl bg-white/10 dark:bg-white/5 border border-white/20 dark:border-blue-800/40 hover:border-white/40 hover:bg-white/15 backdrop-blur-md transition-all cursor-pointer group space-y-3 shadow-xl"
+                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer group space-y-3 shadow-xs hover:border-[#155DFC] dark:hover:border-blue-500"
                   >
                     <div className="flex items-center gap-3.5">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shrink-0 border border-white/30 relative shadow-md p-1 z-10">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shrink-0 border border-slate-200 dark:border-slate-700 relative p-1 z-10">
                         <img 
                           src={featuredBiz.logo || featuredBiz.coverImage || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=80'} 
                           alt={featuredBiz.name}
@@ -355,7 +362,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <h4 className="text-sm font-bold text-white group-hover:text-blue-300 transition-colors truncate">
+                          <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-[#155DFC] dark:group-hover:text-[#38BDF8] transition-colors truncate">
                             {featuredBiz.name}
                           </h4>
                           {featuredBiz.verificationStatus === 'verified' && (
@@ -364,19 +371,19 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-blue-100/90 flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-[#38bdf8] shrink-0" />
+                        <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
                           <span className="truncate">{featuredBiz.city}, {featuredBiz.region}</span>
                           <span>•</span>
-                          <span className="text-blue-200 font-semibold">{featuredBiz.category}</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-semibold">{featuredBiz.category}</span>
                         </div>
                         <div className="text-xs font-bold flex items-center gap-1 mt-1">
                           {featuredBiz.reviewCount > 0 && featuredBiz.rating > 0 ? (
-                            <span className="text-amber-300 flex items-center gap-1">
-                              ★ {featuredBiz.rating.toFixed(1)} <span className="text-blue-200/70 font-normal">({featuredBiz.reviewCount} {featuredBiz.reviewCount === 1 ? 'review' : 'reviews'})</span>
+                            <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              ★ {featuredBiz.rating.toFixed(1)} <span className="text-slate-500 font-normal">({featuredBiz.reviewCount} {featuredBiz.reviewCount === 1 ? 'review' : 'reviews'})</span>
                             </span>
                           ) : (
-                            <span className="text-blue-200/70 font-normal">
+                            <span className="text-slate-500 font-normal">
                               ★ Unrated (0 reviews)
                             </span>
                           )}
@@ -388,24 +395,24 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               })()}
 
               {/* Bottom Quick Summary Bar */}
-              <div className="pt-2 flex items-center justify-between text-xs text-blue-200/80 border-t border-white/15 dark:border-blue-900/60">
+              <div className="pt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800">
                 <span className="flex items-center gap-1">
-                  <span className="text-white font-bold">16</span> Ghana Regions
+                  <span className="text-slate-900 dark:text-white font-bold">16</span> Ghana Regions
                 </span>
-                <span className="text-blue-300/40">•</span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
                 <span className="flex items-center gap-1">
-                  <span className="text-emerald-400 font-bold">100%</span> Vetted Contacts
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">100%</span> Vetted Contacts
                 </span>
-                <span className="text-blue-300/40">•</span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
                 <button
                   type="button"
                   onClick={() => {
                     const directoryEl = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
                     directoryEl?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="text-white hover:text-blue-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-[#155DFC] dark:text-[#38BDF8] hover:underline font-bold flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  <span>Explore</span>
+                  <span>Explore All</span>
                   <ArrowRight className="w-3 h-3" />
                 </button>
               </div>

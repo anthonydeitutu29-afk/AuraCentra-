@@ -91,7 +91,7 @@ export const CategoryExploreRow: React.FC<CategoryExploreRowProps> = ({
               onClick={() => onSelectCategory(isSelected ? '' : targetId)}
               className={`p-3.5 sm:p-4 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-2.5 cursor-pointer ${
                 isSelected
-                  ? 'bg-[#155DFC] text-white border-[#155DFC] shadow-md shadow-blue-600/20'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                   : 'bg-white dark:bg-black/40 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-[#155DFC] hover:shadow-xs'
               }`}
             >

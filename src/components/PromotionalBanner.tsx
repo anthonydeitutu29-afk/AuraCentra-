@@ -200,26 +200,26 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({
   const isOffer = currentPromo.type === 'offer';
   const isEvent = currentPromo.type === 'event';
 
-  let containerBg = 'bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white border-blue-700/60 shadow-blue-950/20';
-  let badgeStyle = 'bg-blue-500/30 text-cyan-300 border-blue-400/30';
-  let accentButton = 'bg-cyan-400 hover:bg-cyan-300 text-blue-950';
-  let iconComponent = <Megaphone className="w-5 h-5 text-cyan-300" />;
+  let containerBg = 'bg-slate-900/95 text-white border-slate-700/80 shadow-sm';
+  let badgeStyle = 'bg-slate-800 text-slate-200 border-slate-700';
+  let accentButton = 'bg-slate-100 hover:bg-white text-slate-950';
+  let iconComponent = <Megaphone className="w-5 h-5 text-slate-200" />;
 
   if (isUrgent) {
-    containerBg = 'bg-gradient-to-r from-amber-950 via-rose-950 to-slate-950 text-white border-amber-600/40 shadow-amber-950/20';
-    badgeStyle = 'bg-amber-500/25 text-amber-300 border-amber-500/40';
-    accentButton = 'bg-amber-400 hover:bg-amber-300 text-slate-950';
-    iconComponent = <AlertTriangle className="w-5 h-5 text-amber-400 animate-pulse" />;
+    containerBg = 'bg-slate-900/95 text-white border-amber-600/40 shadow-sm';
+    badgeStyle = 'bg-amber-950/80 text-amber-300 border-amber-500/40';
+    accentButton = 'bg-amber-500 hover:bg-amber-400 text-slate-950';
+    iconComponent = <AlertTriangle className="w-5 h-5 text-amber-400" />;
   } else if (isOffer) {
-    containerBg = 'bg-gradient-to-r from-blue-950 via-blue-900 to-cyan-950 text-white border-cyan-500/30 shadow-cyan-950/20';
-    badgeStyle = 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40';
-    accentButton = 'bg-gradient-to-r from-cyan-400 to-blue-400 hover:from-cyan-300 hover:to-blue-300 text-slate-950';
-    iconComponent = <Gift className="w-5 h-5 text-cyan-300" />;
+    containerBg = 'bg-slate-900/95 text-white border-slate-700/80 shadow-sm';
+    badgeStyle = 'bg-slate-800 text-cyan-300 border-slate-700';
+    accentButton = 'bg-slate-100 hover:bg-white text-slate-950';
+    iconComponent = <Gift className="w-5 h-5 text-slate-200" />;
   } else if (isEvent) {
-    containerBg = 'bg-gradient-to-r from-indigo-950 via-slate-900 to-blue-950 text-white border-indigo-500/40 shadow-indigo-950/20';
-    badgeStyle = 'bg-indigo-500/30 text-indigo-200 border-indigo-400/40';
-    accentButton = 'bg-indigo-400 hover:bg-indigo-300 text-slate-950';
-    iconComponent = <Calendar className="w-5 h-5 text-indigo-300" />;
+    containerBg = 'bg-slate-900/95 text-white border-slate-700/80 shadow-sm';
+    badgeStyle = 'bg-slate-800 text-indigo-300 border-slate-700';
+    accentButton = 'bg-slate-100 hover:bg-white text-slate-950';
+    iconComponent = <Calendar className="w-5 h-5 text-slate-200" />;
   }
 
   return (
@@ -231,10 +231,7 @@ export const PromotionalBanner: React.FC<PromotionalBannerProps> = ({
       onTouchEnd={() => setIsPaused(false)}
       id="promotional-announcement-banner"
     >
-      <div className={`relative w-full rounded-2xl sm:rounded-3xl border shadow-lg backdrop-blur-md p-3.5 sm:p-5 transition-all ${containerBg}`}>
-        {/* Subtle Decorative Ambient Background Glow */}
-        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-cyan-400/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+      <div className={`relative w-full rounded-2xl sm:rounded-3xl border shadow-sm backdrop-blur-md p-3.5 sm:p-5 transition-all ${containerBg}`}>
 
         {/* Top Bar for Small Mobile: Badge + Controls */}
         <div className="flex items-center justify-between gap-2 mb-2 sm:mb-0">

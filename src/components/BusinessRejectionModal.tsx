@@ -401,7 +401,7 @@ export const BusinessRejectionModal: React.FC<BusinessRejectionModalProps> = ({
               type="button"
               disabled={isDispatching}
               onClick={() => handleConfirm('save')}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-md shadow-rose-900/30 transition-all cursor-pointer"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
             >
               <span>Reject & Save</span>
             </button>
@@ -410,7 +410,7 @@ export const BusinessRejectionModal: React.FC<BusinessRejectionModalProps> = ({
               type="button"
               disabled={isDispatching}
               onClick={() => handleConfirm('email')}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold shadow-md shadow-amber-900/30 transition-all cursor-pointer"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold shadow-xs transition-all cursor-pointer"
               title="Reject and launch your default email client with the generated template"
             >
               <Mail className="w-3.5 h-3.5" />
@@ -421,7 +421,7 @@ export const BusinessRejectionModal: React.FC<BusinessRejectionModalProps> = ({
               type="button"
               disabled={isDispatching}
               onClick={() => handleConfirm('whatsapp')}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-900/30 transition-all cursor-pointer"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
               title="Reject and launch WhatsApp notice to owner"
             >
               <MessageSquare className="w-3.5 h-3.5" />

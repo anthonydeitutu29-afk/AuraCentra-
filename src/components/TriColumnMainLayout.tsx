@@ -495,15 +495,15 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
 
           {/* Newly Approved Enlistment Alert Banner */}
           {newlyApprovedBiz && (
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-teal-950/50 to-slate-900 border border-emerald-500/50 flex items-center justify-between gap-3 shadow-lg animate-in slide-in-from-top-2">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-700/80 flex items-center justify-between gap-3 shadow-lg animate-in slide-in-from-top-2">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-5 h-5 text-emerald-400 animate-pulse" />
+                <div className="w-10 h-10 rounded-xl bg-slate-800 text-emerald-400 border border-slate-700 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-wider border border-emerald-500/30">
-                      ⚡ Enlisted Live Just Now
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 text-[10px] font-bold uppercase tracking-wider border border-emerald-500/30">
+                      Enlisted Live
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-white">
                       {newlyApprovedBiz.name}
@@ -517,7 +517,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectBusiness(newlyApprovedBiz)}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md"
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs border border-emerald-500/30"
               >
                 View Listing
               </button>
@@ -576,17 +576,17 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       {isRecentlyApproved ? (
-                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-black flex items-center gap-1 shadow-md animate-pulse">
-                          <Sparkles className="w-2.5 h-2.5 text-amber-300 fill-amber-300" />
-                          <span>⚡ ENLISTED</span>
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/90 text-emerald-400 border border-emerald-500/40 text-[9px] font-bold flex items-center gap-1 shadow-xs backdrop-blur-md">
+                          <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
+                          <span>ENLISTED</span>
                         </div>
                       ) : biz.isFeatured ? (
-                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-extrabold flex items-center gap-1 shadow-md">
-                          <Star className="w-2.5 h-2.5 fill-white" />
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/90 text-amber-300 border border-amber-500/40 text-[9px] font-bold flex items-center gap-1 shadow-xs backdrop-blur-md">
+                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                           <span>FEATURED</span>
                         </div>
                       ) : biz.verificationStatus === 'verified' && (
-                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-[#155DFC] text-white text-[9px] font-extrabold flex items-center gap-1 shadow-md">
+                        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/90 text-blue-300 border border-blue-500/40 text-[9px] font-bold flex items-center gap-1 shadow-xs backdrop-blur-md">
                           <CheckCircle2 className="w-2.5 h-2.5" />
                           <span>VERIFIED</span>
                         </div>
@@ -679,7 +679,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                           e.stopPropagation();
                           contactBusinessOnWhatsApp(biz);
                         }}
-                        className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white transition-colors cursor-pointer"
+                        className="p-2 rounded-xl bg-blue-50/70 dark:bg-slate-800/90 backdrop-blur-md text-[#155DFC] dark:text-[#38BDF8] hover:bg-[#155DFC] hover:text-white dark:hover:bg-[#155DFC] dark:hover:text-white transition-colors border border-blue-200/80 dark:border-slate-700/80 cursor-pointer"
                         title="Chat directly on WhatsApp"
                       >
                         <MessageSquare className="w-4 h-4" />

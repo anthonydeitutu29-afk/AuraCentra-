@@ -89,7 +89,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
   return (
     <div 
-      className="group relative bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-xl hover:shadow-blue-600/10 hover:border-[#155DFC] dark:hover:border-[#38BDF8] transition-all duration-300 hover:-translate-y-1 transform-gpu flex flex-col overflow-hidden will-change-transform"
+      className="group relative bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-xl hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300 hover:-translate-y-1 transform-gpu flex flex-col overflow-hidden will-change-transform"
       id={`business-card-${business.id}`}
     >
       {/* Cover Image & Action Badges */}
@@ -111,9 +111,9 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
         <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-1.5 flex-wrap">
             {isJustEnlisted && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-600 text-white backdrop-blur-md shadow-md border border-emerald-400/50 animate-pulse">
-                <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
-                <span>⚡ Just Enlisted</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-900/90 dark:bg-slate-800/90 text-emerald-400 backdrop-blur-md border border-emerald-500/40 shadow-xs">
+                <Sparkles className="w-3 h-3 text-emerald-400" />
+                <span>Just Enlisted</span>
               </span>
             )}
 
@@ -122,8 +122,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             </span>
 
             {formattedDistance && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold bg-[#155DFC] text-white backdrop-blur-md shadow-md border border-blue-400/40 animate-in fade-in duration-150">
-                <MapPin className="w-3 h-3 text-cyan-300 fill-cyan-300" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900/90 dark:bg-slate-800/90 text-white backdrop-blur-md shadow-xs border border-white/20">
+                <MapPin className="w-3 h-3 text-slate-300" />
                 <span>{formattedDistance}</span>
               </span>
             )}
@@ -404,7 +404,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
             <button
               type="button"
               onClick={() => onQuickContactWhatsApp(business)}
-              className="inline-flex items-center justify-center p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all shadow-xs border border-emerald-200/80 dark:border-emerald-800/60 cursor-pointer min-h-[38px] min-w-[38px]"
+              className="inline-flex items-center justify-center p-2.5 rounded-xl bg-blue-50/70 dark:bg-slate-800/90 backdrop-blur-md text-[#155DFC] dark:text-[#38BDF8] hover:bg-[#155DFC] hover:text-white dark:hover:bg-[#155DFC] dark:hover:text-white transition-all border border-blue-200/80 dark:border-slate-700/80 shadow-xs cursor-pointer min-h-[38px] min-w-[38px]"
               title="Chat directly on WhatsApp"
               aria-label="WhatsApp chat"
             >

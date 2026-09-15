@@ -77,7 +77,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
           aria-hidden="true"
         >
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/90 dark:bg-slate-800/95 text-white text-[10px] font-mono font-bold tracking-tight shadow-md border border-slate-700/50 backdrop-blur-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
             <span className="text-cyan-300">{Math.round(scrollProgress)}%</span>
             <span className="text-slate-400 text-[9px] uppercase hidden xs:inline">Explored</span>
           </div>

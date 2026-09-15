@@ -206,11 +206,11 @@ export const AdminLocationTracker: React.FC<AdminLocationTrackerProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="p-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-cyan-400">
-              <Radio className="w-5 h-5 animate-pulse text-cyan-400" />
+              <Radio className="w-5 h-5 text-cyan-400" />
             </span>
             <h2 className="text-xl font-bold tracking-tight">Live User Geolocation & Activity Tracker</h2>
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               Live Presence Tracking Active
             </span>
           </div>
@@ -265,7 +265,7 @@ export const AdminLocationTracker: React.FC<AdminLocationTrackerProps> = ({
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-white">{stats.total}</span>
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Real-time
             </span>
           </div>

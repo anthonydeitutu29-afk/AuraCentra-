@@ -189,7 +189,7 @@ export const SecureLogoutModal: React.FC<SecureLogoutModalProps> = ({
             <button
               type="submit"
               disabled={loading || !password.trim()}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               {loading ? (
                 <>

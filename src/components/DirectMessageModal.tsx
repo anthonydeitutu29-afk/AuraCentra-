@@ -149,7 +149,7 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 text-white flex items-center justify-between shadow-md shrink-0">
+        <div className="p-4 sm:p-5 bg-slate-900 dark:bg-slate-800 text-white flex items-center justify-between border-b border-slate-700/80 shadow-xs shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <img 
               src={business.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&q=80'} 
@@ -165,8 +165,8 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-xs text-blue-100">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
                 <span>Direct Live Messaging Desk</span>
                 <span>•</span>
                 <span className="truncate">{business.city}</span>

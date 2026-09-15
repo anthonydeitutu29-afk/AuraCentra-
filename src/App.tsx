@@ -107,6 +107,10 @@ const PersonalAccountDashboard = lazy(() => import('./components/PersonalAccount
 const GhanaNewsPage = lazy(() => import('./components/GhanaNewsPage').then((m) => ({ default: m.GhanaNewsPage })));
 const SectorsPage = lazy(() => import('./components/SectorsPage').then((m) => ({ default: m.SectorsPage })));
 const AboutPage = lazy(() => import('./components/AboutPage').then((m) => ({ default: m.AboutPage })));
+const PricingPage = lazy(() => import('./components/PricingPage').then((m) => ({ default: m.PricingPage })));
+const SupportHubPage = lazy(() => import('./components/SupportHubPage').then((m) => ({ default: m.SupportHubPage })));
+const TermsPage = lazy(() => import('./components/TermsPage').then((m) => ({ default: m.TermsPage })));
+const VerificationPage = lazy(() => import('./components/VerificationPage').then((m) => ({ default: m.VerificationPage })));
 import { dispatchApprovalNotification, dispatchRejectionNotification } from './utils/notificationService';
 import { generateRejectionEmailTemplate } from './utils/rejectionEmailGenerator';
 import { useWhatsAppContact } from './hooks/useWhatsAppContact';
@@ -166,14 +170,33 @@ export default function App() {
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>(getStoredCategorySuggestions);
   const [feedback, setFeedback] = useState<PlatformFeedback[]>(getStoredFeedback);
 
-  // Navigation section state: 'home' | 'news' | 'sectors' | 'about'
-  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news' | 'sectors' | 'about'>('home');
+  // Navigation section state: 'home' | 'news' | 'sectors' | 'pricing' | 'about' | 'support' | 'terms' | 'verification'
+  const [currentNavTab, setCurrentNavTab] = useState<'home' | 'news' | 'sectors' | 'pricing' | 'about' | 'support' | 'terms' | 'verification'>('home');
   const [aboutPageTab, setAboutPageTab] = useState<AboutPageTab>('about');
 
   const handleOpenAboutPage = (tab: AboutPageTab = 'about') => {
+    if (tab === 'pricing') {
+      setCurrentNavTab('pricing');
+      window.location.hash = '#pricing';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (tab === 'terms') {
+      setCurrentNavTab('terms');
+      window.location.hash = '#terms';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (tab === 'verification') {
+      setCurrentNavTab('verification');
+      window.location.hash = '#verification';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setAboutPageTab(tab);
     setAboutUsInitialTab(tab);
     setCurrentNavTab('about');
+    window.location.hash = '#about';
     setIsAboutUsModalOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -423,6 +446,36 @@ export default function App() {
         setSelectedBusiness(null);
         setCurrentNavTab('sectors');
         document.title = 'Explore Ghana Business Sectors | AuraCentra';
+        return;
+      } else if (hash === '#pricing' || hash === '#packages' || hash === '#enlist-pricing') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('pricing');
+        document.title = 'Pricing & Enlistment Packages | AuraCentra Ghana';
+        return;
+      } else if (hash === '#verification' || hash === '#verify' || hash === '#ghana-card' || hash === '#integrity') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('verification');
+        document.title = 'Ghana Card Business Verification | AuraCentra Ghana';
+        return;
+      } else if (hash === '#about' || hash === '#about-us' || hash === '#mission') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('about');
+        document.title = 'About Us & National Mission | AuraCentra Ghana';
+        return;
+      } else if (hash === '#support' || hash === '#contact' || hash === '#help' || hash === '#tonys-hub') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('support');
+        document.title = "Tony's Support Hub & Direct Assistance | AuraCentra Ghana";
+        return;
+      } else if (hash === '#terms' || hash === '#privacy' || hash === '#trust' || hash === '#policy') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('terms');
+        document.title = 'Terms of Service & Trust Standards | AuraCentra Ghana';
+        return;
+      } else if (hash === '#home' || hash === '#explore') {
+        setSelectedBusiness(null);
+        setCurrentNavTab('home');
+        document.title = 'AuraCentra Ghana • Verified Business Directory';
         return;
       }
 
@@ -1748,10 +1801,20 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
-          handleOpenAboutPage('about');
+          setCurrentNavTab('about');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenPricing={() => {
-          handleOpenAboutPage('pricing');
+          setCurrentNavTab('pricing');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenSupport={() => {
+          setCurrentNavTab('support');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenTerms={() => {
+          setCurrentNavTab('terms');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         currentUser={currentUser}
         savedCount={savedBusinessIds.length}
@@ -1808,6 +1871,54 @@ export default function App() {
             setCurrentView('personal_dashboard');
           }}
         />
+      ) : currentNavTab === 'pricing' ? (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <PricingPage
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.location.hash = '';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenRegister={handleOpenRegisterModal}
+            onShowToast={showToast}
+          />
+        </Suspense>
+      ) : currentNavTab === 'verification' ? (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <VerificationPage
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.location.hash = '';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenRegister={handleOpenRegisterModal}
+            onShowToast={showToast}
+          />
+        </Suspense>
+      ) : currentNavTab === 'support' ? (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <SupportHubPage
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.location.hash = '';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenRegister={handleOpenRegisterModal}
+            onShowToast={showToast}
+          />
+        </Suspense>
+      ) : currentNavTab === 'terms' ? (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+          <TermsPage
+            onBackToHome={() => {
+              setCurrentNavTab('home');
+              window.location.hash = '';
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenRegister={handleOpenRegisterModal}
+            onShowToast={showToast}
+          />
+        </Suspense>
       ) : currentNavTab === 'about' ? (
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
           <AboutPage
@@ -2036,7 +2147,12 @@ export default function App() {
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
       {/* 10. Floating Contact Hub */}
-      <FloatingContactHub />
+      <FloatingContactHub
+        onOpenSupportPage={() => {
+          setCurrentNavTab('support');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
 
       {/* 11. Global Platform Footer */}
       <Footer
@@ -2046,13 +2162,20 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
-          handleOpenAboutPage('about');
+          setCurrentNavTab('about');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenTerms={() => {
-          handleOpenAboutPage('terms');
+          setCurrentNavTab('terms');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenPricing={() => {
-          handleOpenAboutPage('pricing');
+          setCurrentNavTab('pricing');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenSupport={() => {
+          setCurrentNavTab('support');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSectors={() => {
           setCurrentNavTab('sectors');
@@ -2085,6 +2208,26 @@ export default function App() {
           setCurrentNavTab('home');
           const el = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
           el?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenNews={() => {
+          setCurrentNavTab('news');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenPricing={() => {
+          setCurrentNavTab('pricing');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenAboutUs={() => {
+          setCurrentNavTab('about');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenSupport={() => {
+          setCurrentNavTab('support');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenTerms={() => {
+          setCurrentNavTab('terms');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenRegister={handleOpenRegisterModal}
         onOpenSaved={() => setIsSavedModalOpen(true)}
