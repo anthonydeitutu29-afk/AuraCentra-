@@ -408,11 +408,6 @@ export const SectorsPage: React.FC<SectorsPageProps> = ({
                         alt={biz.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       />
-                      {biz.isFeatured && (
-                        <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-amber-400 text-slate-900 text-[10px] font-black shadow-xs">
-                          Featured
-                        </span>
-                      )}
                     </div>
 
                     {/* Content */}

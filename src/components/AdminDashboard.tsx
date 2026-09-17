@@ -162,6 +162,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  business: Business;
  doc: VerificationDocument;
  } | null>(null);
+ const [previewDocSide, setPreviewDocSide] = useState<'front' | 'back'>('front');
 
  // Real-time Google Maps Geocoding & GPS Verification Modal State
  const [verifyingBusiness, setVerifyingBusiness] = useState<Business | null>(null);
@@ -2267,12 +2268,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  </button>
  </div>
 
- <div className="aspect-[16/10] rounded-2xl overflow-hidden bg-black border border-slate-800">
+ {/* Front / Back Switcher for Ghana Card Verification */}
+ <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+ <button
+ type="button"
+ onClick={() => setPreviewDocSide('front')}
+ className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+ previewDocSide === 'front'
+ ? 'bg-blue-600 text-white shadow-sm'
+ : 'bg-slate-800 text-slate-400 hover:text-white'
+ }`}
+ >
+ Ghana Card Front Side
+ </button>
+ <button
+ type="button"
+ onClick={() => setPreviewDocSide('back')}
+ className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+ previewDocSide === 'back'
+ ? 'bg-blue-600 text-white shadow-sm'
+ : 'bg-slate-800 text-slate-400 hover:text-white'
+ }`}
+ >
+ Ghana Card Back Side {previewDoc.doc.backImageUrl ? '✓' : '(Not Uploaded)'}
+ </button>
+ </div>
+
+ <div className="aspect-[16/10] rounded-2xl overflow-hidden bg-black border border-slate-800 flex items-center justify-center">
+ {previewDocSide === 'front' ? (
  <img
  src={previewDoc.doc.frontImageUrl}
- alt="Document Full Preview"
+ alt="Document Front Preview"
  className="w-full h-full object-contain"
  />
+ ) : previewDoc.doc.backImageUrl ? (
+ <img
+ src={previewDoc.doc.backImageUrl}
+ alt="Document Back Preview"
+ className="w-full h-full object-contain"
+ />
+ ) : (
+ <div className="text-center p-6 text-slate-400 text-xs">
+ <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+ <p>No back side image attached.</p>
+ </div>
+ )}
  </div>
 
  <div className="flex justify-end gap-2 pt-2">
@@ -2283,7 +2323,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  setPreviewDoc(null);
  setApprovingBusiness({
  business: targetBiz,
- isFeatured: targetBiz.isFeatured ?? true,
+ isFeatured: false,
  badgeType: 'Gold Enterprise',
  });
  }}
@@ -2577,66 +2617,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  When approved, <strong>{approvingBusiness.business.name}</strong> will automatically be published under its primary category (<strong>{approvingBusiness.business.category}</strong>) and appear across all general categories including <strong>Trending</strong>, <strong>Popular Near You</strong>, and <strong>Newly Verified</strong>.
  </span>
  </p>
- </div>
-
- {/* FEATURED CATEGORY PLACEMENT CHOICE */}
- <div className="space-y-2.5">
- <div className="flex items-center justify-between">
- <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
- <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
- <span>Featured Business Categories Status</span>
- </label>
- <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-600/50 text-amber-300 font-bold">
- Admin Discretion
- </span>
- </div>
- <p className="text-xs text-slate-400">
- Choose if this business should be placed under the <strong>Featured business categories</strong> and VIP homepage spotlights:
- </p>
-
- <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
- <button
- type="button"
- onClick={() => setApprovingBusiness({ ...approvingBusiness, isFeatured: true })}
- className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
- approvingBusiness.isFeatured
- ? 'bg-amber-950/60 border-amber-500 text-amber-100 ring-1 ring-amber-500/60 shadow-md'
- : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
- }`}
- >
- <div className="flex items-center justify-between mb-1">
- <span className="font-bold text-xs flex items-center gap-1.5 text-amber-300">
- <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
- Include in Featured Categories
- </span>
- {approvingBusiness.isFeatured && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
- </div>
- <p className="text-[11px] text-slate-300 leading-snug">
- Placed in Featured Categories, VIP spotlight carousel, Trending boost, and priority directory placement.
- </p>
- </button>
-
- <button
- type="button"
- onClick={() => setApprovingBusiness({ ...approvingBusiness, isFeatured: false })}
- className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
- !approvingBusiness.isFeatured
- ? 'bg-blue-950/60 border-blue-500 text-blue-100 ring-1 ring-blue-500/60 shadow-md'
- : 'bg-slate-850 border-slate-700 text-slate-400 hover:text-white'
- }`}
- >
- <div className="flex items-center justify-between mb-1">
- <span className="font-bold text-xs flex items-center gap-1.5 text-blue-300">
- <Building2 className="w-4 h-4 text-blue-400" />
- Standard Category Listing
- </span>
- {!approvingBusiness.isFeatured && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
- </div>
- <p className="text-[11px] text-slate-300 leading-snug">
- Enlisted under its primary category and general categories (Trending, Newly Verified, All Categories).
- </p>
- </button>
- </div>
  </div>
 
  {/* VERIFICATION BADGE TIER */}

@@ -185,7 +185,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
  <div className="p-1.5 bg-slate-100 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-1.5">
  <button
  type="button"
- onClick={() => setActiveTab('about')}
+ onClick={() => handleTabClick('about')}
  className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
  activeTab === 'about'
  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
@@ -198,7 +198,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
 
  <button
  type="button"
- onClick={() => setActiveTab('pricing')}
+ onClick={() => handleTabClick('pricing')}
  className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
  activeTab === 'pricing'
  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
@@ -211,7 +211,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
 
  <button
  type="button"
- onClick={() => setActiveTab('verification')}
+ onClick={() => handleTabClick('verification')}
  className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
  activeTab === 'verification'
  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'
@@ -224,7 +224,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
 
  <button
  type="button"
- onClick={() => setActiveTab('terms')}
+ onClick={() => handleTabClick('terms')}
  className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
  activeTab === 'terms'
  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-xs'

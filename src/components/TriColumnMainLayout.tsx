@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Filter, 
   RotateCcw, 
@@ -58,11 +58,19 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
   isLocating = false,
   newlyApprovedBizId = null,
 }) => {
-  const [activeTab, setActiveTab] = useState<'trending' | 'near_you' | 'newly_verified' | 'featured'>('trending');
+  const [activeTab, setActiveTab] = useState<'trending' | 'near_you' | 'newly_verified'>('trending');
   const [visibleCount, setVisibleCount] = useState(12);
   const [fxCalcAmount, setFxCalcAmount] = useState<number>(100);
   const [fxCalcCurrency, setFxCalcCurrency] = useState<'USD' | 'GBP' | 'EUR'>('USD');
   const { contactBusinessOnWhatsApp } = useWhatsAppContact();
+
+  // Whenever a new business is enlisted or approved, switch tab to 'trending' and ensure it's visible
+  useEffect(() => {
+    if (newlyApprovedBizId) {
+      setActiveTab('trending');
+      setVisibleCount((prev) => Math.max(prev, 12));
+    }
+  }, [newlyApprovedBizId]);
 
   const forexRates: Record<string, { rate: number; change: string; isUp: boolean }> = {
     USD: { rate: 11.03, change: '-0.1%', isUp: false },
@@ -179,16 +187,9 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
         const ageB = now - new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime();
         const isFreshA = ageA < 3600000 ? 2500 : ageA < 86400000 ? 1000 : ageA < 172800000 ? 400 : 0;
         const isFreshB = ageB < 3600000 ? 2500 : ageB < 86400000 ? 1000 : ageB < 172800000 ? 400 : 0;
-        const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + (b.isFeatured ? 50 : 0) + isFreshB;
-        const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + (a.isFeatured ? 50 : 0) + isFreshA;
+        const scoreB = (b.views || 0) + (b.leadsCount || 0) * 3 + isFreshB;
+        const scoreA = (a.views || 0) + (a.leadsCount || 0) * 3 + isFreshA;
         return scoreB - scoreA;
-      });
-    } else if (activeTab === 'featured') {
-      // Dedicated tab for businesses approved under Featured Business Categories
-      list = list.filter((b) => b.isFeatured).sort((a, b) => {
-        const timeA = new Date(a.approvedAt || a.enlistedAt || a.createdAt || 0).getTime();
-        const timeB = new Date(b.approvedAt || b.enlistedAt || b.createdAt || 0).getTime();
-        return timeB - timeA;
       });
     } else if (activeTab === 'near_you') {
       // Proximity-based distance sorting using user location
@@ -200,7 +201,6 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
         if (Math.abs(distA - distB) > 0.5) {
           return distA - distB;
         }
-        if (b.isFeatured !== a.isFeatured) return (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0);
         return (b.rating || 0) - (a.rating || 0);
       });
     } else if (activeTab === 'newly_verified') {
@@ -444,18 +444,6 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('featured')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'featured'
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:border-amber-500'
-              }`}
-            >
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span>Featured Categories</span>
-            </button>
-            <button
-              type="button"
               onClick={() => setActiveTab('newly_verified')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 activeTab === 'newly_verified'
@@ -510,7 +498,7 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-0.5">
-                    Officially approved by admin and published live to the public directory in 0.1s.
+                    Officially enlisted and published live to the public directory.
                   </p>
                 </div>
               </div>
@@ -556,10 +544,11 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                 const distKm = (filters.userLat && filters.userLng && biz.coordinates)
                   ? calculateDistanceKm(filters.userLat, filters.userLng, biz.coordinates.lat, biz.coordinates.lng)
                   : null;
+                const recentTime = biz.approvedAt || biz.enlistedAt || biz.createdAt;
                 const isRecentlyApproved = Boolean(
                   biz.isApproved && 
-                  biz.approvedAt && 
-                  (Date.now() - new Date(biz.approvedAt).getTime()) < 172800000
+                  recentTime && 
+                  (Date.now() - new Date(recentTime).getTime()) < 172800000
                 );
 
                 return (
@@ -607,12 +596,6 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                         <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-[#155DFC] dark:group-hover:text-[#38BDF8] transition-colors">
                           {biz.name}
                         </h4>
-                        {biz.isFeatured && (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 text-[10px] font-bold flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                            <span>Featured Category</span>
-                          </span>
-                        )}
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap text-xs">

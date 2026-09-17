@@ -73,7 +73,11 @@ export const ApiClient = {
   // Fetch all businesses from backend (including pending approval)
   async getBusinesses(params?: { category?: string; region?: string; city?: string; search?: string }): Promise<any[]> {
     try {
-      const query = params ? new URLSearchParams(params as any).toString() : '';
+      const searchParams = new URLSearchParams(params as any || {});
+      if (!searchParams.has('includeAll')) {
+        searchParams.set('includeAll', 'true');
+      }
+      const query = searchParams.toString();
       const res = await fetch(`/api/businesses${query ? `?${query}` : ''}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

@@ -205,8 +205,8 @@ export const TONY_DIGITAL_MARKETING_HUB: Business = {
   approvedAt: '2026-09-14T08:00:00.000Z',
 };
 
-// Initial businesses array starts completely empty until a new business is enlisted
-export const INITIAL_BUSINESSES: Business[] = [];
+// Initial businesses array includes Tony's premier business hub
+export const INITIAL_BUSINESSES: Business[] = [TONY_DIGITAL_MARKETING_HUB];
 
 // Empty initial reviews - reviews will come only from verified users.
 export const INITIAL_REVIEWS: BusinessReview[] = [];

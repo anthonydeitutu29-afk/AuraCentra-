@@ -309,13 +309,14 @@ export default function App() {
       if (Array.isArray(liveBusinesses)) {
         if (liveBusinesses.length === 0) {
           setBusinesses((prev) => {
-            const newlyCreated = prev.filter((b) => (b as any).isNewlyUserRegistered && !isDeletedBusiness(b));
-            if (newlyCreated.length > 0) {
-              return newlyCreated;
-            }
-            if (prev.length > 0) {
-              saveBusinesses([]);
-              return [];
+            const cleanPrev = prev.filter((b) => !isDeletedBusiness(b));
+            if (cleanPrev.length > 0) {
+              // Ensure any local businesses are synced to backend so backend doesn't stay empty
+              cleanPrev.forEach((b) => {
+                ApiClient.createBusiness(b).catch(() => {});
+              });
+              saveBusinesses(cleanPrev);
+              return cleanPrev;
             }
             return prev;
           });
@@ -324,7 +325,7 @@ export default function App() {
 
         setBusinesses((prev) => {
           const approvedIds = getApprovedBusinessIds();
-          // Merge live businesses with state
+          // Merge live businesses with state: keep local businesses that aren't deleted
           const map = new Map<string, Business>();
           prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, b));
           
@@ -345,34 +346,27 @@ export default function App() {
                 existing.isApproved === true || 
                 existing.permanentlyEnlisted === true;
 
+              map.set(b.id, {
+                ...existing,
+                ...b,
+                listingStatus: isLocalApproved ? 'active' : b.listingStatus,
+                isApproved: isLocalApproved ? true : b.isApproved,
+                permanentlyEnlisted: true,
+                verificationDetails: b.verificationDetails || existing.verificationDetails,
+                coordinates: b.coordinates || existing.coordinates,
+              });
               if (isLocalApproved) {
-                // Keep local verified / active approval status unconditionally
-                map.set(b.id, {
-                  ...existing,
-                  ...b,
-                  listingStatus: 'active',
-                  verificationStatus: 'verified',
-                  isApproved: true,
-                  permanentlyEnlisted: true,
-                  verificationDetails: b.verificationDetails || existing.verificationDetails,
-                  coordinates: b.coordinates || existing.coordinates,
-                });
                 markBusinessPermanentlyApproved(b.id);
-              } else {
-                map.set(b.id, { ...existing, ...b });
               }
             } else {
+              map.set(b.id, {
+                ...b,
+                listingStatus: isApprovedGlobally ? 'active' : (b.listingStatus || 'active'),
+                isApproved: isApprovedGlobally ? true : (b.isApproved ?? true),
+                permanentlyEnlisted: true
+              });
               if (isApprovedGlobally) {
-                map.set(b.id, {
-                  ...b,
-                  listingStatus: 'active',
-                  verificationStatus: 'verified',
-                  isApproved: true,
-                  permanentlyEnlisted: true
-                });
                 markBusinessPermanentlyApproved(b.id);
-              } else {
-                map.set(b.id, b);
               }
             }
           });
@@ -865,6 +859,7 @@ export default function App() {
   };
 
   const handleRegisterBusiness = (newBusiness: Business) => {
+    const nowIso = new Date().toISOString();
     const enlistedBusiness: Business = {
       ...newBusiness,
       // Auto-enlist on website immediately upon registration without admin pre-approval
@@ -873,21 +868,34 @@ export default function App() {
       isApproved: true,
       permanentlyEnlisted: true,
       underInvestigation: false,
-      enlistedAt: newBusiness.enlistedAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      enlistedAt: newBusiness.enlistedAt || nowIso,
+      approvedAt: newBusiness.approvedAt || nowIso,
+      updatedAt: nowIso
     };
+
     unmarkBusinessPermanentlyDeleted(enlistedBusiness.id);
     markBusinessPermanentlyApproved(enlistedBusiness.id);
+    setNewlyApprovedBizId(enlistedBusiness.id);
+
+    // Reset filters so the business is immediately visible on the home directory
+    setFilters(initialFilters);
+
+    setCurrentNavTab('home');
+    setSelectedBusiness(null);
+    setCurrentView('portal');
+
     setBusinesses((prev) => {
       const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
       saveBusinesses(updated);
       return updated;
     });
+
     FirestoreSync.saveBusiness(enlistedBusiness);
     ApiClient.createBusiness(enlistedBusiness).catch(() => {});
+
     showToast(
       'Business Enlisted & Live on Website',
-      `"${enlistedBusiness.name}" is now automatically enlisted and permanently live on AuraCentra Ghana.`,
+      `"${enlistedBusiness.name}" is now automatically enlisted and live on AuraCentra Ghana.`,
       'success'
     );
   };
@@ -963,17 +971,20 @@ export default function App() {
   };
 
   const handleAddBusinessDirect = (newBiz: Business) => {
+    const nowIso = new Date().toISOString();
     const enlistedBusiness: Business = {
       ...newBiz,
       listingStatus: 'active',
       isApproved: true,
       permanentlyEnlisted: true,
       underInvestigation: false,
-      enlistedAt: newBiz.enlistedAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      enlistedAt: newBiz.enlistedAt || nowIso,
+      approvedAt: newBiz.approvedAt || nowIso,
+      updatedAt: nowIso
     };
     unmarkBusinessPermanentlyDeleted(enlistedBusiness.id);
     markBusinessPermanentlyApproved(enlistedBusiness.id);
+    setNewlyApprovedBizId(enlistedBusiness.id);
     setBusinesses((prev) => {
       const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
       saveBusinesses(updated);
@@ -1126,7 +1137,7 @@ export default function App() {
 
     showToast(
       'Business Approved & Live on Website',
-      `"${approvedBiz.name}" is now permanently published ${shouldBeFeatured ? 'under Featured Business Categories and' : ''} in its category (${approvedBiz.category || 'General'}) and all general categories (Trending, Popular Near You, Newly Verified).`,
+      `"${approvedBiz.name}" is now permanently published in its category (${approvedBiz.category || 'General'}) and all general categories (Trending, Popular Near You, Newly Verified).`,
       'success'
     );
   };
@@ -1542,9 +1553,7 @@ export default function App() {
       if (filters.sortBy === 'leads') {
         return (b.leadsCount || 0) - (a.leadsCount || 0);
       }
-      // default: featured first, then verified, then newest
-      if (a.isFeatured && !b.isFeatured) return -1;
-      if (!a.isFeatured && b.isFeatured) return 1;
+      // default: verified first, then newest
       if (a.verificationStatus === 'verified' && b.verificationStatus !== 'verified') return -1;
       if (a.verificationStatus !== 'verified' && b.verificationStatus === 'verified') return 1;
       return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
@@ -1794,26 +1803,37 @@ export default function App() {
         currentSection={currentNavTab}
         onNavigateSection={(sec) => {
           setCurrentNavTab(sec);
+          window.location.hash = sec === 'home' ? '' : `#${sec}`;
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSectors={() => {
           setCurrentNavTab('sectors');
+          window.location.hash = '#sectors';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
           setCurrentNavTab('about');
+          window.location.hash = '#about';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenPricing={() => {
           setCurrentNavTab('pricing');
+          window.location.hash = '#pricing';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSupport={() => {
           setCurrentNavTab('support');
+          window.location.hash = '#support';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenTerms={() => {
           setCurrentNavTab('terms');
+          window.location.hash = '#terms';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenVerification={() => {
+          setCurrentNavTab('verification');
+          window.location.hash = '#verification';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         currentUser={currentUser}
@@ -1925,10 +1945,34 @@ export default function App() {
             initialTab={aboutPageTab}
             onBackToHome={() => {
               setCurrentNavTab('home');
+              window.location.hash = '';
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenRegister={handleOpenRegisterModal}
             onShowToast={showToast}
+            onNavigateSection={(section) => {
+              if (section === 'pricing') {
+                setCurrentNavTab('pricing');
+                window.location.hash = '#pricing';
+              } else if (section === 'verification') {
+                setCurrentNavTab('verification');
+                window.location.hash = '#verification';
+              } else if (section === 'terms') {
+                setCurrentNavTab('terms');
+                window.location.hash = '#terms';
+              } else if (section === 'support') {
+                setCurrentNavTab('support');
+                window.location.hash = '#support';
+              } else if (section === 'home') {
+                setCurrentNavTab('home');
+                window.location.hash = '';
+              } else {
+                setCurrentNavTab('about');
+                setAboutPageTab('about');
+                window.location.hash = '#about';
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
         </Suspense>
       ) : currentNavTab === 'news' ? (
@@ -2159,26 +2203,37 @@ export default function App() {
         onOpenRegister={handleOpenRegisterModal}
         onOpenNews={() => {
           setCurrentNavTab('news');
+          window.location.hash = '#news';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
           setCurrentNavTab('about');
+          window.location.hash = '#about';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenTerms={() => {
           setCurrentNavTab('terms');
+          window.location.hash = '#terms';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenPricing={() => {
           setCurrentNavTab('pricing');
+          window.location.hash = '#pricing';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenVerification={() => {
+          setCurrentNavTab('verification');
+          window.location.hash = '#verification';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSupport={() => {
           setCurrentNavTab('support');
+          window.location.hash = '#support';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSectors={() => {
           setCurrentNavTab('sectors');
+          window.location.hash = '#sectors';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onShowToast={showToast}
@@ -2194,39 +2249,53 @@ export default function App() {
         onToggleTheme={handleToggleTheme}
         onScrollToTop={() => {
           setCurrentNavTab('home');
+          window.location.hash = '';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onScrollToCategories={() => {
           setCurrentNavTab('sectors');
+          window.location.hash = '#sectors';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSectors={() => {
           setCurrentNavTab('sectors');
+          window.location.hash = '#sectors';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onScrollToDirectory={() => {
           setCurrentNavTab('home');
+          window.location.hash = '';
           const el = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
           el?.scrollIntoView({ behavior: 'smooth' });
         }}
         onOpenNews={() => {
           setCurrentNavTab('news');
+          window.location.hash = '#news';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenPricing={() => {
           setCurrentNavTab('pricing');
+          window.location.hash = '#pricing';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenVerification={() => {
+          setCurrentNavTab('verification');
+          window.location.hash = '#verification';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenAboutUs={() => {
           setCurrentNavTab('about');
+          window.location.hash = '#about';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenSupport={() => {
           setCurrentNavTab('support');
+          window.location.hash = '#support';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenTerms={() => {
           setCurrentNavTab('terms');
+          window.location.hash = '#terms';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onOpenRegister={handleOpenRegisterModal}

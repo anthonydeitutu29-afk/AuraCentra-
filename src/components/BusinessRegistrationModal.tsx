@@ -26,6 +26,7 @@ import {
 import { Business, Category, DocumentType, VerificationDocument, UserProfile } from '../types';
 import { verifyGhanaPostGPS, verifyGhanaPostGPSLive, GPSVerificationResult } from '../utils/gpsVerification';
 import { markBusinessPermanentlyApproved, unmarkBusinessPermanentlyDeleted } from '../utils/storage';
+import { compressImageFile } from '../utils/imageCompressor';
 import confetti from 'canvas-confetti';
 
 interface BusinessRegistrationModalProps {
@@ -81,6 +82,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  const [holderName, setHolderName] = useState('');
  const [frontImagePreview, setFrontImagePreview] = useState<string | null>(null);
  const [backImagePreview, setBackImagePreview] = useState<string | null>(null);
+ const [idUploadError, setIdUploadError] = useState<string | null>(null);
 
  // Gallery and Photos uploaded from device/gallery
  const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -100,8 +102,8 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
 
  if (!isOpen) return null;
 
- // Generic file reader helper for gallery uploads
- const handleSingleImageUpload = (
+ // Generic file reader & compression helper for gallery & Ghana card uploads
+ const handleSingleImageUpload = async (
  e: React.ChangeEvent<HTMLInputElement>,
  setter: (dataUrl: string | null) => void
  ) => {
@@ -114,46 +116,58 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  return;
  }
 
- // Limit to 15MB
- if (file.size > 15 * 1024 * 1024) {
- setUploadError('Image size exceeds 15MB limit. Please select a smaller photo.');
+ // Limit to 20MB raw file
+ if (file.size > 20 * 1024 * 1024) {
+ setUploadError('Image size exceeds 20MB limit. Please select a smaller photo.');
  return;
  }
 
+ try {
+ // Compress to optimal web dimensions (max 1200x1200px, 0.75 quality) so it saves reliably
+ const compressedDataUrl = await compressImageFile(file, 1200, 1200, 0.75);
+ setter(compressedDataUrl);
+ } catch (err) {
+ console.warn('Image compression fallback:', err);
  const reader = new FileReader();
  reader.onload = () => {
  setter(reader.result as string);
  };
  reader.onerror = () => {
- setUploadError('Failed to read image file from your gallery.');
+ setUploadError('Failed to read image file from your device.');
  };
  reader.readAsDataURL(file);
+ }
  };
 
- // Multiple gallery photos upload
- const handleMultiGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+ // Multiple gallery photos upload with compression
+ const handleMultiGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
  setUploadError(null);
  const files = e.target.files;
  if (!files || files.length === 0) return;
 
- const newPhotos: string[] = [];
- let countProcessed = 0;
- const totalFiles = files.length;
+ const fileList = Array.from(files).filter((file) => file.type.startsWith('image/'));
+ const compressedPhotos: string[] = [];
 
- Array.from(files).forEach((file) => {
- if (!file.type.startsWith('image/')) return;
+ for (const file of fileList) {
+ try {
+ const compressed = await compressImageFile(file, 1200, 1200, 0.75);
+ compressedPhotos.push(compressed);
+ } catch {
  const reader = new FileReader();
+ await new Promise<void>((resolve) => {
  reader.onload = () => {
- if (reader.result) {
- newPhotos.push(reader.result as string);
- }
- countProcessed++;
- if (countProcessed === totalFiles) {
- setGalleryPreviews((prev) => [...prev, ...newPhotos]);
- }
+ if (reader.result) compressedPhotos.push(reader.result as string);
+ resolve();
  };
+ reader.onerror = () => resolve();
  reader.readAsDataURL(file);
  });
+ }
+ }
+
+ if (compressedPhotos.length > 0) {
+ setGalleryPreviews((prev) => [...prev, ...compressedPhotos]);
+ }
  };
 
  const handleRemoveGalleryPhoto = (indexToRemove: number) => {
@@ -200,7 +214,8 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  `• Document Type: ${docType === 'ghana_card' ? 'Ghana Card (National ID)' : docType.toUpperCase()}`,
  `• ID / Document Number: ${docNumber || 'Photo Attached via Portal'}`,
  `• ID Holder Name: ${holderName || biz.name}`,
- `• Ghana Card Photo Uploaded: ${frontImagePreview ? 'Yes (Attached)' : 'No'}`,
+ `• Ghana Card Front Photo: ${frontImagePreview ? 'Yes (Attached)' : 'Missing'}`,
+ `• Ghana Card Back Photo: ${backImagePreview ? 'Yes (Attached)' : 'Missing'}`,
  '',
  `⏰ *Submission Timestamp:* ${new Date().toLocaleString()}`,
  '📌 *Direct Destination:* Tony\'s Digital Marketing and Business Hub (0508203673)',
@@ -227,20 +242,26 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  return;
  }
 
- const verificationDocs: VerificationDocument[] = [];
- if (frontImagePreview) {
- verificationDocs.push({
+ if (!frontImagePreview || !backImagePreview) {
+ alert('Both the front and back photos of your Ghana Card are required for verification.');
+ setIdUploadError('Both the front and back of your Ghana Card are required for verification. Please upload both photos.');
+ setStep(3);
+ return;
+ }
+
+ const verificationDocs: VerificationDocument[] = [
+ {
  id: `doc-${Date.now()}`,
  type: docType,
- documentNumber: docNumber || 'GH-CARD-9921',
- holderName: holderName || name,
+ documentNumber: docNumber.trim() || 'GH-CARD-VERIFIED',
+ holderName: holderName.trim() || name,
  expiryDate: '2032-12-31',
  frontImageUrl: frontImagePreview,
- backImageUrl: backImagePreview || undefined,
+ backImageUrl: backImagePreview,
  submittedAt: new Date().toISOString(),
  status: 'pending',
- });
  }
+ ];
 
  // Default clean placeholders only if user didn't pick from gallery
  const finalLogo = logoPreview || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80';
@@ -360,10 +381,18 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  };
 
  const handleCloseSubmitted = () => {
- setIsSubmitted(false);
- setSubmittedBusiness(null);
- setStep(1);
- onClose();
+   setIsSubmitted(false);
+   setSubmittedBusiness(null);
+   setStep(1);
+   onClose();
+   setTimeout(() => {
+     const el = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
+     if (el) {
+       el.scrollIntoView({ behavior: 'smooth' });
+     } else {
+       window.scrollTo({ top: 350, behavior: 'smooth' });
+     }
+   }, 150);
  };
 
  // If business was submitted, display prominent verification confirmation dialog
@@ -401,6 +430,10 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  <div><strong>City:</strong> {submittedBusiness.city}, {submittedBusiness.region}</div>
  <div><strong>Contact:</strong> {submittedBusiness.phone}</div>
  <div><strong>GPS:</strong> {submittedBusiness.digitalAddress}</div>
+ <div className="col-span-2 text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5 pt-1 border-t border-slate-200 dark:border-slate-700/60">
+ <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+ <span>Ghana Card (Front & Back) uploaded for Administrative Verification</span>
+ </div>
  </div>
  </div>
 
@@ -840,9 +873,16 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-start gap-3">
  <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
  <div className="text-xs text-blue-900 dark:text-blue-200">
- <strong>Verification Boost:</strong> Upload your official Ghana Card or National ID from your phone gallery to receive the Verified badge and increase customer trust.
+ <strong>Mandatory National ID Verification (Ghana Card):</strong> Under AuraCentra marketplace standards, you must upload clear photos of <strong>BOTH the front and back</strong> of your official Ghana Card to verify enterprise identity and protect consumers.
  </div>
  </div>
+
+ {idUploadError && (
+ <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-200 text-xs font-semibold flex items-center gap-2">
+ <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+ <span>{idUploadError}</span>
+ </div>
+ )}
 
  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
  <div>
@@ -863,7 +903,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
 
  <div>
  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
- Document / Card Number
+ Ghana Card / ID Number *
  </label>
  <input
  type="text"
@@ -877,7 +917,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
 
  <div>
  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
- Full Name as Shown on ID
+ Full Name as Shown on Ghana Card *
  </label>
  <input
  type="text"
@@ -888,20 +928,36 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  />
  </div>
 
- {/* Direct Gallery Upload for ID Card */}
+ {/* Direct Gallery Upload for ID Card - Both Front and Back Required */}
  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
  {/* Front Side Upload */}
  <div>
- <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
- <span>Front Side ID Photo</span>
- <span className="text-[10px] text-blue-600 font-bold">Pick from Gallery</span>
+ <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
+ <span className="flex items-center gap-1">
+ <span>1. Ghana Card — Front Side</span>
+ <span className="text-rose-500 font-bold">*</span>
+ </span>
+ {frontImagePreview ? (
+ <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+ <CheckCircle2 className="w-3 h-3" />
+ <span>Front Attached</span>
+ </span>
+ ) : (
+ <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold border border-rose-300 dark:border-rose-800">
+ Required
+ </span>
+ )}
  </label>
- <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-4 text-center hover:border-blue-500 transition-colors bg-slate-50/50 dark:bg-slate-800/40">
+ <div className={`relative border-2 border-dashed rounded-2xl p-4 text-center transition-colors bg-slate-50/50 dark:bg-slate-800/40 ${
+ frontImagePreview
+ ? 'border-emerald-500/60'
+ : 'border-slate-300 dark:border-slate-700 hover:border-blue-500'
+ }`}>
  {frontImagePreview ? (
  <div className="relative aspect-video rounded-xl overflow-hidden group">
  <img
  src={frontImagePreview}
- alt="Front Document"
+ alt="Ghana Card Front"
  className="w-full h-full object-cover"
  />
  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
@@ -911,7 +967,10 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  type="file"
  accept="image/*"
  className="hidden"
- onChange={(e) => handleSingleImageUpload(e, setFrontImagePreview)}
+ onChange={(e) => {
+ setIdUploadError(null);
+ handleSingleImageUpload(e, setFrontImagePreview);
+ }}
  />
  </label>
  <button
@@ -929,12 +988,15 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
  Upload Front from Gallery
  </span>
- <span className="text-[10px] text-slate-400 mt-0.5">Choose image file from phone or computer</span>
+ <span className="text-[10px] text-slate-400 mt-0.5">Select photo of front side (clear & readable)</span>
  <input
  type="file"
  accept="image/*"
  className="hidden"
- onChange={(e) => handleSingleImageUpload(e, setFrontImagePreview)}
+ onChange={(e) => {
+ setIdUploadError(null);
+ handleSingleImageUpload(e, setFrontImagePreview);
+ }}
  />
  </label>
  )}
@@ -943,16 +1005,32 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
 
  {/* Back Side Upload */}
  <div>
- <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center justify-between">
- <span>Back Side ID Photo (Optional)</span>
- <span className="text-[10px] text-blue-600 font-bold">Pick from Gallery</span>
+ <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5 flex items-center justify-between">
+ <span className="flex items-center gap-1">
+ <span>2. Ghana Card — Back Side</span>
+ <span className="text-rose-500 font-bold">*</span>
+ </span>
+ {backImagePreview ? (
+ <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+ <CheckCircle2 className="w-3 h-3" />
+ <span>Back Attached</span>
+ </span>
+ ) : (
+ <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold border border-rose-300 dark:border-rose-800">
+ Required
+ </span>
+ )}
  </label>
- <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-4 text-center hover:border-blue-500 transition-colors bg-slate-50/50 dark:bg-slate-800/40">
+ <div className={`relative border-2 border-dashed rounded-2xl p-4 text-center transition-colors bg-slate-50/50 dark:bg-slate-800/40 ${
+ backImagePreview
+ ? 'border-emerald-500/60'
+ : 'border-slate-300 dark:border-slate-700 hover:border-blue-500'
+ }`}>
  {backImagePreview ? (
  <div className="relative aspect-video rounded-xl overflow-hidden group">
  <img
  src={backImagePreview}
- alt="Back Document"
+ alt="Ghana Card Back"
  className="w-full h-full object-cover"
  />
  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
@@ -962,7 +1040,10 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  type="file"
  accept="image/*"
  className="hidden"
- onChange={(e) => handleSingleImageUpload(e, setBackImagePreview)}
+ onChange={(e) => {
+ setIdUploadError(null);
+ handleSingleImageUpload(e, setBackImagePreview);
+ }}
  />
  </label>
  <button
@@ -976,21 +1057,47 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  </div>
  ) : (
  <label className="cursor-pointer flex flex-col items-center py-4">
- <Upload className="w-8 h-8 text-slate-400 mb-2" />
+ <Upload className="w-8 h-8 text-blue-600 mb-2" />
  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
  Upload Back from Gallery
  </span>
- <span className="text-[10px] text-slate-400 mt-0.5">Choose image file from phone or computer</span>
+ <span className="text-[10px] text-slate-400 mt-0.5">Select photo of back side (barcode & signature)</span>
  <input
  type="file"
  accept="image/*"
  className="hidden"
- onChange={(e) => handleSingleImageUpload(e, setBackImagePreview)}
+ onChange={(e) => {
+ setIdUploadError(null);
+ handleSingleImageUpload(e, setBackImagePreview);
+ }}
  />
  </label>
  )}
  </div>
  </div>
+ </div>
+
+ {/* Both sides status indicator */}
+ <div className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
+ frontImagePreview && backImagePreview
+ ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+ : 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+ }`}>
+ {frontImagePreview && backImagePreview ? (
+ <>
+ <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+ <span>
+ <strong>Both Ghana Card sides attached:</strong> Front and Back photos ready for administrative verification.
+ </span>
+ </>
+ ) : (
+ <>
+ <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0" />
+ <span>
+ Uploading <strong>both sides</strong> of your Ghana Card is mandatory before moving to the next step.
+ </span>
+ </>
+ )}
  </div>
  </div>
  )}
@@ -1271,6 +1378,24 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  if (step === 1 && (!name.trim() || !description.trim())) {
  alert('Please provide business name and description.');
  return;
+ }
+ if (step === 3) {
+ if (!frontImagePreview && !backImagePreview) {
+ setIdUploadError('Both the front and back photos of your Ghana Card are required for verification.');
+ alert('Both the front and back photos of your Ghana Card are required for verification. Please upload both photos to proceed.');
+ return;
+ }
+ if (!frontImagePreview) {
+ setIdUploadError('The FRONT photo of your Ghana Card is missing. Please upload it to proceed.');
+ alert('Please upload the FRONT side photo of your Ghana Card.');
+ return;
+ }
+ if (!backImagePreview) {
+ setIdUploadError('The BACK photo of your Ghana Card is missing. Please upload it to proceed.');
+ alert('Please upload the BACK side photo of your Ghana Card.');
+ return;
+ }
+ setIdUploadError(null);
  }
  setStep((prev) => (prev + 1) as any);
  }}

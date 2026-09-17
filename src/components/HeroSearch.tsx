@@ -4,14 +4,12 @@ import {
   MapPin, 
   ArrowRight,
   ChevronDown,
-  Building2,
-  ShieldCheck,
   CheckCircle2,
   Sparkles
 } from 'lucide-react';
 import { Business, Category, FilterState } from '../types';
 import { GHANA_REGIONS } from '../utils/geolocationService';
-import { isDeletedBusiness, isBusinessPermanentlyApproved } from '../utils/storage';
+import { isDeletedBusiness } from '../utils/storage';
 
 interface HeroSearchProps {
   categories: Category[];
@@ -109,36 +107,25 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
   return (
     <div className="relative w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 transition-colors" id="hero-search-section">
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          
-          {/* Left Column: Typography, Search Bar, Popular Tags, Platform Highlights */}
-          <div className="lg:col-span-7 space-y-5 sm:space-y-6">
+        <div className="max-w-3xl space-y-5 sm:space-y-6">
 
-            {/* Official Nationwide Directory Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-800/80 text-blue-800 dark:text-blue-300 text-xs font-bold w-fit shadow-2xs">
-              <ShieldCheck className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
-              <span>Ghana's Official Verified Directory</span>
-              <span className="text-blue-300 dark:text-blue-700">•</span>
-              <span className="text-blue-700 dark:text-blue-300 font-semibold">All 16 Regions</span>
-            </div>
+          {/* Main Headline - High contrast on plain background */}
+          <div className="space-y-2">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] text-slate-950 dark:text-white">
+              Discover more.<br />
+              <span className="text-[#155DFC] dark:text-[#38BDF8]">Get discovered.</span>
+            </h1>
+          </div>
 
-            {/* Main Headline - High contrast on plain background */}
-            <div className="space-y-2">
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] text-slate-950 dark:text-white">
-                Discover more.<br />
-                <span className="text-[#155DFC] dark:text-[#38BDF8]">Get discovered.</span>
-              </h1>
-            </div>
+          {/* Subtitle - Sharp & readable */}
+          <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 max-w-xl font-medium leading-relaxed">
+            Find verified businesses, vetted service providers, and authentic suppliers across all 16 regions of Ghana.
+          </p>
 
-            {/* Subtitle - Sharp & readable */}
-            <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 max-w-xl font-medium leading-relaxed">
-              Find verified businesses, vetted service providers, and authentic suppliers across all 16 regions of Ghana.
-            </p>
-
-            {/* Integrated Search Bar with clean High-Contrast Borders */}
-            <div ref={searchContainerRef} className="relative z-30 max-w-2xl pt-1">
-              <form
-                onSubmit={handleSearchSubmit}
+          {/* Integrated Search Bar with clean High-Contrast Borders */}
+          <div ref={searchContainerRef} className="relative z-30 max-w-2xl pt-1">
+            <form
+              onSubmit={handleSearchSubmit}
                 className="bg-white dark:bg-slate-900 rounded-2xl p-2 sm:p-2.5 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-slate-300 dark:border-slate-700 focus-within:border-[#155DFC] dark:focus-within:border-[#38BDF8] transition-all"
               >
                 {/* Search Text Input */}
@@ -300,125 +287,6 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
                 <span>Zero Broker Fees</span>
               </div>
             </div>
-
-          </div>
-
-          {/* Right Column: Clean Ghanaian Business Showcase on plain background */}
-          <div className="lg:col-span-5 relative">
-            <div className="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-              
-              {/* Top Showcase Header */}
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white flex items-center justify-center font-bold text-sm border border-slate-200 dark:border-slate-700">
-                    🇬🇭
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white">Featured Enterprise Hub</h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Vetted & Licensed Ghanaian Providers</p>
-                  </div>
-                </div>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[10px] font-black">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Live Verified
-                </span>
-              </div>
-
-              {/* Dynamic Showcase for Verified Businesses */}
-              {(() => {
-                const featuredBiz = 
-                  businesses.find((b) => !isDeletedBusiness(b) && (isBusinessPermanentlyApproved(b.id) || b.isApproved === true) && b.listingStatus === 'active') ||
-                  businesses.find((b) => !isDeletedBusiness(b) && b.verificationStatus === 'verified' && b.listingStatus === 'active');
-                if (!featuredBiz) {
-                  return (
-                    <div className="py-10 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center space-y-2.5">
-                      <div className="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center">
-                        <Building2 className="w-5 h-5" />
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
-                          Verified Enterprises
-                        </h4>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                          Verified businesses approved by administrators will be highlighted here.
-                        </p>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div 
-                    onClick={() => onSelectBusiness(featuredBiz)}
-                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer group space-y-3 shadow-xs hover:border-[#155DFC] dark:hover:border-blue-500"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shrink-0 border border-slate-200 dark:border-slate-700 relative p-1 z-10">
-                        <img 
-                          src={featuredBiz.logo || featuredBiz.coverImage || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=80'} 
-                          alt={featuredBiz.name}
-                          className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-[#155DFC] dark:group-hover:text-[#38BDF8] transition-colors truncate">
-                            {featuredBiz.name}
-                          </h4>
-                          {featuredBiz.verificationStatus === 'verified' && (
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-[#155DFC] text-white">
-                              VERIFIED
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-600 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
-                          <span className="truncate">{featuredBiz.city}, {featuredBiz.region}</span>
-                          <span>•</span>
-                          <span className="text-slate-700 dark:text-slate-300 font-semibold">{featuredBiz.category}</span>
-                        </div>
-                        <div className="text-xs font-bold flex items-center gap-1 mt-1">
-                          {featuredBiz.reviewCount > 0 && featuredBiz.rating > 0 ? (
-                            <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                              ★ {featuredBiz.rating.toFixed(1)} <span className="text-slate-500 font-normal">({featuredBiz.reviewCount} {featuredBiz.reviewCount === 1 ? 'review' : 'reviews'})</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-500 font-normal">
-                              ★ Unrated (0 reviews)
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Bottom Quick Summary Bar */}
-              <div className="pt-2 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800">
-                <span className="flex items-center gap-1">
-                  <span className="text-slate-900 dark:text-white font-bold">16</span> Ghana Regions
-                </span>
-                <span className="text-slate-300 dark:text-slate-700">•</span>
-                <span className="flex items-center gap-1">
-                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">100%</span> Vetted Contacts
-                </span>
-                <span className="text-slate-300 dark:text-slate-700">•</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const directoryEl = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
-                    directoryEl?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="text-[#155DFC] dark:text-[#38BDF8] hover:underline font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <span>Explore All</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-
-            </div>
-          </div>
 
         </div>
       </div>

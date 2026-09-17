@@ -174,12 +174,18 @@ export function isDeletedBusiness(b: Partial<Business> | null | undefined): bool
   return false;
 }
 
+let runtimeBusinessesCache: Business[] | null = null;
+
 export function getStoredBusinesses(): Business[] {
+  if (runtimeBusinessesCache && runtimeBusinessesCache.length > 0) {
+    return runtimeBusinessesCache.filter((b) => b && b.id && !isDeletedBusiness(b));
+  }
+
   try {
     const data = localStorage.getItem(STORAGE_KEYS.BUSINESSES);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         // Strip any residual legacy or permanently deleted businesses
         let clean = parsed.filter((b) => b && b.id && !isDeletedBusiness(b));
 
@@ -199,7 +205,7 @@ export function getStoredBusinesses(): Business[] {
           }
         });
 
-        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+        runtimeBusinessesCache = clean;
         return clean;
       }
     }
@@ -208,16 +214,18 @@ export function getStoredBusinesses(): Business[] {
   }
 
   // Store INITIAL_BUSINESSES immediately so first load has zero latency
-  try {
-    localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(INITIAL_BUSINESSES));
-  } catch {}
+  if (INITIAL_BUSINESSES.length > 0) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(INITIAL_BUSINESSES));
+    } catch {}
+  }
 
+  runtimeBusinessesCache = [...INITIAL_BUSINESSES];
   return [...INITIAL_BUSINESSES];
 }
 
 export function saveBusinesses(businesses: Business[]): void {
   try {
-    const approvedIds = getApprovedBusinessIds();
     const clean = Array.isArray(businesses) ? businesses.filter((b) => !isDeletedBusiness(b)) : [];
     clean.forEach((b) => {
       if (b.listingStatus === 'probation' || b.listingStatus === 'under_investigation' || b.underInvestigation) {
@@ -235,12 +243,35 @@ export function saveBusinesses(businesses: Business[]): void {
         markBusinessPermanentlyApproved(b.id);
       }
     });
-    localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+
+    runtimeBusinessesCache = clean;
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
+    } catch (quotaErr) {
+      console.warn('LocalStorage quota reached, sanitizing large images for persistence...', quotaErr);
+      const sanitized = clean.map((b) => {
+        if (!b.verificationDocuments || b.verificationDocuments.length === 0) return b;
+        return {
+          ...b,
+          verificationDocuments: b.verificationDocuments.map((doc) => ({
+            ...doc,
+            frontImageUrl: doc.frontImageUrl && doc.frontImageUrl.length > 50000 ? '' : doc.frontImageUrl,
+            backImageUrl: doc.backImageUrl && doc.backImageUrl.length > 50000 ? '' : doc.backImageUrl,
+          }))
+        };
+      });
+      try {
+        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(sanitized));
+      } catch (e2) {
+        console.error('Failed to save sanitized businesses to storage', e2);
+      }
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('auracentra_storage_updated', { detail: { key: STORAGE_KEYS.BUSINESSES } }));
     }
   } catch (e) {
-
     console.error('Failed to save businesses to storage', e);
   }
 }
