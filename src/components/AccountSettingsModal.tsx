@@ -77,20 +77,26 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
  setIsDeleting(true);
 
  try {
- // If user provided a password, optionally verify it first
- if (deletePassword.trim()) {
- const isPwValid = await SupabaseService.verifyPassword(currentUser.email, deletePassword.trim());
- if (!isPwValid) {
- setErrorMessage('The password entered is incorrect. Please verify your password or leave blank if using OAuth.');
+ // Require and verify password used to create the account before permanent deletion
+ const cleanPw = deletePassword.trim();
+ if (!cleanPw) {
+ setErrorMessage('Account password is required. Please enter the password used to create this account to authorize deletion.');
  setIsDeleting(false);
  return;
  }
+
+ const isPwValid = await SupabaseService.verifyPassword(currentUser.email, cleanPw);
+ if (!isPwValid) {
+ setErrorMessage('The password entered is incorrect. Please enter the correct password used to create this account.');
+ setIsDeleting(false);
+ return;
  }
 
  // Execute permanent deletion via auth service
  const result = await FirebaseAuthService.deleteAccountPermanently({
  userId: currentUser.id,
  email: currentUser.email,
+ password: cleanPw,
  deleteBusinesses: deleteAssociatedBusinesses,
  });
 
@@ -358,17 +364,18 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
  />
  </div>
 
- {/* Optional Password Verification */}
+ {/* Mandatory Password Verification */}
  <div className="space-y-2">
  <label className="block text-xs font-black text-slate-800 dark:text-slate-200">
- Account Password <span className="text-slate-400 font-normal">(Optional for OAuth users)</span>
+ Account Password <span className="text-rose-600 font-bold">* Required to confirm deletion</span>
  </label>
  <div className="relative">
  <input
  type={showPassword ? 'text' : 'password'}
  value={deletePassword}
  onChange={(e) => setDeletePassword(e.target.value)}
- placeholder="Enter account password if created with email/password"
+ placeholder="Enter the password used to create this account"
+ required
  className="w-full px-4 py-3 pr-11 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition-all"
  />
  <button

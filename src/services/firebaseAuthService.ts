@@ -611,6 +611,8 @@ export const FirebaseAuthService = {
 
   /**
    * Log in with Email, Phone Number, or Username & Password
+   * Strict validation: Only allows login if the account was previously created on the platform,
+   * and requires the correct password used to create the account.
    */
   async signInWithEmail(identifier: string, password: string): Promise<AuthResult> {
     const cleanInput = identifier.trim();
@@ -619,8 +621,11 @@ export const FirebaseAuthService = {
     if (!cleanInput) {
       throw new Error('Please enter your email, phone number, or username.');
     }
+    if (!cleanPassword) {
+      throw new Error('Please enter your account password.');
+    }
 
-    // Resolve identifier to account record
+    // 1. Resolve identifier against registered accounts locally
     let targetAccount = findRegisteredAccountByEmail(cleanInput);
     if (!targetAccount) {
       targetAccount = findRegisteredAccountByPhone(cleanInput);
@@ -629,81 +634,96 @@ export const FirebaseAuthService = {
       targetAccount = findRegisteredAccountByUsername(cleanInput);
     }
 
-    const cleanEmail = targetAccount ? targetAccount.email.toLowerCase() : cleanInput.toLowerCase();
-
-    let isEmailVerified = true;
-    let displayName = targetAccount ? targetAccount.name : cleanEmail.split('@')[0];
-    let userId = targetAccount ? targetAccount.id : `usr-${Date.now()}`;
-    let role: UserRole = targetAccount ? targetAccount.role : 'customer';
-
-    // Check password if account is in local registry
-    if (targetAccount && targetAccount.password) {
-      if (targetAccount.password !== cleanPassword) {
-        throw new Error('Incorrect password. Please verify your credentials.');
+    // 2. If not found in local browser storage, check server registry
+    if (!targetAccount) {
+      try {
+        const checkRes = await fetch(`/api/auth/check-account-exists?identifier=${encodeURIComponent(cleanInput)}`);
+        if (checkRes.ok) {
+          const data = await checkRes.json();
+          if (data.exists && data.account) {
+            targetAccount = {
+              id: data.account.id,
+              name: data.account.name,
+              email: data.account.email,
+              username: data.account.username || data.account.email.split('@')[0],
+              phone: data.account.phone,
+              role: data.account.role,
+              createdAt: data.account.createdAt,
+              lastLoginAt: data.account.lastLoginAt,
+            };
+            saveRegisteredAccount(targetAccount);
+          }
+        }
+      } catch (checkErr) {
+        console.warn('[Check account exists notice]', checkErr);
       }
     }
 
-    // Supabase login if configured
-    if (isSupabaseConfigured && supabase && cleanEmail.includes('@')) {
+    // 3. If still not found and Supabase is configured, check if account exists in Supabase
+    if (!targetAccount && isSupabaseConfigured && supabase && cleanInput.includes('@')) {
       try {
-        const supaResult = await SupabaseService.signIn(cleanEmail, cleanPassword);
+        const supaResult = await SupabaseService.signIn(cleanInput, cleanPassword);
         if (supaResult?.user) {
-          userId = supaResult.user.id;
-          isEmailVerified = Boolean(supaResult.user.email_confirmed_at);
+          const liveProfile = await SupabaseService.getProfile(cleanInput);
+          targetAccount = {
+            id: supaResult.user.id,
+            name: liveProfile?.name || cleanInput.split('@')[0],
+            email: cleanInput.toLowerCase(),
+            username: liveProfile?.username || cleanInput.split('@')[0],
+            role: liveProfile?.role || 'customer',
+            phone: liveProfile?.phone || '',
+            password: cleanPassword,
+            createdAt: supaResult.user.created_at || new Date().toISOString(),
+          };
+          saveRegisteredAccount(targetAccount);
         }
       } catch (supaErr: any) {
-        console.warn('[Supabase SignIn notice]', supaErr.message);
+        console.warn('[Supabase check notice]', supaErr.message);
       }
     }
 
-    let liveRoleFound = false;
-
-    // Fetch live profile from Supabase
-    if (cleanEmail.includes('@')) {
-      try {
-        const liveProfile = await SupabaseService.getProfile(cleanEmail);
-        if (liveProfile) {
-          displayName = liveProfile.name || displayName;
-          role = liveProfile.role || role;
-          userId = liveProfile.id || userId;
-          isEmailVerified = true;
-          liveRoleFound = true;
-        }
-      } catch (e) {
-        console.warn('[Fetch live profile notice]', e);
-      }
+    // 4. Strict enforcement: If no prior account was found, forbid login
+    if (!targetAccount) {
+      throw new Error(
+        'This information has not been used to create an account before. Please check your credentials or register a new account.'
+      );
     }
 
-    if (targetAccount) {
-      role = targetAccount.role || role;
-      userId = targetAccount.id || userId;
-      displayName = targetAccount.name || displayName;
+    // 5. Verify the password used to create the account
+    const isPasswordValid = await SupabaseService.verifyPassword(targetAccount.email, cleanPassword);
+    if (!isPasswordValid) {
+      throw new Error('Incorrect password. Please enter the password used to create this account.');
     }
 
+    const cleanEmail = targetAccount.email.toLowerCase();
     const isAdmin = cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
-    if (isAdmin) {
-      role = 'admin';
-    }
+    const finalRole: UserRole = isAdmin ? 'admin' : (targetAccount.role || 'customer');
 
-    isEmailVerified = true;
+    // Update last login timestamp in registry to preserve user continuity
+    saveRegisteredAccount({
+      ...targetAccount,
+      role: finalRole,
+      lastLoginAt: new Date().toISOString(),
+    });
 
     const user: UserProfile = {
-      id: userId,
-      name: displayName,
-      username: targetAccount?.username || (cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanInput),
+      id: targetAccount.id,
+      name: targetAccount.name,
+      username: targetAccount.username || cleanEmail.split('@')[0],
       email: cleanEmail,
       emailVerified: true,
-      phone: targetAccount?.phone || '+233 24 000 0000',
+      phone: targetAccount.phone || '+233 24 000 0000',
       phoneVerified: true,
-      role: role,
+      role: finalRole,
+      accountType: (finalRole === 'business_owner' || finalRole === 'verified_owner') ? 'business_owner' : 'customer',
       savedBusinessIds: [],
-      createdAt: targetAccount?.createdAt || new Date().toISOString(),
+      createdAt: targetAccount.createdAt || new Date().toISOString(),
     };
 
     return {
       user,
       isEmailVerified: true,
-      message: 'Login successful.',
+      message: 'Login successful. Welcome back!',
     };
   },
 
@@ -738,12 +758,13 @@ export const FirebaseAuthService = {
   async deleteAccountPermanently(params: {
     userId: string;
     email: string;
+    password?: string;
     deleteBusinesses?: boolean;
   }): Promise<{ success: boolean; deletedBusinessIds: string[]; message: string }> {
     const cleanEmail = (params.email || '').trim().toLowerCase();
     const deleteBusinesses = params.deleteBusinesses !== false;
 
-    // 1. Notify Backend API to clean memory cache & Supabase REST
+    // 1. Notify Backend API to clean server cache & verify password if provided
     try {
       await fetch('/api/auth/delete-account', {
         method: 'POST',
@@ -751,6 +772,7 @@ export const FirebaseAuthService = {
         body: JSON.stringify({
           userId: params.userId,
           email: cleanEmail,
+          password: params.password,
           deleteBusinesses,
         }),
       });

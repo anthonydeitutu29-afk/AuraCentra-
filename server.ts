@@ -284,6 +284,7 @@ let registeredUsersRegistry: Array<{
   username?: string;
   email: string;
   phone?: string;
+  password?: string;
   role: string;
   createdAt: string;
 }> = [
@@ -293,6 +294,7 @@ let registeredUsersRegistry: Array<{
     username: 'admin',
     email: 'admindashboard@gmail.com',
     phone: '+233 50 820 3673',
+    password: 'Admin12$',
     role: 'admin',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -302,6 +304,7 @@ let registeredUsersRegistry: Array<{
     username: 'tonysdigitalmarketing',
     email: 'tonysdigitalmarketing@gmail.com',
     phone: '+233 50 820 3673',
+    password: 'Admin12$',
     role: 'admin',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
@@ -1722,7 +1725,7 @@ app.post('/api/auth/check-uniqueness', async (req, res) => {
 // Sync Profile directly to Supabase from Server
 app.post('/api/auth/sync-profile', async (req, res) => {
   try {
-    const { id, name, username, email, phone, role, auth_provider, phone_verified } = req.body;
+    const { id, name, username, email, phone, role, auth_provider, phone_verified, password } = req.body;
     const cleanEmail = (email || '').trim().toLowerCase();
     
     if (!cleanEmail) {
@@ -1741,6 +1744,7 @@ app.post('/api/auth/sync-profile', async (req, res) => {
       username: username ? normalizeUsername(username) : normalizeUsername(cleanEmail.split('@')[0]),
       email: cleanEmail,
       phone: phone || '',
+      password: password || (existingIndex >= 0 ? registeredUsersRegistry[existingIndex].password : undefined),
       role: role || 'customer',
       createdAt: existingIndex >= 0 ? registeredUsersRegistry[existingIndex].createdAt : new Date().toISOString(),
     };
@@ -1791,15 +1795,117 @@ app.post('/api/auth/sync-profile', async (req, res) => {
   }
 });
 
+// Verify Account Password Endpoint
+app.post('/api/auth/verify-password', (req, res) => {
+  try {
+    const { email, identifier, password } = req.body || {};
+    const cleanId = (identifier || email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
+
+    if (!cleanId || !cleanPassword) {
+      res.status(400).json({ valid: false, error: 'Email/identifier and password are required.' });
+      return;
+    }
+
+    // Default admin accounts
+    if (cleanId === 'admindashboard@gmail.com' && cleanPassword === 'Admin12$') {
+      res.json({ valid: true });
+      return;
+    }
+    if (cleanId === 'tonysdigitalmarketing@gmail.com' && (cleanPassword === 'Admin12$' || cleanPassword === 'Password123#')) {
+      res.json({ valid: true });
+      return;
+    }
+
+    const found = registeredUsersRegistry.find(
+      u => u.email.toLowerCase() === cleanId ||
+           (u.username && u.username.toLowerCase() === cleanId) ||
+           (u.phone && normalizePhone(u.phone) === normalizePhone(cleanId))
+    );
+
+    if (found) {
+      if (found.password && found.password === cleanPassword) {
+        res.json({ valid: true });
+        return;
+      }
+      if (!found.password) {
+        // No password stored on server, allow Supabase / local storage to verify
+        res.json({ valid: false, fallbackToClient: true });
+        return;
+      }
+      res.json({ valid: false, error: 'Incorrect password' });
+      return;
+    }
+
+    res.json({ valid: false, error: 'Account not found or password does not match' });
+  } catch (err: any) {
+    res.status(500).json({ valid: false, error: err.message });
+  }
+});
+
+// Check if an Account Exists (prevent unauthorized login attempts)
+app.get('/api/auth/check-account-exists', (req, res) => {
+  try {
+    const identifier = String(req.query.identifier || req.query.email || '').trim().toLowerCase();
+    if (!identifier) {
+      res.status(400).json({ exists: false, error: 'Identifier query parameter is required.' });
+      return;
+    }
+
+    if (identifier === 'admindashboard@gmail.com' || identifier === 'tonysdigitalmarketing@gmail.com' || identifier === 'admin') {
+      res.json({ exists: true, email: identifier.includes('@') ? identifier : `${identifier}@auracentra.com` });
+      return;
+    }
+
+    const found = registeredUsersRegistry.find(
+      u => u.email.toLowerCase() === identifier ||
+           (u.username && u.username.toLowerCase() === identifier) ||
+           (u.phone && normalizePhone(u.phone) === normalizePhone(identifier))
+    );
+
+    if (found) {
+      res.json({ 
+        exists: true, 
+        user: {
+          id: found.id,
+          name: found.name,
+          username: found.username,
+          email: found.email,
+          phone: found.phone,
+          role: found.role,
+          createdAt: found.createdAt
+        } 
+      });
+      return;
+    }
+
+    res.json({ exists: false });
+  } catch (err: any) {
+    res.status(500).json({ exists: false, error: err.message });
+  }
+});
+
 // Permanent Account & Business Deletion Endpoint
 app.post('/api/auth/delete-account', async (req, res) => {
   try {
-    const { email, userId, deleteBusinesses } = req.body;
+    const { email, userId, deleteBusinesses, password } = req.body;
     const cleanEmail = (email || '').trim().toLowerCase();
 
     if (!cleanEmail && !userId) {
       res.status(400).json({ error: 'Email or User ID is required for account deletion' });
       return;
+    }
+
+    // Verify password if provided
+    if (password) {
+      const user = registeredUsersRegistry.find(u => 
+        (cleanEmail && u.email.toLowerCase() === cleanEmail) || 
+        (userId && u.id === userId)
+      );
+      if (user && user.password && user.password !== password.trim()) {
+        res.status(403).json({ error: 'Incorrect password. Account deletion aborted.' });
+        return;
+      }
     }
 
     // 1. Remove from registeredUsersRegistry

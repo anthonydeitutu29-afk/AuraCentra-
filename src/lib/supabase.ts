@@ -592,16 +592,77 @@ export const SupabaseService = {
     }
   },
 
-  // Password Verification Check (Crucial for user-mandated secure logout)
+  // Password Verification Check (Crucial for user-mandated secure logout and account deletion)
   async verifyPassword(email: string, password: string): Promise<boolean> {
     if (!password) return false;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (password || '').trim();
 
-    // 1. If Supabase is connected, verify with Supabase Auth
-    if (supabase) {
+    // 1. Check default admin account passwords
+    if (cleanEmail === 'admindashboard@gmail.com' && cleanPassword === 'Admin12$') {
+      return true;
+    }
+    if (cleanEmail === 'tonysdigitalmarketing@gmail.com' && (cleanPassword === 'Admin12$' || cleanPassword === 'Password123#')) {
+      return true;
+    }
+
+    // 2. Check local registered accounts registry (v12 and fallbacks)
+    try {
+      const storageKeys = [
+        'auracentra_registered_accounts_v12',
+        'auracentra_registered_accounts_v10',
+        'auracentra_registered_accounts_v7',
+      ];
+      for (const key of storageKeys) {
+        const accountsJson = localStorage.getItem(key);
+        if (accountsJson) {
+          const accounts = JSON.parse(accountsJson);
+          if (Array.isArray(accounts)) {
+            const match = accounts.find((a: any) => 
+              (a.email && a.email.toLowerCase() === cleanEmail) ||
+              (a.username && a.username.toLowerCase() === cleanEmail) ||
+              (a.phone && a.phone.replace(/\D/g, '') === cleanEmail.replace(/\D/g, ''))
+            );
+            if (match && match.password) {
+              if (match.password === cleanPassword) {
+                return true;
+              } else {
+                return false;
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Check server-side password verification endpoint
+    try {
+      const response = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.valid === true) {
+          return true;
+        }
+        if (data.valid === false && !data.fallbackToClient) {
+          return false;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[Server verify-password notice]', apiErr);
+    }
+
+    // 4. If Supabase is connected, verify with Supabase Auth
+    if (supabase && cleanEmail.includes('@')) {
       try {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: cleanEmail,
+          password: cleanPassword,
         });
         if (!error && data?.user) {
           return true;
@@ -609,25 +670,6 @@ export const SupabaseService = {
       } catch (e) {
         console.warn('[Supabase verifyPassword]', e);
       }
-    }
-
-    // 2. Check registered local storage accounts
-    try {
-      const accountsJson = localStorage.getItem('auracentra_registered_accounts_v7');
-      if (accountsJson) {
-        const accounts = JSON.parse(accountsJson);
-        const match = accounts.find((a: any) => a.email.toLowerCase() === email.toLowerCase());
-        if (match && match.password === password) {
-          return true;
-        }
-      }
-      
-      // Default admin account password check
-      if (email.toLowerCase() === 'admindashboard@gmail.com' && password === 'Admin12$') {
-        return true;
-      }
-    } catch {
-      // ignore
     }
 
     return false;

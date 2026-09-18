@@ -3,7 +3,7 @@ import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS, TONY_DIGITAL_M
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v15',
+  BUSINESSES: 'auracentra_businesses_clean_v16',
   CATEGORIES: 'auracentra_categories_clean_v12',
   REVIEWS: 'auracentra_reviews_clean_v12',
   CURRENT_USER: 'auracentra_user_clean_v12',
@@ -25,6 +25,7 @@ const STORAGE_KEYS = {
 try {
   const legacyKeys = [
     'auracentra_businesses',
+    'auracentra_businesses_clean_v15',
     'auracentra_businesses_clean_v14',
     'auracentra_businesses_clean_v13',
     'auracentra_businesses_clean_v12',
@@ -463,7 +464,19 @@ export function toggleStoredNewsLike(articleId: string): string[] {
 export const DEFAULT_ADMIN_ACCOUNT: UserAccountRecord = {
   id: 'admin-super-01',
   name: 'AuraCentra Executive Admin',
+  username: 'admin',
   email: 'admindashboard@gmail.com',
+  phone: '+233 50 820 3673',
+  role: 'admin',
+  password: 'Admin12$',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+
+export const DEFAULT_TONY_ACCOUNT: UserAccountRecord = {
+  id: 'admin-tony-02',
+  name: 'Tony Executive Admin',
+  username: 'tonysdigitalmarketing',
+  email: 'tonysdigitalmarketing@gmail.com',
   phone: '+233 50 820 3673',
   role: 'admin',
   password: 'Admin12$',
@@ -476,17 +489,20 @@ export function getRegisteredAccounts(): UserAccountRecord[] {
     if (data) {
       const parsed: UserAccountRecord[] = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        // Ensure admin account is present
-        if (!parsed.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
-          return [DEFAULT_ADMIN_ACCOUNT, ...parsed];
+        let result = [...parsed];
+        if (!result.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
+          result = [DEFAULT_ADMIN_ACCOUNT, ...result];
         }
-        return parsed;
+        if (!result.some((a) => a.email.toLowerCase() === DEFAULT_TONY_ACCOUNT.email.toLowerCase())) {
+          result = [DEFAULT_TONY_ACCOUNT, ...result];
+        }
+        return result;
       }
     }
   } catch (e) {
     console.error('Failed to load registered accounts from storage', e);
   }
-  return [DEFAULT_ADMIN_ACCOUNT];
+  return [DEFAULT_ADMIN_ACCOUNT, DEFAULT_TONY_ACCOUNT];
 }
 
 export function saveRegisteredAccount(account: UserAccountRecord): void {

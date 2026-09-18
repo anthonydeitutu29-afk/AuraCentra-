@@ -227,37 +227,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
  // 1. Pre-Check existing account with this email
  const existingAcc = findRegisteredAccountByEmail(cleanEmail);
  if (existingAcc) {
- // Update account details with newly entered info
- const updatedAccount: UserAccountRecord = {
- ...existingAcc,
- name: cleanName || existingAcc.name,
- username: cleanUsername || existingAcc.username,
- password: cleanPassword || existingAcc.password,
- role: accountType || existingAcc.role,
- phone: cleanPhone || existingAcc.phone || '+233 24 000 0000',
- phoneVerified: true,
- emailVerified: true,
- businessName: accountType === 'business_owner' ? (businessName || existingAcc.businessName) : existingAcc.businessName,
- };
- saveRegisteredAccount(updatedAccount);
-
- const userProfile: UserProfile = {
- id: updatedAccount.id,
- name: updatedAccount.name,
- username: updatedAccount.username,
- email: updatedAccount.email,
- emailVerified: true,
- phone: updatedAccount.phone || '+233 24 000 0000',
- phoneVerified: true,
- role: updatedAccount.role as UserRole,
- accountType: (updatedAccount.role === 'business_owner' || updatedAccount.role === 'verified_owner') ? 'business_owner' : 'customer',
- savedBusinessIds: [],
- createdAt: updatedAccount.createdAt || new Date().toISOString(),
- };
- setSuccessMsg('Account updated and signed in successfully!');
- setTimeout(() => {
- onLoginSuccess(userProfile);
- }, 400);
+ setEmailConflict('An account with this email address already exists.');
+ setErrorMsg('An account with this email address is already registered on AuraCentra. Please switch to Log In to access your account with your password.');
  return;
  }
 
