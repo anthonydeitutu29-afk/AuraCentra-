@@ -696,7 +696,7 @@ export const FirebaseAuthService = {
     }
 
     const cleanEmail = targetAccount.email.toLowerCase();
-    const isAdmin = cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com';
+    const isAdmin = cleanEmail === 'admindashboard@gmail.com';
     const finalRole: UserRole = isAdmin ? 'admin' : (targetAccount.role || 'customer');
 
     // Update last login timestamp in registry to preserve user continuity

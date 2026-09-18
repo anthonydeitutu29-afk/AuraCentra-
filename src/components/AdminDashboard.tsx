@@ -49,7 +49,8 @@ import {
  Database,
  Copy,
  Terminal,
- Star
+ Star,
+ KeyRound
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
 import { getRegisteredAccounts, isBusinessPermanentlyApproved, markBusinessPermanentlyApproved } from '../utils/storage';
@@ -131,25 +132,59 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  const [bizStatusFilter, setBizStatusFilter] = useState<'all' | 'live' | 'investigation' | 'pending' | 'verified' | 'unverified' | 'rejected' | 'featured'>('all');
  const [userFilterProvider, setUserFilterProvider] = useState<string>('all');
 
- // Strict RBAC Guard: If not admin, completely block render
- if (currentUser?.role !== 'admin') {
- return (
- <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center">
- <ShieldAlert className="w-16 h-16 text-rose-500 mb-4" />
- <h2 className="text-2xl font-black mb-2">Access Denied</h2>
- <p className="text-slate-400 max-w-md mb-6">
- You do not have administrator permissions to access this console. Customer accounts cannot access the Executive Administrative Console.
- </p>
- <button
- type="button"
- onClick={onBackToPortal}
- className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all cursor-pointer shadow-lg "
- >
- Return to AuraCentra Portal
- </button>
- </div>
- );
+ // Strict Security Credentials
+ const isSuperAdminEmail = currentUser?.email?.toLowerCase() === 'admindashboard@gmail.com';
+ const hasAdminRole = currentUser?.role === 'admin';
+
+ // Security Verification State for 8009 Passcode Gate
+ const [adminPasscodeVerified, setAdminPasscodeVerified] = useState<boolean>(() => {
+ try {
+ return sessionStorage.getItem('auracentra_admin_code_verified') === '8009';
+ } catch {
+ return false;
  }
+ });
+ const [passcodeInput, setPasscodeInput] = useState('');
+ const [passcodeError, setPasscodeError] = useState('');
+ const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+
+ const handleVerifyPasscode = async (e?: React.FormEvent) => {
+ if (e) e.preventDefault();
+ setPasscodeError('');
+ setIsVerifyingCode(true);
+ try {
+ const res = await fetch('/api/admin/verify-code', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ email: currentUser?.email || 'admindashboard@gmail.com',
+ code: passcodeInput.trim(),
+ }),
+ });
+ const data = await res.json();
+ if (res.ok && data.success) {
+ try {
+ sessionStorage.setItem('auracentra_admin_code_verified', '8009');
+ } catch {}
+ setAdminPasscodeVerified(true);
+ onShowToast?.('Console Unlocked', 'Admin authorization code verified successfully.', 'success');
+ } else {
+ setPasscodeError(data.message || 'Invalid administrator verification code. Access Denied.');
+ }
+ } catch {
+ if (passcodeInput.trim() === '8009') {
+ try {
+ sessionStorage.setItem('auracentra_admin_code_verified', '8009');
+ } catch {}
+ setAdminPasscodeVerified(true);
+ onShowToast?.('Console Unlocked', 'Admin authorization code verified.', 'success');
+ } else {
+ setPasscodeError('Invalid administrator verification code. Access Denied.');
+ }
+ } finally {
+ setIsVerifyingCode(false);
+ }
+ };
  const [registeredUsers, setRegisteredUsers] = useState<UserAccountRecord[]>(() => getRegisteredAccounts());
  
  // Refresh accounts when opening users tab
@@ -198,7 +233,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  const [showAddCatModal, setShowAddCatModal] = useState(false);
 
  // Brevo Testing State
- const [brevoTestEmail, setBrevoTestEmail] = useState('tonysdigitalmarketing@gmail.com');
+ const [brevoTestEmail, setBrevoTestEmail] = useState('admindashboard@gmail.com');
  const [brevoTesting, setBrevoTesting] = useState(false);
  const [brevoTestResult, setBrevoTestResult] = useState<any>(null);
 
@@ -370,6 +405,120 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  setNewCatDescription('');
  setShowAddCatModal(false);
  };
+
+ // Strict Security Guard 1: Only admindashboard@gmail.com with admin role can access
+ if (!hasAdminRole || !isSuperAdminEmail) {
+ return (
+ <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-6 text-center" id="admin-access-denied-screen">
+ <ShieldAlert className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
+ <h2 className="text-2xl font-black mb-2">Access Denied</h2>
+ <p className="text-slate-400 max-w-md mb-6 text-sm">
+ Access to the AuraCentra Executive Administrative Console is strictly restricted to authorized administrative personnel (admindashboard@gmail.com).
+ </p>
+ <button
+ type="button"
+ id="btn-admin-return-portal"
+ onClick={onBackToPortal}
+ className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all cursor-pointer shadow-lg"
+ >
+ Return to AuraCentra Portal
+ </button>
+ </div>
+ );
+ }
+
+ // Strict Security Guard 2: 4-digit Administrator Verification Code Gate (8009)
+ if (!adminPasscodeVerified) {
+ return (
+ <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 sm:p-6" id="admin-passcode-gate">
+ <div className="w-full max-w-md bg-slate-900/95 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl text-center space-y-6">
+ <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+ <Lock className="w-8 h-8 text-white" />
+ </div>
+
+ <div>
+ <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-3">
+ <ShieldCheck className="w-3.5 h-3.5" />
+ <span>Super Administrator Authentication</span>
+ </div>
+ <h2 className="text-2xl font-bold tracking-tight text-white">Executive Console Locked</h2>
+ <p className="text-xs text-slate-400 mt-2">
+ Authorized Administrator: <strong className="text-emerald-400 font-mono">admindashboard@gmail.com</strong>
+ </p>
+ <p className="text-xs text-slate-400 mt-1">
+ Please enter the 4-digit verification code to unlock executive governance.
+ </p>
+ </div>
+
+ <form onSubmit={handleVerifyPasscode} className="space-y-4" id="admin-passcode-form">
+ <div>
+ <input
+ id="admin-verification-code-input"
+ type="password"
+ inputMode="numeric"
+ maxLength={4}
+ autoFocus
+ value={passcodeInput}
+ onChange={(e) => {
+ const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+ setPasscodeInput(val);
+ setPasscodeError('');
+ }}
+ placeholder="••••"
+ className="w-full text-center text-3xl tracking-[0.6em] font-mono py-4 px-4 bg-slate-800/80 border border-slate-700 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+ />
+ </div>
+
+ {passcodeError && (
+ <div id="admin-passcode-error" className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center justify-center gap-2">
+ <AlertCircle className="w-4 h-4 flex-shrink-0" />
+ <span>{passcodeError}</span>
+ </div>
+ )}
+
+ <button
+ type="submit"
+ id="btn-verify-admin-code"
+ disabled={isVerifyingCode || passcodeInput.length !== 4}
+ className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-600/25 cursor-pointer flex items-center justify-center gap-2"
+ >
+ {isVerifyingCode ? (
+ <>
+ <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+ <span>Verifying Code...</span>
+ </>
+ ) : (
+ <>
+ <KeyRound className="w-4 h-4" />
+ <span>Unlock Executive Console</span>
+ </>
+ )}
+ </button>
+ </form>
+
+ <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+ <button
+ type="button"
+ id="btn-return-portal-from-gate"
+ onClick={onBackToPortal}
+ className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+ >
+ Return to Portal
+ </button>
+ <button
+ type="button"
+ id="btn-signout-from-gate"
+ onClick={onSignOut}
+ className="text-rose-400 hover:text-rose-300 transition-colors cursor-pointer flex items-center gap-1"
+ >
+ <LogOut className="w-3.5 h-3.5" />
+ <span>Sign Out</span>
+ </button>
+ </div>
+ </div>
+ </div>
+ );
+ }
 
  return (
  <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col" id="admin-dashboard-container">
@@ -2238,7 +2387,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  </div>
  <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700">
  <span className="text-slate-400">Official Support & Hub Email:</span>
- <div className="font-mono text-blue-400 font-bold mt-1">tonysdigitalmarketing@gmail.com</div>
+ <div className="font-mono text-blue-400 font-bold mt-1">admindashboard@gmail.com</div>
  </div>
  </div>
  </div>

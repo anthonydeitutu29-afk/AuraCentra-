@@ -1,60 +1,35 @@
 import { Business, Category, BusinessReview, UserProfile, UserAccountRecord, BusinessInquiry, BusinessReport, CategorySuggestion, PlatformFeedback, UserNotification } from '../types';
-import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS, TONY_DIGITAL_MARKETING_HUB } from '../data/initialData';
+import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data/initialData';
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v16',
-  CATEGORIES: 'auracentra_categories_clean_v12',
-  REVIEWS: 'auracentra_reviews_clean_v12',
-  CURRENT_USER: 'auracentra_user_clean_v12',
-  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v12',
-  SAVED_BUSINESSES: 'auracentra_saved_clean_v12',
-  SEARCH_HISTORY: 'auracentra_search_history_clean_v12',
-  THEME: 'auracentra_theme_clean_v12',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v12',
-  INQUIRIES: 'auracentra_inquiries_clean_v12',
-  PROMOTIONS: 'auracentra_promotions_clean_v12',
-  REPORTS: 'auracentra_reports_clean_v12',
-  SUGGESTIONS: 'auracentra_suggestions_clean_v12',
-  FEEDBACK: 'auracentra_feedback_clean_v12',
-  NEWS_LIKES: 'auracentra_news_likes_v4',
-  USER_NOTIFICATIONS: 'auracentra_user_notifications_v4',
+  BUSINESSES: 'auracentra_businesses_clean_v20',
+  CATEGORIES: 'auracentra_categories_clean_v20',
+  REVIEWS: 'auracentra_reviews_clean_v20',
+  CURRENT_USER: 'auracentra_user_clean_v20',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v20',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v20',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v20',
+  THEME: 'auracentra_theme_clean_v20',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v20',
+  INQUIRIES: 'auracentra_inquiries_clean_v20',
+  PROMOTIONS: 'auracentra_promotions_clean_v20',
+  REPORTS: 'auracentra_reports_clean_v20',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v20',
+  FEEDBACK: 'auracentra_feedback_clean_v20',
+  NEWS_LIKES: 'auracentra_news_likes_v20',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v20',
 };
 
-// Immediate purge of legacy accounts and business records
+// Immediate complete purge of legacy accounts, mock data, and business records
 try {
-  const legacyKeys = [
-    'auracentra_businesses',
-    'auracentra_businesses_clean_v15',
-    'auracentra_businesses_clean_v14',
-    'auracentra_businesses_clean_v13',
-    'auracentra_businesses_clean_v12',
-    'auracentra_businesses_clean_v11',
-    'auracentra_businesses_clean_v10',
-    'auracentra_businesses_clean_v9',
-    'auracentra_businesses_clean_v8',
-    'auracentra_businesses_clean_v7',
-    'auracentra_businesses_clean_v6',
-    'auracentra_businesses_clean_v5',
-    'auracentra_approved_business_ids_v4',
-    'auracentra_approved_business_ids_v5',
-    'auracentra_approved_business_ids_v10',
-    'auracentra_registered_accounts_v10',
-    'auracentra_registered_accounts_v8',
-    'auracentra_registered_accounts_v7',
-    'auracentra_registered_accounts_v6',
-    'auracentra_user_clean_v10',
-    'auracentra_user_clean_v8',
-    'auracentra_user_clean_v7',
-    'auracentra_user_clean_v6',
-    'auracentra_pending_submissions',
-    'auracentra_pending_signup',
-    'auracentra_saved_clean_v10',
-    'auracentra_saved_clean_v8',
-    'auracentra_saved_clean_v7',
-    'auracentra_saved_ids'
-  ];
-  legacyKeys.forEach(k => localStorage.removeItem(k));
+  const currentV20Keys = Object.values(STORAGE_KEYS);
+  const allKeys = Object.keys(localStorage);
+  for (const key of allKeys) {
+    if (key.startsWith('auracentra_') && !currentV20Keys.includes(key)) {
+      localStorage.removeItem(key);
+    }
+  }
 } catch {
   // ignore in non-browser environments
 }
@@ -67,8 +42,8 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [];
 // Permanently approved & verified enterprise listings across all sessions
 export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
 
-const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v12';
-const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v12';
+const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v20';
+const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v20';
 
 export function getDynamicallyDeletedBusinessIds(): Set<string> {
   const set = new Set<string>();
@@ -341,10 +316,12 @@ export function getStoredCurrentUser(): UserProfile | null {
       }
       if (user?.email) {
         const clean = user.email.trim().toLowerCase();
-        if (clean === 'anthonydeitutu29@gmail.com' || clean === 'admindashboard@gmail.com' || clean === 'tonysdigitalmarketing@gmail.com') {
+        if (clean === 'admindashboard@gmail.com') {
           user.role = 'admin';
           user.emailVerified = true;
           user.phoneVerified = true;
+        } else if (user.role === 'admin') {
+          user.role = 'customer';
         }
       }
       return user;
@@ -472,17 +449,6 @@ export const DEFAULT_ADMIN_ACCOUNT: UserAccountRecord = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-export const DEFAULT_TONY_ACCOUNT: UserAccountRecord = {
-  id: 'admin-tony-02',
-  name: 'Tony Executive Admin',
-  username: 'tonysdigitalmarketing',
-  email: 'tonysdigitalmarketing@gmail.com',
-  phone: '+233 50 820 3673',
-  role: 'admin',
-  password: 'Admin12$',
-  createdAt: '2026-01-01T00:00:00.000Z',
-};
-
 export function getRegisteredAccounts(): UserAccountRecord[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_ACCOUNTS);
@@ -493,16 +459,13 @@ export function getRegisteredAccounts(): UserAccountRecord[] {
         if (!result.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
           result = [DEFAULT_ADMIN_ACCOUNT, ...result];
         }
-        if (!result.some((a) => a.email.toLowerCase() === DEFAULT_TONY_ACCOUNT.email.toLowerCase())) {
-          result = [DEFAULT_TONY_ACCOUNT, ...result];
-        }
         return result;
       }
     }
   } catch (e) {
     console.error('Failed to load registered accounts from storage', e);
   }
-  return [DEFAULT_ADMIN_ACCOUNT, DEFAULT_TONY_ACCOUNT];
+  return [DEFAULT_ADMIN_ACCOUNT];
 }
 
 export function saveRegisteredAccount(account: UserAccountRecord): void {

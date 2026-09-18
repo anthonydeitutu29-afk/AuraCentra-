@@ -392,7 +392,7 @@ export const SupabaseService = {
           .maybeSingle();
 
         if (!error && data) {
-          const isAdmin = data.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com';
+          const isAdmin = cleanEmail === 'admindashboard@gmail.com';
           return {
             id: data.id,
             name: data.name || cleanEmail.split('@')[0],
@@ -417,7 +417,7 @@ export const SupabaseService = {
       if (res.ok) {
         const data = await res.json();
         if (data?.profile) {
-          const isAdmin = data.profile.role === 'admin' || cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com';
+          const isAdmin = cleanEmail === 'admindashboard@gmail.com';
           return {
             id: data.profile.id,
             name: data.profile.name || cleanEmail.split('@')[0],
@@ -437,17 +437,17 @@ export const SupabaseService = {
     }
 
     // 3. Admin fallback
-    if (cleanEmail === 'anthonydeitutu29@gmail.com' || cleanEmail === 'admindashboard@gmail.com' || cleanEmail === 'tonysdigitalmarketing@gmail.com') {
+    if (cleanEmail === 'admindashboard@gmail.com') {
       return {
-        id: 'admin-anthony',
-        name: 'Anthony De-Tutu',
-        email: cleanEmail,
+        id: 'admin-super-01',
+        name: 'AuraCentra Executive Admin',
+        email: 'admindashboard@gmail.com',
         phone: '+233 50 820 3673',
         role: 'admin',
         emailVerified: true,
         phoneVerified: true,
         savedBusinessIds: [],
-        createdAt: new Date().toISOString(),
+        createdAt: '2026-01-01T00:00:00.000Z',
       };
     }
 
@@ -598,11 +598,8 @@ export const SupabaseService = {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPassword = (password || '').trim();
 
-    // 1. Check default admin account passwords
+    // 1. Check default admin account password - ONLY admindashboard@gmail.com
     if (cleanEmail === 'admindashboard@gmail.com' && cleanPassword === 'Admin12$') {
-      return true;
-    }
-    if (cleanEmail === 'tonysdigitalmarketing@gmail.com' && (cleanPassword === 'Admin12$' || cleanPassword === 'Password123#')) {
       return true;
     }
 

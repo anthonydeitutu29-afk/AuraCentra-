@@ -298,16 +298,6 @@ let registeredUsersRegistry: Array<{
     role: 'admin',
     createdAt: '2026-01-01T00:00:00.000Z',
   },
-  {
-    id: 'admin-tony-02',
-    name: 'Tony Executive Admin',
-    username: 'tonysdigitalmarketing',
-    email: 'tonysdigitalmarketing@gmail.com',
-    phone: '+233 50 820 3673',
-    password: 'Admin12$',
-    role: 'admin',
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
 ];
 
 function normalizePhone(phone?: string): string {
@@ -1600,7 +1590,7 @@ app.get('/api/auth/profile', async (req, res) => {
       }
     }
 
-    const isAdminEmail = email === 'anthonydeitutu29@gmail.com' || email === 'admindashboard@gmail.com' || email === 'tonysdigitalmarketing@gmail.com';
+    const isAdminEmail = email === 'admindashboard@gmail.com';
 
     if (profile) {
       if (isAdminEmail && profile.role !== 'admin') {
@@ -1807,12 +1797,8 @@ app.post('/api/auth/verify-password', (req, res) => {
       return;
     }
 
-    // Default admin accounts
+    // Default admin account - ONLY admindashboard@gmail.com with Admin12$
     if (cleanId === 'admindashboard@gmail.com' && cleanPassword === 'Admin12$') {
-      res.json({ valid: true });
-      return;
-    }
-    if (cleanId === 'tonysdigitalmarketing@gmail.com' && (cleanPassword === 'Admin12$' || cleanPassword === 'Password123#')) {
       res.json({ valid: true });
       return;
     }
@@ -1852,8 +1838,8 @@ app.get('/api/auth/check-account-exists', (req, res) => {
       return;
     }
 
-    if (identifier === 'admindashboard@gmail.com' || identifier === 'tonysdigitalmarketing@gmail.com' || identifier === 'admin') {
-      res.json({ exists: true, email: identifier.includes('@') ? identifier : `${identifier}@auracentra.com` });
+    if (identifier === 'admindashboard@gmail.com' || identifier === 'admin') {
+      res.json({ exists: true, email: 'admindashboard@gmail.com' });
       return;
     }
 
@@ -1882,6 +1868,29 @@ app.get('/api/auth/check-account-exists', (req, res) => {
     res.json({ exists: false });
   } catch (err: any) {
     res.status(500).json({ exists: false, error: err.message });
+  }
+});
+
+// Admin Dashboard Security Verification Code Endpoint (Passcode: 8009 strictly for admindashboard@gmail.com)
+app.post('/api/admin/verify-code', (req, res) => {
+  try {
+    const { code, email } = req.body || {};
+    const cleanCode = String(code || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+
+    if (cleanEmail !== 'admindashboard@gmail.com') {
+      res.status(403).json({ success: false, valid: false, message: 'Access restricted strictly to admindashboard@gmail.com.' });
+      return;
+    }
+
+    if (cleanCode === '8009') {
+      res.json({ success: true, valid: true, message: 'Administrator security verification approved.' });
+      return;
+    }
+
+    res.status(401).json({ success: false, valid: false, message: 'Invalid administrator verification code. Access Denied.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, valid: false, message: err.message });
   }
 });
 

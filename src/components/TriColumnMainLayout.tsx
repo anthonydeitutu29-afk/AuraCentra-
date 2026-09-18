@@ -136,14 +136,18 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
     // 4. Flexible Category filter matching by ID, Name, or Slug
     if (filters.category && filters.category !== 'All Categories' && filters.category !== 'all' && filters.category.trim() !== '') {
       const target = filters.category.trim().toLowerCase();
+      const targetCatObj = categories.find(
+        (c) => c.id.toLowerCase() === target || c.name.toLowerCase() === target || c.slug.toLowerCase() === target
+      );
+      const targetId = targetCatObj ? targetCatObj.id.toLowerCase() : target;
+      const targetName = targetCatObj ? targetCatObj.name.toLowerCase() : target;
+      const targetSlug = targetCatObj ? targetCatObj.slug.toLowerCase() : target;
+
       list = list.filter((b) => {
         const bCat = (b.category || '').trim().toLowerCase();
-        if (bCat === target) return true;
+        if (bCat === target || bCat === targetId || bCat === targetName || bCat === targetSlug) return true;
         if ((target.includes('market') || target.includes('digital')) && (bCat.includes('market') || bCat.includes('digital'))) return true;
 
-        const targetCatObj = categories.find(
-          (c) => c.id.toLowerCase() === target || c.name.toLowerCase() === target || c.slug.toLowerCase() === target
-        );
         const bCatObj = categories.find(
           (c) => c.id.toLowerCase() === bCat || c.name.toLowerCase() === bCat || c.slug.toLowerCase() === bCat
         );
@@ -156,24 +160,25 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
       });
     }
 
-    // 5. Search Query matching
+    // 5. Search Query matching (pre-indexed categories for fast responsiveness)
     if (filters.searchQuery && filters.searchQuery.trim() !== '') {
       const q = filters.searchQuery.trim().toLowerCase();
+      const matchingCatIds = new Set(
+        categories
+          .filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
+          .map((c) => c.id.toLowerCase())
+      );
+
       list = list.filter((b) => {
         if (b.name.toLowerCase().includes(q)) return true;
         if (b.description.toLowerCase().includes(q)) return true;
         if (b.city?.toLowerCase().includes(q)) return true;
         if (b.region?.toLowerCase().includes(q)) return true;
-        if (b.category?.toLowerCase().includes(q)) return true;
+        const bCatLower = (b.category || '').toLowerCase();
+        if (bCatLower.includes(q) || matchingCatIds.has(bCatLower)) return true;
         if (b.services?.some((s) => s.toLowerCase().includes(q))) return true;
         if (b.features?.some((f) => f.toLowerCase().includes(q))) return true;
         if (b.digitalAddress?.toLowerCase().includes(q)) return true;
-
-        // Check if query matches category name for this business
-        const catObj = categories.find(
-          (c) => c.id.toLowerCase() === b.category.toLowerCase() || c.slug.toLowerCase() === b.category.toLowerCase()
-        );
-        if (catObj && catObj.name.toLowerCase().includes(q)) return true;
 
         return false;
       });

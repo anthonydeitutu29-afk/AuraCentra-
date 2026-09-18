@@ -551,10 +551,7 @@ export default function App() {
       if (session?.user?.email) {
         const email = session.user.email.toLowerCase();
         const liveProfile = await SupabaseService.getProfile(email);
-        const isAdmin = liveProfile?.role === 'admin' || 
-          email === 'anthonydeitutu29@gmail.com' || 
-          email === 'admindashboard@gmail.com' ||
-          email === 'tonysdigitalmarketing@gmail.com';
+        const isAdmin = email === 'admindashboard@gmail.com';
 
         const updated: UserProfile = {
           id: session.user.id || liveProfile?.id || `usr-${Date.now()}`,
@@ -583,10 +580,7 @@ export default function App() {
       SupabaseService.getProfile(currentUser.email)
         .then((live) => {
           if (live) {
-            const isAdmin = live.role === 'admin' || 
-              currentUser.email.toLowerCase() === 'anthonydeitutu29@gmail.com' || 
-              currentUser.email.toLowerCase() === 'admindashboard@gmail.com' ||
-              currentUser.email.toLowerCase() === 'tonysdigitalmarketing@gmail.com';
+            const isAdmin = currentUser.email.toLowerCase() === 'admindashboard@gmail.com';
             const targetRole = isAdmin ? 'admin' : (live.role || 'customer');
 
             if (currentUser.role !== targetRole) {
@@ -775,10 +769,22 @@ export default function App() {
   };
 
   const handleAddSearchHistory = (query: string) => {
+    if (!query || !query.trim()) return;
+    const clean = query.trim();
+    setSearchHistory((prev) => {
+      const filtered = prev.filter((item) => item.toLowerCase() !== clean.toLowerCase());
+      const next = [clean, ...filtered].slice(0, 10);
+      saveSearchHistory(next);
+      return next;
+    });
+  };
+
+  const handleRemoveSearchHistoryItem = (query: string) => {
     if (!query) return;
     setSearchHistory((prev) => {
-      const filtered = prev.filter((item) => item.toLowerCase() !== query.toLowerCase());
-      return [query, ...filtered].slice(0, 10);
+      const next = prev.filter((item) => item.toLowerCase() !== query.toLowerCase());
+      saveSearchHistory(next);
+      return next;
     });
   };
 
@@ -1589,7 +1595,11 @@ export default function App() {
   }, [businesses]);
 
   // If in Admin Dashboard view
-  if (currentView === 'admin' && currentUser?.role === 'admin') {
+  if (currentView === 'admin') {
+    if (!currentUser || currentUser.role !== 'admin' || currentUser.email.toLowerCase() !== 'admindashboard@gmail.com') {
+      setCurrentView('portal');
+      return null;
+    }
     return (
       <div className={theme === 'dark' ? 'dark' : ''}>
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
@@ -2017,6 +2027,7 @@ export default function App() {
             onResetFilters={handleResetFilters}
             searchHistory={searchHistory}
             onAddSearchHistory={handleAddSearchHistory}
+            onRemoveSearchHistoryItem={handleRemoveSearchHistoryItem}
             onClearSearchHistory={handleClearSearchHistory}
             onSelectBusiness={(b) => handleSelectBusiness(b)}
             onShowToast={showToast}

@@ -319,7 +319,7 @@ export const Navbar: React.FC<NavbarProps> = ({
  {/* Button: Sign In / User Profile */}
  {currentUser ? (
  <div className="flex items-center gap-1 sm:gap-1.5 pl-1 sm:pl-1.5 border-l border-slate-200 dark:border-slate-800 shrink-0">
- {currentUser.role === 'admin' ? (
+ {currentUser.role === 'admin' && currentUser.email?.toLowerCase() === 'admindashboard@gmail.com' ? (
  <button
  type="button"
  id="nav-admin-dashboard-btn"
