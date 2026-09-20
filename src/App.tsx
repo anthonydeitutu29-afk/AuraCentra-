@@ -61,7 +61,8 @@ import {
   markBusinessPermanentlyDeleted,
   unmarkBusinessPermanentlyDeleted,
   isBusinessPermanentlyApproved,
-  getApprovedBusinessIds
+  getApprovedBusinessIds,
+  isLegacyDeletedEmail
 } from './utils/storage';
 import { autoDetectUserLocation, requestPreciseLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
@@ -125,12 +126,21 @@ export default function App() {
   });
 
   // Core Data state
-  const [businesses, setBusinesses] = useState<Business[]>(getStoredBusinesses);
+  const [businesses, setBusinesses] = useState<Business[]>(() => getStoredBusinesses().filter((b) => !isDeletedBusiness(b)));
   const [categories, setCategories] = useState<Category[]>(getStoredCategories);
   const [reviews, setReviews] = useState<BusinessReview[]>(getStoredReviews);
   const [inquiries, setInquiries] = useState<BusinessInquiry[]>(getStoredInquiries);
   const [reports, setReports] = useState<BusinessReport[]>(getStoredReports);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(getStoredCurrentUser);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+    const user = getStoredCurrentUser();
+    if (!user) return null;
+    if (user.email?.toLowerCase() === 'admindashboard@gmail.com') return user;
+    if (isLegacyDeletedEmail(user.email)) {
+      saveCurrentUser(null);
+      return null;
+    }
+    return user;
+  });
   const [savedBusinessIds, setSavedBusinessIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('auracentra_saved_ids');
     return saved ? JSON.parse(saved) : [];
@@ -307,29 +317,20 @@ export default function App() {
 
     const unsubscribe = FirestoreSync.subscribeBusinesses((liveBusinesses) => {
       if (Array.isArray(liveBusinesses)) {
-        if (liveBusinesses.length === 0) {
-          setBusinesses((prev) => {
-            const cleanPrev = prev.filter((b) => !isDeletedBusiness(b));
-            if (cleanPrev.length > 0) {
-              // Ensure any local businesses are synced to backend so backend doesn't stay empty
-              cleanPrev.forEach((b) => {
-                ApiClient.createBusiness(b).catch(() => {});
-              });
-              saveBusinesses(cleanPrev);
-              return cleanPrev;
-            }
-            return prev;
-          });
+        const cleanLive = liveBusinesses.filter((b) => !isDeletedBusiness(b));
+        if (cleanLive.length === 0) {
+          setBusinesses([]);
+          saveBusinesses([]);
           return;
         }
 
         setBusinesses((prev) => {
           const approvedIds = getApprovedBusinessIds();
-          // Merge live businesses with state: keep local businesses that aren't deleted
           const map = new Map<string, Business>();
+          // Only preserve fresh local businesses that aren't deleted
           prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, b));
           
-          liveBusinesses.filter((b) => !isDeletedBusiness(b)).forEach((b) => {
+          cleanLive.forEach((b) => {
             const isApprovedGlobally = 
               approvedIds.has(b.id) || 
               b.isApproved === true || 

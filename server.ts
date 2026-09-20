@@ -66,11 +66,44 @@ app.use((req, res, next) => {
 });
 
 // In-memory persistent cache for server-side state
-const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [];
+const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [
+  'biz-kempinski-accra',
+  'biz-nyaho-clinic',
+  'biz-buka-accra',
+  'biz-vodam-kumasi',
+  'biz-1788360528413',
+  'biz-1789479904226',
+];
 
-const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [];
+const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
+  'Kempinski Hotel Gold Coast City',
+  'Nyaho Medical Centre',
+  'Buka Restaurant Osu',
+  'Sweet Gardens Hotel Kumasi',
+];
+
+const LEGACY_TEST_EMAILS: string[] = [
+  'anthonydeitutu0@gmail.com',
+  'anthonydeitutu61@gmail.com',
+  'anthonydeitutu29@gmail.com',
+  'cleanupcleaner9988@gmail.com',
+  'tempadmin_cleanup@gmail.com',
+  'tonysdigitalmarketing@gmail.com',
+];
 
 // Server Disk Persistence Configuration
+const PROD_SUPABASE_URL = 'https://kldptamsxgpayqecabxl.supabase.co';
+const PROD_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsZHB0YW1zeGdwYXlxZWNhYnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4NDk5MzMsImV4cCI6MjEwMzQyNTkzM30.bPDkGfHbp2SULRTokHvbmCoxD8e2wkByJ9SabJQtKl8';
+
+function getEffectiveSupabaseConfig() {
+  const rawUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  
+  const url = (rawUrl && !rawUrl.includes('oatpbsemkwmglmrdlmld') && !rawUrl.includes('placeholder')) ? rawUrl : PROD_SUPABASE_URL;
+  const key = (rawKey && !rawUrl.includes('oatpbsemkwmglmrdlmld') && !rawUrl.includes('placeholder')) ? rawKey : PROD_SUPABASE_ANON_KEY;
+  return { url, key, configured: Boolean(url && key && url.startsWith('https://')) };
+}
+
 const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
 const DATA_DIR = IS_SERVERLESS ? path.join('/tmp', 'auracentra_data') : path.join(process.cwd(), 'data');
 const REPO_DATA_DIR = path.join(process.cwd(), 'data');
@@ -162,7 +195,10 @@ function isTonysDigitalMarketingHub(b: any): boolean {
 
 function isDeletedBusinessRecord(b: any): boolean {
   if (!b) return true;
-  if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || deletedBusinessIdsCache.has(b.id))) return true;
+  const id = b.id || '';
+  const name = (b.name || '').trim().toLowerCase();
+  if (id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(id) || deletedBusinessIdsCache.has(id))) return true;
+  if (name && PERMANENTLY_DELETED_BUSINESS_NAMES.some((dn) => dn.toLowerCase() === name || name.includes(dn.toLowerCase()))) return true;
   return false;
 }
 
@@ -1548,12 +1584,11 @@ app.get('/api/auth/status', (req, res) => {
 
 // Safe Supabase Config Provider for frontend clients
 app.get('/api/supabase/config', (req, res) => {
-  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const { url, key, configured } = getEffectiveSupabaseConfig();
   res.json({
-    configured: Boolean(url && anonKey && url.startsWith('https://')),
+    configured,
     supabaseUrl: url,
-    supabaseAnonKey: anonKey,
+    supabaseAnonKey: key,
   });
 });
 
@@ -1566,49 +1601,58 @@ app.get('/api/auth/profile', async (req, res) => {
       return;
     }
 
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
-
-    let profile: any = null;
-
-    if (url && key) {
-      try {
-        const response = await fetch(`${url}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=*`, {
-          headers: {
-            'apikey': key,
-            'Authorization': `Bearer ${key}`,
-          },
-        });
-        if (response.ok) {
-          const rows = await response.json();
-          if (rows && rows.length > 0) {
-            profile = rows[0];
-          }
-        }
-      } catch (err) {
-        console.warn('[Supabase REST Profile Fetch]', err);
-      }
-    }
-
     const isAdminEmail = email === 'admindashboard@gmail.com';
 
-    if (profile) {
-      if (isAdminEmail && profile.role !== 'admin') {
-        profile.role = 'admin';
-      }
-      res.json({ status: 'success', profile });
-    } else {
+    // If currently in registeredUsersRegistry (admin or freshly registered user)
+    const activeUser = registeredUsersRegistry.find(u => u.email.toLowerCase() === email);
+    if (activeUser) {
       res.json({
         status: 'success',
         profile: {
-          id: `usr-${Date.now()}`,
-          name: email.split('@')[0],
-          email,
-          role: isAdminEmail ? 'admin' : 'customer',
+          id: activeUser.id,
+          name: activeUser.name,
+          username: activeUser.username,
+          email: activeUser.email,
+          phone: activeUser.phone || null,
+          role: isAdminEmail ? 'admin' : activeUser.role,
+          avatar: null,
+          auth_provider: 'email',
           phone_verified: true,
+          email_verified: true,
+          saved_business_ids: [],
+          owned_business_ids: [],
+          created_at: activeUser.createdAt,
+          updated_at: activeUser.createdAt,
         },
       });
+      return;
     }
+
+    if (isAdminEmail) {
+      res.json({
+        status: 'success',
+        profile: {
+          id: 'admin-super-01',
+          name: 'AuraCentra Executive Admin',
+          username: 'admin',
+          email: 'admindashboard@gmail.com',
+          phone: '+233 50 820 3673',
+          role: 'admin',
+          avatar: null,
+          auth_provider: 'email',
+          phone_verified: true,
+          email_verified: true,
+          saved_business_ids: [],
+          owned_business_ids: [],
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        },
+      });
+      return;
+    }
+
+    // Account not found or has been permanently deleted
+    res.status(404).json({ error: 'Account not found' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1672,8 +1716,7 @@ app.post('/api/auth/check-uniqueness', async (req, res) => {
     }
 
     // 2. Check Supabase DB if configured
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+    const { url, key } = getEffectiveSupabaseConfig();
 
     if (url && key && cleanEmail) {
       try {
@@ -1686,7 +1729,7 @@ app.post('/api/auth/check-uniqueness', async (req, res) => {
         if (supaRes.ok) {
           const rows = await supaRes.json();
           if (rows && rows.length > 0) {
-            const conflict = rows.find((r: any) => !excludeAccountId || r.id !== excludeAccountId);
+            const conflict = rows.find((r: any) => (!excludeAccountId || r.id !== excludeAccountId) && !LEGACY_TEST_EMAILS.includes((r.email || '').toLowerCase()));
             if (conflict) {
               res.json({
                 isUnique: true,
@@ -1723,6 +1766,12 @@ app.post('/api/auth/sync-profile', async (req, res) => {
       return;
     }
 
+    // If email was previously in legacy deleted list, remove it since user is now registering freshly
+    const legacyIdx = LEGACY_TEST_EMAILS.indexOf(cleanEmail);
+    if (legacyIdx >= 0) {
+      LEGACY_TEST_EMAILS.splice(legacyIdx, 1);
+    }
+
     // Upsert into registeredUsersRegistry
     const existingIndex = registeredUsersRegistry.findIndex(
       u => u.email.toLowerCase() === cleanEmail || (id && u.id === id)
@@ -1745,8 +1794,7 @@ app.post('/api/auth/sync-profile', async (req, res) => {
       registeredUsersRegistry.push(userEntry);
     }
 
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+    const { url, key } = getEffectiveSupabaseConfig();
 
     if (url && key) {
       const response = await fetch(`${url}/rest/v1/profiles`, {
@@ -1951,8 +1999,7 @@ app.post('/api/auth/delete-account', async (req, res) => {
     }
 
     // 4. If Supabase is configured, delete profile and businesses
-    const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
+    const { url, key } = getEffectiveSupabaseConfig();
 
     if (url && key && cleanEmail) {
       try {

@@ -1,32 +1,45 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Business, BusinessInquiry, BusinessReview, UserProfile, UserRole } from '../types';
 import { VerificationService, normalizeGhanaPhone } from '../services/verificationService';
-import { isDeletedBusiness } from '../utils/storage';
+import { isDeletedBusiness, isLegacyDeletedEmail, getRegisteredAccounts } from '../utils/storage';
 
 /**
  * AuraCentra Ghana - Supabase Realtime Database & Authentication Client
  * Supports environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
  */
 
+const PROD_SUPABASE_URL = 'https://kldptamsxgpayqecabxl.supabase.co';
+const PROD_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsZHB0YW1zeGdwYXlxZWNhYnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4NDk5MzMsImV4cCI6MjEwMzQyNTkzM30.bPDkGfHbp2SULRTokHvbmCoxD8e2wkByJ9SabJQtKl8';
+
 const env = (import.meta as any).env || {};
-const supabaseUrl: string = 
+const rawUrl: string = 
   env.VITE_SUPABASE_URL || 
   env.SUPABASE_URL || 
   env.NEXT_PUBLIC_SUPABASE_URL || 
   '';
 
-const supabaseAnonKey: string = 
+const rawKey: string = 
   env.VITE_SUPABASE_ANON_KEY || 
   env.SUPABASE_ANON_KEY || 
   env.SUPABASE_KEY || 
   env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
   '';
 
+// If env is missing or pointing to the empty sandbox placeholder without tables, use production Supabase instance
+const supabaseUrl: string = 
+  (rawUrl && !rawUrl.includes('oatpbsemkwmglmrdlmld') && !rawUrl.includes('placeholder')) 
+    ? rawUrl 
+    : PROD_SUPABASE_URL;
+
+const supabaseAnonKey: string = 
+  (rawKey && !rawUrl.includes('oatpbsemkwmglmrdlmld') && !rawUrl.includes('placeholder')) 
+    ? rawKey 
+    : PROD_SUPABASE_ANON_KEY;
+
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
   supabaseAnonKey && 
-  supabaseUrl.startsWith('https://') && 
-  !supabaseUrl.includes('placeholder')
+  supabaseUrl.startsWith('https://')
 );
 
 // Primary Supabase Client (initialized if env vars exist)
@@ -382,6 +395,15 @@ export const SupabaseService = {
     if (!email) return null;
     const cleanEmail = email.trim().toLowerCase();
     
+    // Ignore legacy deleted accounts unless registered afresh in active accounts
+    if (isLegacyDeletedEmail(cleanEmail)) {
+      const active = getRegisteredAccounts();
+      const isFresh = active.some((a) => a.email.toLowerCase() === cleanEmail && cleanEmail !== 'admindashboard@gmail.com');
+      if (!isFresh) {
+        return null;
+      }
+    }
+
     // 1. Direct Supabase Query
     if (supabase) {
       try {

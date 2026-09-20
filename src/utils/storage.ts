@@ -3,30 +3,30 @@ import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v20',
-  CATEGORIES: 'auracentra_categories_clean_v20',
-  REVIEWS: 'auracentra_reviews_clean_v20',
-  CURRENT_USER: 'auracentra_user_clean_v20',
-  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v20',
-  SAVED_BUSINESSES: 'auracentra_saved_clean_v20',
-  SEARCH_HISTORY: 'auracentra_search_history_clean_v20',
-  THEME: 'auracentra_theme_clean_v20',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v20',
-  INQUIRIES: 'auracentra_inquiries_clean_v20',
-  PROMOTIONS: 'auracentra_promotions_clean_v20',
-  REPORTS: 'auracentra_reports_clean_v20',
-  SUGGESTIONS: 'auracentra_suggestions_clean_v20',
-  FEEDBACK: 'auracentra_feedback_clean_v20',
-  NEWS_LIKES: 'auracentra_news_likes_v20',
-  USER_NOTIFICATIONS: 'auracentra_user_notifications_v20',
+  BUSINESSES: 'auracentra_businesses_clean_v26',
+  CATEGORIES: 'auracentra_categories_clean_v26',
+  REVIEWS: 'auracentra_reviews_clean_v26',
+  CURRENT_USER: 'auracentra_user_clean_v26',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v26',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v26',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v26',
+  THEME: 'auracentra_theme_clean_v26',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v26',
+  INQUIRIES: 'auracentra_inquiries_clean_v26',
+  PROMOTIONS: 'auracentra_promotions_clean_v26',
+  REPORTS: 'auracentra_reports_clean_v26',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v26',
+  FEEDBACK: 'auracentra_feedback_clean_v26',
+  NEWS_LIKES: 'auracentra_news_likes_v26',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v26',
 };
 
 // Immediate complete purge of legacy accounts, mock data, and business records
 try {
-  const currentV20Keys = Object.values(STORAGE_KEYS);
+  const currentV26Keys = Object.values(STORAGE_KEYS);
   const allKeys = Object.keys(localStorage);
   for (const key of allKeys) {
-    if (key.startsWith('auracentra_') && !currentV20Keys.includes(key)) {
+    if (key.startsWith('auracentra_') && !currentV26Keys.includes(key)) {
       localStorage.removeItem(key);
     }
   }
@@ -35,15 +35,27 @@ try {
 }
 
 // Initial state getters and setters
-export const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [];
+export const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [
+  'biz-kempinski-accra',
+  'biz-nyaho-clinic',
+  'biz-buka-accra',
+  'biz-vodam-kumasi',
+  'biz-1788360528413',
+  'biz-1789479904226',
+];
 
-export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [];
+export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
+  'Kempinski Hotel Gold Coast City',
+  'Nyaho Medical Centre',
+  'Buka Restaurant Osu',
+  'Sweet Gardens Hotel Kumasi',
+];
 
 // Permanently approved & verified enterprise listings across all sessions
 export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
 
-const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v20';
-const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v20';
+const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v25';
+const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v25';
 
 export function getDynamicallyDeletedBusinessIds(): Set<string> {
   const set = new Set<string>();
@@ -143,8 +155,15 @@ export function isTonysDigitalMarketingHub(b: Partial<Business> | null | undefin
 
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
-  // Check explicit delete markers
-  if (b.id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(b.id) || getDynamicallyDeletedBusinessIds().has(b.id))) {
+  const id = b.id || '';
+  const name = (b.name || '').trim().toLowerCase();
+
+  // Check explicit delete markers by id
+  if (id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(id) || getDynamicallyDeletedBusinessIds().has(id))) {
+    return true;
+  }
+  // Check delete markers by name
+  if (name && PERMANENTLY_DELETED_BUSINESS_NAMES.some((dn) => dn.toLowerCase() === name || name.includes(dn.toLowerCase()))) {
     return true;
   }
   return false;
@@ -311,20 +330,28 @@ export function getStoredCurrentUser(): UserProfile | null {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (data) {
       const user: UserProfile = JSON.parse(data);
-      if (user) {
-        user.emailVerified = true;
-      }
       if (user?.email) {
         const clean = user.email.trim().toLowerCase();
         if (clean === 'admindashboard@gmail.com') {
           user.role = 'admin';
           user.emailVerified = true;
           user.phoneVerified = true;
-        } else if (user.role === 'admin') {
-          user.role = 'customer';
+          return user;
         }
+        if (isLegacyDeletedEmail(clean)) {
+          localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+          return null;
+        }
+        // Verify against active registered accounts list
+        const registered = getRegisteredAccounts();
+        const exists = registered.some((a) => a.email.toLowerCase() === clean);
+        if (!exists) {
+          localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+          return null;
+        }
+        user.emailVerified = true;
+        return user;
       }
-      return user;
     }
   } catch (e) {
     console.error('Failed to load current user', e);
@@ -449,16 +476,36 @@ export const DEFAULT_ADMIN_ACCOUNT: UserAccountRecord = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
+export const LEGACY_TEST_EMAILS = [
+  'anthonydeitutu0@gmail.com',
+  'anthonydeitutu61@gmail.com',
+  'anthonydeitutu29@gmail.com',
+  'cleanupcleaner9988@gmail.com',
+  'tempadmin_cleanup@gmail.com',
+  'tonysdigitalmarketing@gmail.com',
+];
+
+export function isLegacyDeletedEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return LEGACY_TEST_EMAILS.includes(email.trim().toLowerCase());
+}
+
 export function getRegisteredAccounts(): UserAccountRecord[] {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.REGISTERED_ACCOUNTS);
     if (data) {
       const parsed: UserAccountRecord[] = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        let result = [...parsed];
+        let result = parsed.filter((a) => {
+          if (!a || !a.email) return false;
+          const em = a.email.toLowerCase().trim();
+          if (isLegacyDeletedEmail(em)) return false;
+          return true;
+        });
         if (!result.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
           result = [DEFAULT_ADMIN_ACCOUNT, ...result];
         }
+        localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(result));
         return result;
       }
     }
@@ -470,9 +517,14 @@ export function getRegisteredAccounts(): UserAccountRecord[] {
 
 export function saveRegisteredAccount(account: UserAccountRecord): void {
   try {
+    const cleanEmail = account.email.toLowerCase().trim();
+    const idx = LEGACY_TEST_EMAILS.indexOf(cleanEmail);
+    if (idx >= 0) {
+      LEGACY_TEST_EMAILS.splice(idx, 1);
+    }
     const accounts = getRegisteredAccounts();
     const existingIndex = accounts.findIndex(
-      (a) => a.email.toLowerCase() === account.email.toLowerCase() || a.id === account.id
+      (a) => a.email.toLowerCase() === cleanEmail || a.id === account.id
     );
     let updated: UserAccountRecord[];
     if (existingIndex >= 0) {

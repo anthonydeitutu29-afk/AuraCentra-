@@ -1,6 +1,7 @@
 import { Business, BusinessInquiry, BusinessReview } from '../types';
 import { ApiClient } from './apiClient';
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
+import { isDeletedBusiness } from '../utils/storage';
 
 /**
  * Real-time Supabase Database & REST Backend Synchronizer for AuraCentra Ghana
@@ -80,10 +81,11 @@ export const FirestoreSync = {
       try {
         const list = await ApiClient.getBusinesses();
         if (isSubscribed && Array.isArray(list)) {
-          const currentHash = computeHash(list);
+          const cleanList = list.filter((b) => !isDeletedBusiness(b));
+          const currentHash = computeHash(cleanList);
           if (currentHash !== lastFetchedHash) {
             lastFetchedHash = currentHash;
-            onUpdate(list);
+            onUpdate(cleanList);
           }
         }
       } catch (e) {
@@ -112,10 +114,11 @@ export const FirestoreSync = {
       if (isSupabaseConfigured) {
         unsubscribeSupabase = SupabaseService.subscribeBusinesses((list) => {
           if (isSubscribed && Array.isArray(list)) {
-            const currentHash = computeHash(list);
+            const cleanList = list.filter((b) => !isDeletedBusiness(b));
+            const currentHash = computeHash(cleanList);
             if (currentHash !== lastFetchedHash) {
               lastFetchedHash = currentHash;
-              onUpdate(list);
+              onUpdate(cleanList);
             }
           }
         });
@@ -123,10 +126,11 @@ export const FirestoreSync = {
         // Also fetch initial list from Supabase
         SupabaseService.fetchBusinesses().then((list) => {
           if (isSubscribed && Array.isArray(list)) {
-            const currentHash = computeHash(list);
+            const cleanList = list.filter((b) => !isDeletedBusiness(b));
+            const currentHash = computeHash(cleanList);
             if (currentHash !== lastFetchedHash) {
               lastFetchedHash = currentHash;
-              onUpdate(list);
+              onUpdate(cleanList);
             }
           }
         }).catch(() => {});

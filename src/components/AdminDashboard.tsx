@@ -53,7 +53,7 @@ import {
  KeyRound
 } from 'lucide-react';
 import { Business, Category, UserProfile, VerificationDocument, DocumentType, BusinessReport, CategorySuggestion, PlatformFeedback, UserAccountRecord } from '../types';
-import { getRegisteredAccounts, isBusinessPermanentlyApproved, markBusinessPermanentlyApproved } from '../utils/storage';
+import { getRegisteredAccounts, isBusinessPermanentlyApproved, markBusinessPermanentlyApproved, permanentlyDeleteAccountRecord } from '../utils/storage';
 import { verifyGhanaPostGPS } from '../utils/gpsVerification';
 import { Logo } from './Logo';
 import { AdminVerificationModal } from './AdminVerificationModal';
@@ -1664,6 +1664,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
  <span>Save to 0508203673</span>
  </a>
  </div>
+
+ {u.email.toLowerCase() !== 'admindashboard@gmail.com' && (
+   <div className="pt-2 border-t border-slate-700/40 flex justify-end">
+     <button
+       type="button"
+       onClick={() => {
+         if (window.confirm(`Permanently delete account for "${u.name}" (${u.email})? This action removes all credentials and registered records.`)) {
+           permanentlyDeleteAccountRecord(u.id, u.email);
+           setRegisteredUsers(getRegisteredAccounts());
+           onShowToast?.('Account Purged', `User record ${u.email} permanently removed.`, 'info');
+         }
+       }}
+       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium text-rose-400 hover:text-white hover:bg-rose-600/30 border border-rose-900/50 transition-colors"
+     >
+       <Trash2 className="w-3.5 h-3.5" />
+       <span>Delete Account</span>
+     </button>
+   </div>
+ )}
  </div>
  );
  })}
