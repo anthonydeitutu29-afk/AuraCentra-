@@ -81,6 +81,7 @@ import { BusinessComparisonModal } from './components/BusinessComparisonModal';
 import { LocationMapModal } from './components/LocationMapModal';
 import { AuthModal } from './components/AuthModal';
 import { AuthPage } from './components/AuthPage';
+import { EnlistBusinessPage } from './components/EnlistBusinessPage';
 import { BusinessRegistrationModal } from './components/BusinessRegistrationModal';
 import { SavedBusinessesModal } from './components/SavedBusinessesModal';
 import { FloatingContactHub } from './components/FloatingContactHub';
@@ -171,8 +172,8 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  // View state: 'portal', 'admin', 'business_dashboard', 'personal_dashboard', or 'auth'
-  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard' | 'personal_dashboard' | 'auth'>('portal');
+  // View state: 'portal', 'admin', 'business_dashboard', 'personal_dashboard', 'auth', or 'enlist'
+  const [currentView, setCurrentView] = useState<'portal' | 'admin' | 'business_dashboard' | 'personal_dashboard' | 'auth' | 'enlist'>('portal');
   const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
   const [targetDashboardBusinessId, setTargetDashboardBusinessId] = useState<string | null>(null);
 
@@ -432,6 +433,11 @@ export default function App() {
         setCurrentView('auth');
         document.title = 'Sign Up | AuraCentra Ghana';
         return;
+      } else if (hash === '#enlist' || hash === '#enlist-business' || hash === '#register-business' || hash === '#add-business') {
+        setSelectedBusiness(null);
+        setCurrentView('enlist');
+        document.title = 'Enlist Your Business | AuraCentra Ghana';
+        return;
       } else if (hash === '#news' || hash === '#business-news' || hash === '#forex' || hash === '#rates') {
         setSelectedBusiness(null);
         setCurrentNavTab('news');
@@ -467,8 +473,11 @@ export default function App() {
         setCurrentNavTab('terms');
         document.title = 'Terms of Service & Trust Standards | AuraCentra Ghana';
         return;
-      } else if (hash === '#home' || hash === '#explore') {
+      } else if (hash === '#home' || hash === '#explore' || hash === '') {
         setSelectedBusiness(null);
+        if (currentView === 'enlist' || currentView === 'auth') {
+          setCurrentView('portal');
+        }
         setCurrentNavTab('home');
         document.title = 'AuraCentra Ghana • Verified Business Directory';
         return;
@@ -804,13 +813,12 @@ export default function App() {
   }, []);
 
   const handleOpenRegisterModal = useCallback(() => {
-    if (!currentUser) {
-      handleOpenAuth('signup');
-      showToast('Account Required', 'Please sign in or create a verified account to enlist a business on AuraCentra.', 'info');
-      return;
-    }
-    setIsRegisterModalOpen(true);
-  }, [currentUser, handleOpenAuth, showToast]);
+    setSelectedBusiness(null);
+    setCurrentView('enlist');
+    window.location.hash = '#enlist';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.title = 'Enlist Your Business | AuraCentra Ghana';
+  }, []);
 
   const handleOpenSuggestCategoryModal = useCallback(() => {
     if (!currentUser) {
@@ -1804,6 +1812,39 @@ export default function App() {
     );
   }
 
+  // Dedicated Full-Page View for Enlisting a Business (Lies Directly on Background - No Floating Card)
+  if (currentView === 'enlist') {
+    return (
+      <div className={theme === 'dark' ? 'dark' : ''}>
+        <EnlistBusinessPage
+          categories={categories}
+          currentUser={currentUser}
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          onBackToPortal={() => {
+            setCurrentView('portal');
+            if (window.location.hash === '#enlist' || window.location.hash === '#register-business' || window.location.hash === '#enlist-business' || window.location.hash === '#add-business') {
+              window.history.pushState(null, '', window.location.pathname + window.location.search);
+            }
+          }}
+          onRegisterBusiness={(newBiz) => {
+            handleRegisterBusiness(newBiz);
+            showToast('Business Enlisted Successfully!', `${newBiz.name} is now listed on AuraCentra Ghana.`, 'success');
+          }}
+          onOpenAuth={(mode) => handleOpenAuth(mode)}
+          onOpenBusinessDashboard={() => {
+            setCurrentView('business_dashboard');
+          }}
+          onSelectBusiness={(biz) => {
+            setCurrentView('portal');
+            handleSelectBusiness(biz);
+          }}
+        />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 overflow-x-hidden ${theme === 'dark' ? 'dark' : ''}`} id="auracentra-app-root">
       {/* 0. Subtle Exploration Progress Bar at the Very Top of Screen */}
@@ -2151,19 +2192,7 @@ export default function App() {
         }}
       />
 
-      <BusinessRegistrationModal
-        isOpen={isRegisterModalOpen}
-        onClose={() => setIsRegisterModalOpen(false)}
-        categories={categories}
-        currentUser={currentUser}
-        onOpenAuth={() => handleOpenAuth('signin')}
-        onOpenBusinessDashboard={() => setCurrentView('business_dashboard')}
-        onRegisterBusiness={(newBiz) => {
-          handleRegisterBusiness(newBiz);
-          showToast('Business Registered Successfully!', `${newBiz.name} is now listed on AuraCentra Ghana.`, 'success');
-        }}
-      />
-
+      {/* Modals and Dialogs */}
       <SavedBusinessesModal
         savedBusinesses={savedBusinesses}
         isOpen={isSavedModalOpen}
