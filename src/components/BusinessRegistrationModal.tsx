@@ -367,7 +367,7 @@ export const BusinessRegistrationModal: React.FC<BusinessRegistrationModalProps>
  };
  const existingLogs = JSON.parse(localStorage.getItem('auracentra_pending_submissions') || '[]');
  existingLogs.unshift(silentSummary);
- localStorage.setItem('auracentra_pending_submissions', JSON.stringify(existingLogs));
+ localStorage.setItem('auracentra_pending_submissions', JSON.stringify(existingLogs.slice(0, 20)));
  } catch {
  // Background handling
  }

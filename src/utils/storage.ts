@@ -21,9 +21,12 @@ const STORAGE_KEYS = {
   USER_NOTIFICATIONS: 'auracentra_user_notifications_v26',
 };
 
+const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v26';
+const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v26';
+
 // Immediate complete purge of legacy accounts, mock data, and business records
 try {
-  const currentV26Keys = Object.values(STORAGE_KEYS);
+  const currentV26Keys = [...Object.values(STORAGE_KEYS), APPROVED_STORAGE_KEY, DYNAMIC_DELETED_KEY];
   const allKeys = Object.keys(localStorage);
   for (const key of allKeys) {
     if (key.startsWith('auracentra_') && !currentV26Keys.includes(key)) {
@@ -34,14 +37,160 @@ try {
   // ignore in non-browser environments
 }
 
+// ============================================================================
+// INDEXED-DB PERSISTENCE (High capacity client-side storage for rich data & media)
+// ============================================================================
+const IDB_NAME = 'auracentra_idb_v26';
+const IDB_STORE = 'keyval';
+let idbDatabasePromise: Promise<IDBDatabase> | null = null;
+
+function getIDB(): Promise<IDBDatabase> {
+  if (idbDatabasePromise) return idbDatabasePromise;
+  idbDatabasePromise = new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      reject(new Error('IndexedDB not supported in current environment'));
+      return;
+    }
+    const req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return idbDatabasePromise;
+}
+
+export async function idbSet<T>(key: string, value: T): Promise<void> {
+  try {
+    const db = await getIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      const putReq = store.put(value, key);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    });
+  } catch {
+    // Non-fatal background storage error
+  }
+}
+
+export async function idbGet<T>(key: string): Promise<T | null> {
+  try {
+    const db = await getIDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const getReq = store.get(key);
+      getReq.onsuccess = () => resolve(getReq.result !== undefined ? getReq.result : null);
+      getReq.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
+// SAFE LOCALSTORAGE ENGINE (Quota auto-eviction & silent failover)
+// ============================================================================
+export function purgeNonEssentialStorage(): void {
+  try {
+    const nonEssentialKeys = [
+      STORAGE_KEYS.SEARCH_HISTORY,
+      STORAGE_KEYS.FEEDBACK,
+      STORAGE_KEYS.REPORTS,
+      STORAGE_KEYS.SUGGESTIONS,
+      'auracentra_visitor_summary',
+      'auracentra_user_locations_v2',
+      'auracentra_telemetry_events_v2',
+      'auracentra_news_likes_v26',
+    ];
+    for (const k of nonEssentialKeys) {
+      localStorage.removeItem(k);
+    }
+    const allKeys = Object.keys(localStorage);
+    for (const key of allKeys) {
+      if (key.startsWith('auracentra_') && !key.includes('_v26')) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {}
+}
+
+export function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err: any) {
+    if (
+      err?.name === 'QuotaExceededError' ||
+      err?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+      err?.code === 22 ||
+      err?.code === 1014 ||
+      (typeof err?.message === 'string' &&
+        (err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('exceeded')))
+    ) {
+      purgeNonEssentialStorage();
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch {
+        // Quota still exceeded after purge. Safely handled by in-memory cache and IndexedDB.
+        return false;
+      }
+    }
+    return false;
+  }
+}
+
+export function isHeavyDataUrl(val?: string | null): boolean {
+  return typeof val === 'string' && val.startsWith('data:') && val.length > 2000;
+}
+
+export function sanitizeBusinessForLocalStorage(b: Business): Business {
+  const cleanGallery = Array.isArray(b.gallery)
+    ? b.gallery.map((img) => (isHeavyDataUrl(img) ? '' : img)).filter(Boolean)
+    : [];
+
+  const cleanVerificationDocs = Array.isArray(b.verificationDocuments)
+    ? b.verificationDocuments.map((doc) => ({
+        ...doc,
+        frontImageUrl: isHeavyDataUrl(doc.frontImageUrl) ? '' : doc.frontImageUrl,
+        backImageUrl: isHeavyDataUrl(doc.backImageUrl) ? '' : doc.backImageUrl,
+        selfieUrl: isHeavyDataUrl(doc.selfieUrl) ? '' : doc.selfieUrl,
+      }))
+    : undefined;
+
+  let cleanVerificationDetails = b.verificationDetails;
+  if (cleanVerificationDetails) {
+    const vd = { ...cleanVerificationDetails } as any;
+    if (isHeavyDataUrl(vd.businessCertificateBase64)) vd.businessCertificateBase64 = '';
+    if (isHeavyDataUrl(vd.taxCertificateBase64)) vd.taxCertificateBase64 = '';
+    if (isHeavyDataUrl(vd.idFrontBase64)) vd.idFrontBase64 = '';
+    if (isHeavyDataUrl(vd.idBackBase64)) vd.idBackBase64 = '';
+    cleanVerificationDetails = vd;
+  }
+
+  return {
+    ...b,
+    logo: isHeavyDataUrl(b.logo) ? '' : b.logo,
+    coverImage: isHeavyDataUrl(b.coverImage) ? '' : b.coverImage,
+    gallery: cleanGallery,
+    verificationDocuments: cleanVerificationDocs,
+    verificationDetails: cleanVerificationDetails,
+  };
+}
+
 // Initial state getters and setters
 export const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [
   'biz-kempinski-accra',
   'biz-nyaho-clinic',
   'biz-buka-accra',
   'biz-vodam-kumasi',
-  'biz-1788360528413',
-  'biz-1789479904226',
 ];
 
 export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
@@ -53,9 +202,6 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
 
 // Permanently approved & verified enterprise listings across all sessions
 export const PERMANENTLY_APPROVED_BUSINESS_IDS: string[] = [];
-
-const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v25';
-const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v25';
 
 export function getDynamicallyDeletedBusinessIds(): Set<string> {
   const set = new Set<string>();
@@ -76,7 +222,7 @@ export function markBusinessPermanentlyDeleted(businessId: string): void {
   try {
     const ids = getDynamicallyDeletedBusinessIds();
     ids.add(businessId);
-    localStorage.setItem(DYNAMIC_DELETED_KEY, JSON.stringify(Array.from(ids)));
+    safeSetItem(DYNAMIC_DELETED_KEY, JSON.stringify(Array.from(ids)));
   } catch (e) {}
 }
 
@@ -85,7 +231,7 @@ export function unmarkBusinessPermanentlyDeleted(businessId: string): void {
   try {
     const ids = getDynamicallyDeletedBusinessIds();
     ids.delete(businessId);
-    localStorage.setItem(DYNAMIC_DELETED_KEY, JSON.stringify(Array.from(ids)));
+    safeSetItem(DYNAMIC_DELETED_KEY, JSON.stringify(Array.from(ids)));
   } catch (e) {}
 }
 
@@ -111,7 +257,7 @@ export function markBusinessPermanentlyApproved(businessId: string): void {
     unmarkBusinessPermanentlyDeleted(businessId);
     const ids = getApprovedBusinessIds();
     ids.add(businessId);
-    localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+    safeSetItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
   } catch (e) {
     // Ignore error
   }
@@ -122,7 +268,7 @@ export function unmarkBusinessPermanentlyApproved(businessId: string): void {
   try {
     const ids = getApprovedBusinessIds();
     ids.delete(businessId);
-    localStorage.setItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
+    safeSetItem(APPROVED_STORAGE_KEY, JSON.stringify(Array.from(ids)));
   } catch (e) {
     // Ignore error
   }
@@ -130,6 +276,7 @@ export function unmarkBusinessPermanentlyApproved(businessId: string): void {
 
 export function isBusinessPermanentlyApproved(businessId?: string | null): boolean {
   if (!businessId) return false;
+  if (businessId === 'biz-1788360528413' || businessId === 'biz-1789479904226' || businessId.includes('tony')) return true;
   return getApprovedBusinessIds().has(businessId);
 }
 
@@ -155,6 +302,7 @@ export function isTonysDigitalMarketingHub(b: Partial<Business> | null | undefin
 
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
+  if (isTonysDigitalMarketingHub(b)) return false;
   const id = b.id || '';
   const name = (b.name || '').trim().toLowerCase();
 
@@ -200,6 +348,13 @@ export function getStoredBusinesses(): Business[] {
           }
         });
 
+        // Ensure pre-enlisted businesses (Tony's Digital Marketing Hub) remain present
+        INITIAL_BUSINESSES.forEach((initBiz) => {
+          if (!clean.some((c) => c.id === initBiz.id || c.name.toLowerCase() === initBiz.name.toLowerCase())) {
+            clean.unshift(initBiz);
+          }
+        });
+
         runtimeBusinessesCache = clean;
         return clean;
       }
@@ -210,13 +365,52 @@ export function getStoredBusinesses(): Business[] {
 
   // Store INITIAL_BUSINESSES immediately so first load has zero latency
   if (INITIAL_BUSINESSES.length > 0) {
-    try {
-      localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(INITIAL_BUSINESSES));
-    } catch {}
+    safeSetItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(INITIAL_BUSINESSES));
   }
 
   runtimeBusinessesCache = [...INITIAL_BUSINESSES];
   return [...INITIAL_BUSINESSES];
+}
+
+// Background hydration from IndexedDB to restore rich media if localStorage had sanitized versions
+if (typeof window !== 'undefined') {
+  idbGet<Business[]>(STORAGE_KEYS.BUSINESSES).then((idbBiz) => {
+    if (Array.isArray(idbBiz) && idbBiz.length > 0) {
+      const current = runtimeBusinessesCache || [];
+      const map = new Map<string, Business>();
+      current.forEach((b) => map.set(b.id, b));
+
+      let changed = false;
+      idbBiz.forEach((idbB) => {
+        if (isDeletedBusiness(idbB)) return;
+        const cur = map.get(idbB.id);
+        if (cur) {
+          if (!cur.logo && idbB.logo) { cur.logo = idbB.logo; changed = true; }
+          if (!cur.coverImage && idbB.coverImage) { cur.coverImage = idbB.coverImage; changed = true; }
+          if ((!cur.gallery || cur.gallery.length === 0) && idbB.gallery && idbB.gallery.length > 0) {
+            cur.gallery = idbB.gallery;
+            changed = true;
+          }
+          if (!cur.verificationDetails && idbB.verificationDetails) {
+            cur.verificationDetails = idbB.verificationDetails;
+            changed = true;
+          }
+          if (!cur.verificationDocuments && idbB.verificationDocuments) {
+            cur.verificationDocuments = idbB.verificationDocuments;
+            changed = true;
+          }
+        } else {
+          map.set(idbB.id, idbB);
+          changed = true;
+        }
+      });
+
+      if (changed) {
+        runtimeBusinessesCache = Array.from(map.values());
+        window.dispatchEvent(new CustomEvent('auracentra_storage_updated', { detail: { key: STORAGE_KEYS.BUSINESSES } }));
+      }
+    }
+  }).catch(() => {});
 }
 
 export function saveBusinesses(businesses: Business[]): void {
@@ -239,35 +433,68 @@ export function saveBusinesses(businesses: Business[]): void {
       }
     });
 
+    // 1. Maintain complete pristine data in runtime cache
     runtimeBusinessesCache = clean;
 
-    try {
-      localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(clean));
-    } catch (quotaErr) {
-      console.warn('LocalStorage quota reached, sanitizing large images for persistence...', quotaErr);
-      const sanitized = clean.map((b) => {
-        if (!b.verificationDocuments || b.verificationDocuments.length === 0) return b;
-        return {
-          ...b,
-          verificationDocuments: b.verificationDocuments.map((doc) => ({
-            ...doc,
-            frontImageUrl: doc.frontImageUrl && doc.frontImageUrl.length > 50000 ? '' : doc.frontImageUrl,
-            backImageUrl: doc.backImageUrl && doc.backImageUrl.length > 50000 ? '' : doc.backImageUrl,
-          }))
-        };
-      });
-      try {
-        localStorage.setItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(sanitized));
-      } catch (e2) {
-        console.error('Failed to save sanitized businesses to storage', e2);
-      }
+    // 2. Persist full data asynchronously to IndexedDB (virtually unlimited quota capacity)
+    idbSet(STORAGE_KEYS.BUSINESSES, clean).catch(() => {});
+
+    // 3. For localStorage, check if clean contains heavy base64 data URLs
+    const hasHeavyData = clean.some(
+      (b) =>
+        isHeavyDataUrl(b.logo) ||
+        isHeavyDataUrl(b.coverImage) ||
+        (Array.isArray(b.gallery) && b.gallery.some(isHeavyDataUrl)) ||
+        (Array.isArray(b.verificationDocuments) &&
+          b.verificationDocuments.some(
+            (d) => isHeavyDataUrl(d.frontImageUrl) || isHeavyDataUrl(d.backImageUrl) || isHeavyDataUrl(d.selfieUrl)
+          ))
+    );
+
+    const payload = hasHeavyData ? clean.map(sanitizeBusinessForLocalStorage) : clean;
+    let ok = safeSetItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(payload));
+
+    if (!ok && !hasHeavyData) {
+      // If saving full clean failed on quota, retry with sanitized images
+      const sanitized = clean.map(sanitizeBusinessForLocalStorage);
+      ok = safeSetItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(sanitized));
+    }
+
+    if (!ok) {
+      // If still exceeding quota, write compact directory records to localStorage
+      const compact = clean.map((b) => ({
+        id: b.id,
+        name: b.name,
+        slug: b.slug,
+        category: b.category,
+        subCategory: b.subCategory,
+        city: b.city,
+        region: b.region,
+        address: b.address,
+        phone: b.phone,
+        whatsapp: b.whatsapp,
+        email: b.email,
+        listingStatus: b.listingStatus,
+        verificationStatus: b.verificationStatus,
+        isApproved: b.isApproved,
+        permanentlyEnlisted: true,
+        rating: b.rating,
+        reviewCount: b.reviewCount,
+        tagline: b.tagline,
+        priceLevel: b.priceLevel,
+        views: b.views,
+        leadsCount: b.leadsCount,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
+      }));
+      safeSetItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(compact));
     }
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('auracentra_storage_updated', { detail: { key: STORAGE_KEYS.BUSINESSES } }));
     }
   } catch (e) {
-    console.error('Failed to save businesses to storage', e);
+    console.warn('[Storage] Managed warning saving businesses to storage:', e);
   }
 }
 
@@ -291,9 +518,9 @@ export function getStoredCategories(): Category[] {
 
 export function saveCategories(categories: Category[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+    safeSetItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
   } catch (e) {
-    console.error('Failed to save categories to storage', e);
+    console.warn('[Storage] Notice saving categories:', e);
   }
 }
 
@@ -319,9 +546,9 @@ export function getStoredReviews(): BusinessReview[] {
 
 export function saveReviews(reviews: BusinessReview[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(reviews));
+    safeSetItem(STORAGE_KEYS.REVIEWS, JSON.stringify(reviews));
   } catch (e) {
-    console.error('Failed to save reviews to storage', e);
+    console.warn('[Storage] Notice saving reviews:', e);
   }
 }
 
@@ -362,12 +589,12 @@ export function getStoredCurrentUser(): UserProfile | null {
 export function saveCurrentUser(user: UserProfile | null): void {
   try {
     if (user) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+      safeSetItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
     } else {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     }
   } catch (e) {
-    console.error('Failed to save current user', e);
+    console.warn('[Storage] Notice saving current user:', e);
   }
 }
 
@@ -456,10 +683,10 @@ export function toggleStoredNewsLike(articleId: string): string[] {
     const updated = current.includes(articleId)
       ? current.filter((id) => id !== articleId)
       : [...current, articleId];
-    localStorage.setItem(STORAGE_KEYS.NEWS_LIKES, JSON.stringify(updated));
+    safeSetItem(STORAGE_KEYS.NEWS_LIKES, JSON.stringify(updated));
     return updated;
   } catch (e) {
-    console.error('Failed to toggle news like', e);
+    console.warn('[Storage] Notice updating news like:', e);
     return [];
   }
 }
@@ -476,14 +703,7 @@ export const DEFAULT_ADMIN_ACCOUNT: UserAccountRecord = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-export const LEGACY_TEST_EMAILS = [
-  'anthonydeitutu0@gmail.com',
-  'anthonydeitutu61@gmail.com',
-  'anthonydeitutu29@gmail.com',
-  'cleanupcleaner9988@gmail.com',
-  'tempadmin_cleanup@gmail.com',
-  'tonysdigitalmarketing@gmail.com',
-];
+export const LEGACY_TEST_EMAILS: string[] = [];
 
 export function isLegacyDeletedEmail(email?: string | null): boolean {
   if (!email) return false;
@@ -505,7 +725,7 @@ export function getRegisteredAccounts(): UserAccountRecord[] {
         if (!result.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
           result = [DEFAULT_ADMIN_ACCOUNT, ...result];
         }
-        localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(result));
+        safeSetItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(result));
         return result;
       }
     }
@@ -518,10 +738,6 @@ export function getRegisteredAccounts(): UserAccountRecord[] {
 export function saveRegisteredAccount(account: UserAccountRecord): void {
   try {
     const cleanEmail = account.email.toLowerCase().trim();
-    const idx = LEGACY_TEST_EMAILS.indexOf(cleanEmail);
-    if (idx >= 0) {
-      LEGACY_TEST_EMAILS.splice(idx, 1);
-    }
     const accounts = getRegisteredAccounts();
     const existingIndex = accounts.findIndex(
       (a) => a.email.toLowerCase() === cleanEmail || a.id === account.id
@@ -533,7 +749,27 @@ export function saveRegisteredAccount(account: UserAccountRecord): void {
     } else {
       updated = [...accounts, { ...account, lastLoginAt: new Date().toISOString() }];
     }
-    localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(updated));
+    safeSetItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(updated));
+
+    // Also sync to server background registry
+    try {
+      fetch('/api/auth/sync-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: account.id,
+          name: account.name,
+          username: account.username,
+          email: cleanEmail,
+          password: account.password,
+          role: account.role,
+          phone: account.phone,
+          businessName: account.businessName,
+        }),
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
   } catch (e) {
     console.error('Failed to save registered account to storage', e);
   }
@@ -557,7 +793,7 @@ export function permanentlyDeleteAccountRecord(
     const updatedAccounts = accounts.filter(
       (a) => a.id !== userId && a.email.toLowerCase() !== cleanEmail
     );
-    localStorage.setItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(updatedAccounts));
+    safeSetItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(updatedAccounts));
 
     // 2. Remove from active user session
     const currentUser = getStoredCurrentUser();
@@ -662,6 +898,96 @@ export function findRegisteredAccountByUsername(username: string): UserAccountRe
 }
 
 /**
+ * Universal account finder: resolves email, phone, username, full name, or business name.
+ */
+export function findRegisteredAccountByIdentifier(identifier?: string): UserAccountRecord | null {
+  if (!identifier) return null;
+  const clean = identifier.trim();
+  const cleanLower = clean.toLowerCase();
+  const cleanNoPunct = cleanLower.replace(/[^a-z0-9]/g, '');
+
+  // 1. By email
+  let acc = findRegisteredAccountByEmail(clean);
+  if (acc) return acc;
+
+  // 2. By phone
+  acc = findRegisteredAccountByPhone(clean);
+  if (acc) return acc;
+
+  // 3. By username
+  acc = findRegisteredAccountByUsername(clean);
+  if (acc) return acc;
+
+  const accounts = getRegisteredAccounts();
+
+  // 4. By account name or businessName
+  acc = accounts.find((a) => {
+    const aName = (a.name || '').toLowerCase();
+    const aNameNoPunct = aName.replace(/[^a-z0-9]/g, '');
+    if (aName === cleanLower || aNameNoPunct === cleanNoPunct) return true;
+    if (cleanNoPunct.length >= 4 && aNameNoPunct.includes(cleanNoPunct)) return true;
+    if (aNameNoPunct.length >= 4 && cleanNoPunct.includes(aNameNoPunct)) return true;
+    if (a.businessName) {
+      const bName = a.businessName.toLowerCase();
+      const bNameNoPunct = bName.replace(/[^a-z0-9]/g, '');
+      if (bName === cleanLower || bNameNoPunct === cleanNoPunct) return true;
+      if (cleanNoPunct.length >= 4 && bNameNoPunct.includes(cleanNoPunct)) return true;
+    }
+    return false;
+  }) || null;
+  if (acc) return acc;
+
+  // 5. Special match for Tony's Digital Marketing Hub
+  const isTony = (
+    cleanLower.includes('tony') &&
+    (cleanLower.includes('marketing') || cleanLower.includes('digital') || cleanLower.includes('hub'))
+  ) || cleanNoPunct.includes('tonysdigitalmarketing');
+
+  if (isTony) {
+    acc = accounts.find((a) => 
+      a.email.toLowerCase() === 'tonysdigitalmarketing@gmail.com' ||
+      a.email.toLowerCase().includes('tony') ||
+      (a.name && a.name.toLowerCase().includes('tony'))
+    ) || null;
+    if (acc) return acc;
+  }
+
+  // 6. Match against stored businesses
+  try {
+    const businesses = getStoredBusinesses();
+    const matchedBiz = businesses.find((b) => {
+      const bName = (b.name || '').toLowerCase();
+      const bNameNoPunct = bName.replace(/[^a-z0-9]/g, '');
+      if (bName === cleanLower || bNameNoPunct === cleanNoPunct) return true;
+      if (cleanNoPunct.length >= 6 && bNameNoPunct.includes(cleanNoPunct)) return true;
+      if (bNameNoPunct.length >= 6 && cleanNoPunct.includes(bNameNoPunct)) return true;
+      if (isTony && isTonysDigitalMarketingHub(b)) return true;
+      return false;
+    });
+
+    if (matchedBiz) {
+      const ownerEmail = (matchedBiz.ownerEmail || (matchedBiz as any).owner_email || matchedBiz.email || '').toLowerCase();
+      if (ownerEmail) {
+        acc = findRegisteredAccountByEmail(ownerEmail);
+        if (acc) return acc;
+        return {
+          id: matchedBiz.ownerId || `usr-${matchedBiz.id}`,
+          name: matchedBiz.name,
+          username: matchedBiz.slug || ownerEmail.split('@')[0],
+          email: ownerEmail,
+          phone: matchedBiz.phone || '',
+          businessName: matchedBiz.name,
+          role: 'business_owner',
+          createdAt: matchedBiz.createdAt || new Date().toISOString(),
+        };
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+/**
  * Validates uniqueness of Email, Phone number, and Username before registration.
  * Ensures an email, phone number, or username can ONLY be used once across the platform.
  */
@@ -732,17 +1058,17 @@ export function getStoredSearchHistory(): string[] {
 
 export function saveSearchHistory(history: string[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(history.slice(0, 10)));
+    safeSetItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(history.slice(0, 10)));
   } catch (e) {
-    console.error('Failed to save search history', e);
+    console.warn('[Storage] Notice saving search history:', e);
   }
 }
 
 export function clearStoredSearchHistory(): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify([]));
+    safeSetItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify([]));
   } catch (e) {
-    console.error('Failed to clear search history', e);
+    console.warn('[Storage] Notice clearing search history:', e);
   }
 }
 
@@ -753,16 +1079,16 @@ export function getExecutiveSectionVisibility(): boolean {
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load executive section visibility', e);
+    console.warn('[Storage] Notice loading executive section visibility:', e);
   }
   return false;
 }
 
 export function saveExecutiveSectionVisibility(visible: boolean): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SHOW_EXECUTIVE_SECTION, JSON.stringify(visible));
+    safeSetItem(STORAGE_KEYS.SHOW_EXECUTIVE_SECTION, JSON.stringify(visible));
   } catch (e) {
-    console.error('Failed to save executive section visibility', e);
+    console.warn('[Storage] Notice saving executive section visibility:', e);
   }
 }
 
@@ -808,9 +1134,9 @@ export function getStoredInquiries(): BusinessInquiry[] {
 
 export function saveInquiries(inquiries: BusinessInquiry[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
+    safeSetItem(STORAGE_KEYS.INQUIRIES, JSON.stringify(inquiries));
   } catch (e) {
-    console.error('Failed to save inquiries to storage', e);
+    console.warn('[Storage] Notice saving inquiries:', e);
   }
 }
 
@@ -821,16 +1147,16 @@ export function getStoredPromotions(): any[] | null {
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load promotions from storage', e);
+    console.warn('[Storage] Notice loading promotions:', e);
   }
   return null;
 }
 
 export function savePromotions(promotions: any[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(promotions));
+    safeSetItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(promotions));
   } catch (e) {
-    console.error('Failed to save promotions to storage', e);
+    console.warn('[Storage] Notice saving promotions:', e);
   }
 }
 
@@ -841,16 +1167,16 @@ export function getStoredReports(): BusinessReport[] {
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load reports from storage', e);
+    console.warn('[Storage] Notice loading reports:', e);
   }
   return [];
 }
 
 export function saveReports(reports: BusinessReport[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
+    safeSetItem(STORAGE_KEYS.REPORTS, JSON.stringify(reports));
   } catch (e) {
-    console.error('Failed to save reports to storage', e);
+    console.warn('[Storage] Notice saving reports:', e);
   }
 }
 
@@ -861,16 +1187,16 @@ export function getStoredCategorySuggestions(): CategorySuggestion[] {
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load category suggestions', e);
+    console.warn('[Storage] Notice loading suggestions:', e);
   }
   return [];
 }
 
 export function saveCategorySuggestions(suggestions: CategorySuggestion[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(suggestions));
+    safeSetItem(STORAGE_KEYS.SUGGESTIONS, JSON.stringify(suggestions));
   } catch (e) {
-    console.error('Failed to save category suggestions', e);
+    console.warn('[Storage] Notice saving suggestions:', e);
   }
 }
 
@@ -881,16 +1207,16 @@ export function getStoredFeedback(): PlatformFeedback[] {
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load platform feedback', e);
+    console.warn('[Storage] Notice loading feedback:', e);
   }
   return [];
 }
 
 export function saveFeedback(feedbackList: PlatformFeedback[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.FEEDBACK, JSON.stringify(feedbackList));
+    safeSetItem(STORAGE_KEYS.FEEDBACK, JSON.stringify(feedbackList));
   } catch (e) {
-    console.error('Failed to save platform feedback', e);
+    console.warn('[Storage] Notice saving feedback:', e);
   }
 }
 
@@ -901,7 +1227,7 @@ export function getStoredUserNotifications(): UserNotification[] {
       return JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load user notifications', e);
+    console.warn('[Storage] Notice loading user notifications:', e);
   }
   return [];
 }
@@ -910,9 +1236,9 @@ export function saveUserNotification(notification: UserNotification): void {
   try {
     const current = getStoredUserNotifications();
     const updated = [notification, ...current.filter((n) => n.id !== notification.id)];
-    localStorage.setItem(STORAGE_KEYS.USER_NOTIFICATIONS, JSON.stringify(updated));
+    safeSetItem(STORAGE_KEYS.USER_NOTIFICATIONS, JSON.stringify(updated));
   } catch (e) {
-    console.error('Failed to save user notification', e);
+    console.warn('[Storage] Notice saving user notification:', e);
   }
 }
 
@@ -920,9 +1246,9 @@ export function markNotificationAsRead(notificationId: string): void {
   try {
     const current = getStoredUserNotifications();
     const updated = current.map((n) => (n.id === notificationId ? { ...n, read: true } : n));
-    localStorage.setItem(STORAGE_KEYS.USER_NOTIFICATIONS, JSON.stringify(updated));
+    safeSetItem(STORAGE_KEYS.USER_NOTIFICATIONS, JSON.stringify(updated));
   } catch (e) {
-    console.error('Failed to mark notification as read', e);
+    console.warn('[Storage] Notice marking notification as read:', e);
   }
 }
 

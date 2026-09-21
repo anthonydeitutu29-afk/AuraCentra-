@@ -1,0 +1,76 @@
+[
+  {
+    "id": "admin-super-01",
+    "name": "AuraCentra Executive Admin",
+    "username": "admin",
+    "email": "admindashboard@gmail.com",
+    "phone": "+233 24 000 0000",
+    "password": "Admin12$",
+    "role": "admin",
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "4a62d860-f4f2-400e-b18f-d8a4d39b3d09",
+    "name": "Anthony Komla Dei-Tutu (Tony's Digital Marketing and Business Hub)",
+    "username": "tonysdigitalmarketing",
+    "email": "tonysdigitalmarketing@gmail.com",
+    "phone": "+233 50 820 3673",
+    "businessName": "Tony's Digital Marketing and Business Hub",
+    "password": "MyTonyPassword",
+    "role": "business_owner",
+    "createdAt": "2026-09-02T14:38:41.786Z"
+  },
+  {
+    "id": "c74ffb19-0c60-4bea-86bf-c81dfbad3c66",
+    "name": "Anthony Komla Dei-Tutu (Tony's Digital Marketing and Business Hub)",
+    "username": "anthonydeitutu61",
+    "email": "anthonydeitutu61@gmail.com",
+    "phone": "+233 50 820 3673",
+    "businessName": "Tony's Digital Marketing and Business Hub",
+    "password": "MyTonyPassword",
+    "role": "business_owner",
+    "createdAt": "2026-09-02T14:41:49.960Z"
+  },
+  {
+    "id": "b1f93e4f-e1f2-405e-88c3-bce20818713c",
+    "name": "Anthony De-Tutu",
+    "username": "anthonydetutu",
+    "email": "anthonydeitutu29@gmail.com",
+    "phone": "+233 50 820 3673",
+    "role": "business_owner",
+    "password": "",
+    "businessName": "Tony's Digital Marketing and Business Hub",
+    "createdAt": "2026-08-28T17:12:27.43965+00:00"
+  },
+  {
+    "id": "6305c639-8824-4143-b6ee-24c8100ad04a",
+    "name": "Tony (Tony)",
+    "username": "tonytony",
+    "email": "anthonydeitutu0@gmail.com",
+    "phone": "+233 50 820 3673",
+    "role": "business_owner",
+    "password": "",
+    "businessName": "Tony's Digital Marketing and Business Hub",
+    "createdAt": "2026-08-31T10:04:51.070943+00:00"
+  },
+  {
+    "id": "9089d81d-1535-4ef2-8cb1-3e5e058def9a",
+    "name": "cleanupcleaner9988",
+    "username": "cleanupcleaner9",
+    "email": "cleanupcleaner9988@gmail.com",
+    "phone": "",
+    "role": "customer",
+    "password": "",
+    "createdAt": "2026-09-19T12:27:01.564628+00:00"
+  },
+  {
+    "id": "c37fb32a-4fe0-45ad-a9d3-3763446a1685",
+    "name": "tempadmin_cleanup",
+    "username": "tempadmincleanu",
+    "email": "tempadmin_cleanup@gmail.com",
+    "phone": "",
+    "role": "customer",
+    "password": "",
+    "createdAt": "2026-09-20T11:53:37.538686+00:00"
+  }
+]

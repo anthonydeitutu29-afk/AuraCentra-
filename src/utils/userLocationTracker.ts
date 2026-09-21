@@ -332,9 +332,10 @@ export function getTrackedUserLocations(): UserLocationRecord[] {
  */
 export function saveTrackedUserLocations(records: UserLocationRecord[]): void {
   try {
-    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(records));
+    const capped = Array.isArray(records) ? records.slice(0, 15) : [];
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(capped));
   } catch (err) {
-    console.error('Error saving location logs:', err);
+    console.warn('[LocationTracker] Managed storage notice:', err);
   }
 }
 

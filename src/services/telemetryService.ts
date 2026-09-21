@@ -18,8 +18,8 @@ function getStoredEvents(): InteractionEvent[] {
 // Helper to save events
 function saveStoredEvents(events: InteractionEvent[]) {
   try {
-    // Keep the most recent 2000 events to prevent unbounded storage
-    const trimmed = events.slice(-2000);
+    // Keep the most recent 50 events to prevent unbounded storage
+    const trimmed = events.slice(-50);
     localStorage.setItem(TELEMETRY_STORAGE_KEY, JSON.stringify(trimmed));
   } catch (err) {
     console.warn('[TelemetryService] Error saving events:', err);

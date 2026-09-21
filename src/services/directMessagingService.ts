@@ -58,7 +58,8 @@ function getStoredMessages(): DirectMessage[] {
 
 function saveStoredMessages(messages: DirectMessage[]) {
   try {
-    localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages));
+    const trimmed = Array.isArray(messages) ? messages.slice(-50) : [];
+    localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(trimmed));
   } catch (err) {
     console.warn('[DirectMessagingService] Error saving messages:', err);
   }

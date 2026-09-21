@@ -135,7 +135,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
  const cleanPassword = password.trim();
 
  if (!cleanEmail || !cleanPassword) {
- setErrorMsg('Please enter your email and password.');
+ setErrorMsg('Please enter your email, phone, username, or business name and password.');
  return;
  }
 
@@ -227,9 +227,28 @@ export const AuthPage: React.FC<AuthPageProps> = ({
  // 1. Pre-Check existing account with this email
  const existingAcc = findRegisteredAccountByEmail(cleanEmail);
  if (existingAcc) {
- setEmailConflict('An account with this email address already exists.');
- setErrorMsg('An account with this email address is already registered on AuraCentra. Please switch to Log In to access your account with your password.');
- return;
+   if (cleanPassword) {
+     setLoading(true);
+     try {
+       const loginResult = await FirebaseAuthService.signInWithEmail(cleanEmail, cleanPassword);
+       setLoading(false);
+       setSuccessMsg('Welcome back! Signed in to your registered account.');
+       setTimeout(() => {
+         onLoginSuccess(loginResult.user);
+       }, 400);
+       return;
+     } catch (signInErr: any) {
+       setLoading(false);
+       console.warn('[Auto-login attempt on signup]', signInErr);
+       handleTabChange('signin');
+       setErrorMsg('An account with this email address already exists. Please enter your password to log in.');
+       return;
+     }
+   } else {
+     handleTabChange('signin');
+     setErrorMsg('An account with this email address already exists. Please enter your password to log in.');
+     return;
+   }
  }
 
  // 2. Strict Uniqueness Pre-Check against local registry
@@ -240,15 +259,36 @@ export const AuthPage: React.FC<AuthPageProps> = ({
  });
 
  if (!localCheck.isUnique) {
- if (localCheck.conflictField === 'email') {
- setEmailConflict(localCheck.errorMessage || 'Email already exists');
- } else if (localCheck.conflictField === 'phone') {
- setPhoneConflict(localCheck.errorMessage || 'Phone number already exists');
- } else if (localCheck.conflictField === 'username') {
- setUsernameConflict(localCheck.errorMessage || 'Username is taken');
- }
- setErrorMsg(localCheck.errorMessage || 'This email address is already registered. Please log in or choose an option below.');
- return;
+   if (localCheck.conflictField === 'email') {
+     if (cleanPassword) {
+       setLoading(true);
+       try {
+         const loginResult = await FirebaseAuthService.signInWithEmail(cleanEmail, cleanPassword);
+         setLoading(false);
+         setSuccessMsg('Welcome back! Signed in to your registered account.');
+         setTimeout(() => {
+           onLoginSuccess(loginResult.user);
+         }, 400);
+         return;
+       } catch (signInErr: any) {
+         setLoading(false);
+         console.warn('[Auto-login attempt on conflict]', signInErr);
+         handleTabChange('signin');
+         setErrorMsg('An account with this email address is already registered. Please enter your password to log in.');
+         return;
+       }
+     } else {
+       handleTabChange('signin');
+       setErrorMsg('An account with this email address is already registered. Please enter your password to log in.');
+       return;
+     }
+   } else if (localCheck.conflictField === 'phone') {
+     setPhoneConflict(localCheck.errorMessage || 'Phone number already exists');
+   } else if (localCheck.conflictField === 'username') {
+     setUsernameConflict(localCheck.errorMessage || 'Username is taken');
+   }
+   setErrorMsg(localCheck.errorMessage || 'This information is already linked to an account. Please verify or log in.');
+   return;
  }
 
  if (accountType === 'business_owner' && !businessName.trim()) {
@@ -515,6 +555,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
  </button>
  </div>
  )}
+ {authMode === 'signin' && (errorMsg.toLowerCase().includes('not been used') || errorMsg.toLowerCase().includes('register a new account') || errorMsg.toLowerCase().includes('not found')) && (
+ <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-rose-200/60 dark:border-rose-900/60">
+ <button
+ type="button"
+ onClick={() => {
+ setErrorMsg('');
+ handleTabChange('signup');
+ }}
+ className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+ >
+ <UserPlus className="w-3.5 h-3.5" />
+ <span>Create Account with this Email</span>
+ </button>
+ </div>
+ )}
  </div>
  )}
 
@@ -561,13 +616,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({
  <form onSubmit={handleSignIn} className="space-y-4">
  <div>
  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
- Email, Phone Number, or Username
+ Email, Phone Number, Username, or Business Name
  </label>
  <input
  type="text"
  value={email}
  onChange={(e) => setEmail(e.target.value)}
- placeholder="e.g. name@email.com, 0508203673, @username"
+ placeholder="e.g. name@email.com, 0508203673, @username, or Business Name"
  required
  className="w-full px-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 rounded-2xl text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden transition-all shadow-xs"
  />

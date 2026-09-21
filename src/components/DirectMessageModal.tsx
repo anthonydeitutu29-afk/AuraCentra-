@@ -106,9 +106,11 @@ export const DirectMessageModal: React.FC<DirectMessageModalProps> = ({
 
     // Save guest credentials in localStorage
     if (!currentUser) {
-      localStorage.setItem('auracentra_guest_name', finalName);
-      localStorage.setItem('auracentra_guest_email', finalEmail);
-      if (senderPhone) localStorage.setItem('auracentra_guest_phone', senderPhone);
+      try {
+        localStorage.setItem('auracentra_guest_name', finalName);
+        localStorage.setItem('auracentra_guest_email', finalEmail);
+        if (senderPhone) localStorage.setItem('auracentra_guest_phone', senderPhone);
+      } catch {}
     }
 
     setIsSending(true);

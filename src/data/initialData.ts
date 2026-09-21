@@ -138,8 +138,54 @@ export const INITIAL_CATEGORIES: Category[] = [
   }
 ];
 
-// Clean slate: all pre-existing businesses removed; new businesses enlist via due process
-export const INITIAL_BUSINESSES: Business[] = [];
+// Pre-enlisted and verified business directory
+export const INITIAL_BUSINESSES: Business[] = [
+  {
+    id: 'biz-1788360528413',
+    name: "Tony's Digital Marketing and Business Hub",
+    tagline: 'We offer quality digital and tech services',
+    slug: 'tony-s-digital-marketing-and-business-hub',
+    category: 'digital-marketing',
+    description: 'We aim at solving problems with simple techniques but perfectly well. Some of our services include: digital marketing, social media management, graphic designing, web development, video editing and animation, SEO optimization.',
+    logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
+    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
+    gallery: ['https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80'],
+    phone: '0508203673',
+    whatsapp: '233508203673',
+    email: 'tonysdigitalmarketing@gmail.com',
+    city: 'Accra',
+    region: 'Greater Accra',
+    address: 'Accra Commercial District',
+    digitalAddress: 'GA-183-9021',
+    coordinates: { lat: 5.6037, lng: -0.1870 },
+    priceLevel: '$$',
+    rating: 5.0,
+    reviewCount: 0,
+    verificationStatus: 'verified',
+    listingStatus: 'active',
+    isApproved: true,
+    permanentlyEnlisted: true,
+    underInvestigation: false,
+    isFeatured: true,
+    openingHours: {
+      monday: '08:00 - 18:00',
+      tuesday: '08:00 - 18:00',
+      wednesday: '08:00 - 18:00',
+      thursday: '08:00 - 18:00',
+      friday: '08:00 - 18:00',
+      saturday: '09:00 - 16:00',
+      sunday: 'Closed',
+    },
+    services: ['Digital Marketing', 'Social Media Management', 'Graphic Designing', 'Web Development', 'Video Editing & Animation', 'SEO Optimization'],
+    features: ['Official AuraCentra Member', 'Direct Contact Verified'],
+    views: 120,
+    leadsCount: 14,
+    ownerId: '4a62d860-f4f2-400e-b18f-d8a4d39b3d09',
+    ownerEmail: 'tonysdigitalmarketing@gmail.com',
+    createdAt: '2026-09-02T14:41:49.960Z',
+    updatedAt: '2026-09-21T12:00:00.000Z',
+  }
+];
 
 // Empty initial reviews - reviews will come only from verified users.
 export const INITIAL_REVIEWS: BusinessReview[] = [];

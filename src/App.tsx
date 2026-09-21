@@ -62,7 +62,8 @@ import {
   unmarkBusinessPermanentlyDeleted,
   isBusinessPermanentlyApproved,
   getApprovedBusinessIds,
-  isLegacyDeletedEmail
+  isLegacyDeletedEmail,
+  safeSetItem
 } from './utils/storage';
 import { autoDetectUserLocation, requestPreciseLocation, GHANA_REGIONS, calculateDistanceKm } from './utils/geolocationService';
 
@@ -317,11 +318,9 @@ export default function App() {
     });
 
     const unsubscribe = FirestoreSync.subscribeBusinesses((liveBusinesses) => {
-      if (Array.isArray(liveBusinesses)) {
+      if (Array.isArray(liveBusinesses) && liveBusinesses.length > 0) {
         const cleanLive = liveBusinesses.filter((b) => !isDeletedBusiness(b));
         if (cleanLive.length === 0) {
-          setBusinesses([]);
-          saveBusinesses([]);
           return;
         }
 
@@ -412,7 +411,7 @@ export default function App() {
       document.body.classList.add('light');
       document.documentElement.style.colorScheme = 'light';
     }
-    localStorage.setItem('auracentra_theme', theme);
+    safeSetItem('auracentra_theme', theme);
   }, [theme]);
 
   // Handle URL hash navigation for business profile (e.g. #business-tonys-digital-marketing) and dashboard deep-links
@@ -689,12 +688,12 @@ export default function App() {
               createdAt: verifiedAcc.createdAt || new Date().toISOString(),
             };
             setCurrentUser(userProfile);
-            localStorage.setItem('auracentra_user_clean_v7', JSON.stringify(userProfile));
+            saveCurrentUser(userProfile);
           } else {
             setCurrentUser((prev) => {
               if (prev && prev.email.toLowerCase() === cleanEmail) {
                 const updated = { ...prev, emailVerified: true };
-                localStorage.setItem('auracentra_user_clean_v7', JSON.stringify(updated));
+                saveCurrentUser(updated);
                 return updated;
               }
               return prev;
@@ -744,27 +743,12 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('auracentra_saved_ids', JSON.stringify(savedBusinessIds));
+    safeSetItem('auracentra_saved_ids', JSON.stringify(savedBusinessIds));
   }, [savedBusinessIds]);
 
   useEffect(() => {
     saveSearchHistory(searchHistory);
   }, [searchHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('auracentra_theme', theme);
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      document.documentElement.classList.remove('light');
-      document.body.classList.add('dark');
-      document.body.classList.remove('light');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-      document.body.classList.remove('dark');
-      document.body.classList.add('light');
-    }
-  }, [theme]);
 
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
