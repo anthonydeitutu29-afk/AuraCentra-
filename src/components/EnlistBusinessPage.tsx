@@ -417,18 +417,16 @@ export const EnlistBusinessPage: React.FC<EnlistBusinessPageProps> = ({
 
           {/* Action Links */}
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            {onOpenBusinessDashboard && (
-              <button
-                type="button"
-                onClick={onOpenBusinessDashboard}
-                className="flex-1 py-3.5 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <Building className="w-4 h-4" />
-                <span>Open Business Dashboard</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onBackToPortal}
+              className="flex-1 py-3.5 px-6 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-sm shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Return to Directory</span>
+            </button>
 
-            {onSelectBusiness ? (
+            {onSelectBusiness && (
               <button
                 type="button"
                 onClick={() => onSelectBusiness(submittedBusiness)}
@@ -437,14 +435,16 @@ export const EnlistBusinessPage: React.FC<EnlistBusinessPageProps> = ({
                 <ArrowRight className="w-4 h-4" />
                 <span>View My Listing</span>
               </button>
-            ) : (
+            )}
+
+            {onOpenBusinessDashboard && (
               <button
                 type="button"
-                onClick={onBackToPortal}
-                className="flex-1 py-3.5 px-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                onClick={onOpenBusinessDashboard}
+                className="flex-1 py-3.5 px-6 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <ArrowRight className="w-4 h-4" />
-                <span>Return to Directory</span>
+                <Building className="w-4 h-4" />
+                <span>Open Business Dashboard</span>
               </button>
             )}
           </div>

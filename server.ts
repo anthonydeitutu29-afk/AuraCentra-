@@ -71,6 +71,13 @@ const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [
   'biz-nyaho-clinic',
   'biz-buka-accra',
   'biz-vodam-kumasi',
+  'biz-1788360528413',
+  'biz-1789479904226',
+  'biz-test-sync-1',
+  'biz-1789998929571',
+  'biz-tonys-digital-marketing-hub',
+  'biz-1790069272618',
+  'biz-ghana-fresh-organics-101',
 ];
 
 const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
@@ -78,9 +85,27 @@ const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
   'Nyaho Medical Centre',
   'Buka Restaurant Osu',
   'Sweet Gardens Hotel Kumasi',
+  "Tony's Digital Marketing and Business Hub",
+  "Tony’s Digital Marketing and Business Hub",
+  'Test Persistence Listing',
+  'Accra Tech Solutions Hub',
+  'Accra Express Logistics',
+  'Ghana Fresh Organics Ltd',
 ];
 
-const LEGACY_TEST_EMAILS: string[] = [];
+const LEGACY_TEST_EMAILS: string[] = [
+  'tonysdigitalmarketing@gmail.com',
+  'anthonydeitutu29@gmail.com',
+  'anthonydeitutu61@gmail.com',
+  'anthonydeitutu0@gmail.com',
+  'cleanupcleaner9988@gmail.com',
+  'tempadmin_cleanup@gmail.com',
+];
+
+function isLegacyDeletedEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return LEGACY_TEST_EMAILS.includes(email.trim().toLowerCase());
+}
 
 // Server Disk Persistence Configuration
 const PROD_SUPABASE_URL = 'https://kldptamsxgpayqecabxl.supabase.co';
@@ -170,28 +195,11 @@ function saveDeletedIdsToDisk(ids: Set<string>) {
 const deletedBusinessIdsCache: Set<string> = loadDeletedIdsFromDisk();
 
 function isTonysDigitalMarketingHub(b: any): boolean {
-  if (!b) return false;
-  const id = (b.id || '').toLowerCase();
-  const name = (b.name || '').toLowerCase();
-  const slug = (b.slug || '').toLowerCase();
-  const email = (b.email || '').toLowerCase();
-  const phone = (b.phone || '').replace(/\D/g, '');
-  return (
-    id === 'biz-tonys-digital-marketing-hub' ||
-    id.includes('tony') ||
-    name.includes("tony's digital marketing") ||
-    name.includes('tonys digital marketing') ||
-    name.includes('tony') ||
-    slug.includes('tony') ||
-    email.includes('tonysdigitalmarketing') ||
-    phone.includes('0508203673') ||
-    phone.includes('508203673')
-  );
+  return false;
 }
 
 function isDeletedBusinessRecord(b: any): boolean {
   if (!b) return true;
-  if (isTonysDigitalMarketingHub(b)) return false;
   const id = b.id || '';
   const name = (b.name || '').trim().toLowerCase();
   if (id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(id) || deletedBusinessIdsCache.has(id))) return true;
@@ -277,53 +285,7 @@ function loadBusinessesFromDisk(): any[] {
   return [];
 }
 
-const DEFAULT_INITIAL_BUSINESSES: any[] = [
-  {
-    id: 'biz-1788360528413',
-    name: "Tony's Digital Marketing and Business Hub",
-    tagline: 'We offer quality digital and tech services',
-    slug: 'tony-s-digital-marketing-and-business-hub',
-    category: 'digital-marketing',
-    description: 'We aim at solving problems with simple techniques but perfectly well. Some of our services include: digital marketing, social media management, graphic designing, web development, video editing and animation, SEO optimization.',
-    logo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
-    coverImage: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80',
-    gallery: ['https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80'],
-    phone: '0508203673',
-    whatsapp: '233508203673',
-    email: 'tonysdigitalmarketing@gmail.com',
-    city: 'Accra',
-    region: 'Greater Accra',
-    address: 'Accra Commercial District',
-    digitalAddress: 'GA-183-9021',
-    coordinates: { lat: 5.6037, lng: -0.1870 },
-    priceLevel: '$$',
-    rating: 5.0,
-    reviewCount: 0,
-    verificationStatus: 'verified',
-    listingStatus: 'active',
-    isApproved: true,
-    permanentlyEnlisted: true,
-    underInvestigation: false,
-    isFeatured: true,
-    openingHours: {
-      monday: '08:00 - 18:00',
-      tuesday: '08:00 - 18:00',
-      wednesday: '08:00 - 18:00',
-      thursday: '08:00 - 18:00',
-      friday: '08:00 - 18:00',
-      saturday: '09:00 - 16:00',
-      sunday: 'Closed',
-    },
-    services: ['Digital Marketing', 'Social Media Management', 'Graphic Designing', 'Web Development', 'Video Editing & Animation', 'SEO Optimization'],
-    features: ['Official AuraCentra Member', 'Direct Contact Verified'],
-    views: 120,
-    leadsCount: 14,
-    ownerId: '4a62d860-f4f2-400e-b18f-d8a4d39b3d09',
-    ownerEmail: 'tonysdigitalmarketing@gmail.com',
-    createdAt: '2026-09-02T14:41:49.960Z',
-    updatedAt: new Date().toISOString()
-  }
-];
+const DEFAULT_INITIAL_BUSINESSES: any[] = [];
 
 let businessesCache: any[] = (() => {
   const fromDisk = loadBusinessesFromDisk();
@@ -331,13 +293,6 @@ let businessesCache: any[] = (() => {
   if (fromDisk && fromDisk.length > 0) {
     baseList = fromDisk.filter(b => !isDeletedBusinessRecord(b));
   }
-
-  // Ensure Tony's business is always present
-  DEFAULT_INITIAL_BUSINESSES.forEach(defBiz => {
-    if (!baseList.some(b => b.id === defBiz.id || b.name?.toLowerCase() === defBiz.name.toLowerCase())) {
-      baseList.unshift(defBiz);
-    }
-  });
 
   // Retain probation status or enlist active
   baseList.forEach(b => {
@@ -398,38 +353,14 @@ function loadUsersFromDisk(): Array<{
     if (fs.existsSync(targetFile)) {
       const content = fs.readFileSync(targetFile, 'utf-8');
       const parsed = JSON.parse(content);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Ensure default admin account is present
-        if (!parsed.some((u: any) => u.email?.toLowerCase() === 'admindashboard@gmail.com')) {
-          parsed.unshift({
-            id: 'admin-super-01',
-            name: 'AuraCentra Executive Admin',
-            username: 'admin',
-            email: 'admindashboard@gmail.com',
-            phone: '+233 24 000 0000',
-            password: 'Admin12$',
-            role: 'admin',
-            createdAt: '2026-01-01T00:00:00.000Z',
-          });
-        }
-        return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((u: any) => u && u.email && !isLegacyDeletedEmail(u.email));
       }
     }
   } catch (e) {
     console.warn('Could not load users from disk:', e);
   }
-  return [
-    {
-      id: 'admin-super-01',
-      name: 'AuraCentra Executive Admin',
-      username: 'admin',
-      email: 'admindashboard@gmail.com',
-      phone: '+233 24 000 0000',
-      password: 'Admin12$',
-      role: 'admin',
-      createdAt: '2026-01-01T00:00:00.000Z',
-    },
-  ];
+  return [];
 }
 
 let registeredUsersRegistry = loadUsersFromDisk();
@@ -1981,22 +1912,7 @@ function resolveUserAccount(rawIdentifier: string): any | null {
   });
   if (found) return found;
 
-  // 4. Tony's Digital Marketing and Business Hub specific match
-  const isTonyQuery = (
-    cleanLower.includes('tony') &&
-    (cleanLower.includes('marketing') || cleanLower.includes('digital') || cleanLower.includes('hub'))
-  ) || cleanNoPunct.includes('tonysdigitalmarketing');
-
-  if (isTonyQuery) {
-    found = registeredUsersRegistry.find(u => 
-      u.email.toLowerCase() === 'tonysdigitalmarketing@gmail.com' ||
-      u.email.toLowerCase().includes('tony') ||
-      (u.name && u.name.toLowerCase().includes('tony'))
-    );
-    if (found) return found;
-  }
-
-  // 5. Check businessesCache for matching business
+  // Check businessesCache for matching business
   const matchedBiz = businessesCache.find(b => {
     if (!b) return false;
     const bNameLower = (b.name || '').toLowerCase();
@@ -2004,25 +1920,14 @@ function resolveUserAccount(rawIdentifier: string): any | null {
     if (bNameLower === cleanLower || bNameNoPunct === cleanNoPunct) return true;
     if (cleanNoPunct.length >= 6 && bNameNoPunct.includes(cleanNoPunct)) return true;
     if (bNameNoPunct.length >= 6 && cleanNoPunct.includes(bNameNoPunct)) return true;
-    if (isTonyQuery && isTonysDigitalMarketingHub(b)) return true;
     return false;
   });
 
   if (matchedBiz) {
     const ownerEmail = (matchedBiz.ownerEmail || (matchedBiz as any).owner_email || matchedBiz.email || '').toLowerCase();
-    if (ownerEmail) {
+    if (ownerEmail && !isLegacyDeletedEmail(ownerEmail)) {
       found = registeredUsersRegistry.find(u => u.email.toLowerCase() === ownerEmail);
       if (found) return found;
-      return {
-        id: (matchedBiz as any).ownerId || `usr-${matchedBiz.id}`,
-        name: matchedBiz.name,
-        username: matchedBiz.slug || ownerEmail.split('@')[0],
-        email: ownerEmail,
-        phone: matchedBiz.phone || '',
-        businessName: matchedBiz.name,
-        role: 'business_owner',
-        createdAt: matchedBiz.createdAt || new Date().toISOString(),
-      };
     }
   }
 
@@ -2031,21 +1936,16 @@ function resolveUserAccount(rawIdentifier: string): any | null {
 
 // Helper: Query Supabase for user by identifier
 async function lookupUserInSupabase(cleanId: string): Promise<any | null> {
+  const cleanLower = cleanId.toLowerCase();
+  if (isLegacyDeletedEmail(cleanLower)) return null;
+
   const { url, key } = getEffectiveSupabaseConfig();
   if (!url || !key) return null;
-
-  const cleanLower = cleanId.toLowerCase();
-  const isTonyQuery = (
-    cleanLower.includes('tony') &&
-    (cleanLower.includes('marketing') || cleanLower.includes('digital') || cleanLower.includes('hub'))
-  ) || cleanLower.replace(/[^a-z0-9]/g, '').includes('tonysdigitalmarketing');
 
   try {
     let queryUrl = '';
     if (cleanId.includes('@')) {
       queryUrl = `${url}/rest/v1/profiles?email=eq.${encodeURIComponent(cleanLower)}&select=id,name,email,phone,role,created_at`;
-    } else if (isTonyQuery) {
-      queryUrl = `${url}/rest/v1/profiles?email=eq.tonysdigitalmarketing@gmail.com&select=id,name,email,phone,role,created_at`;
     } else {
       const sanitized = cleanId.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().split(/\s+/)[0];
       if (sanitized && sanitized.length >= 3) {
@@ -2064,6 +1964,7 @@ async function lookupUserInSupabase(cleanId: string): Promise<any | null> {
         const rows = await supaRes.json();
         if (rows && rows.length > 0) {
           const row = rows[0];
+          if (row.email && isLegacyDeletedEmail(row.email)) return null;
           return {
             id: row.id,
             name: row.name || cleanId.split('@')[0],
@@ -2073,38 +1974,6 @@ async function lookupUserInSupabase(cleanId: string): Promise<any | null> {
             role: row.role || 'customer',
             createdAt: row.created_at || new Date().toISOString(),
           };
-        }
-      }
-    }
-
-    // Also search businesses table in Supabase
-    if (!cleanId.includes('@')) {
-      const bizNameQuery = cleanId.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().slice(0, 30);
-      if (bizNameQuery.length >= 3) {
-        const bizRes = await fetch(`${url}/rest/v1/businesses?name=ilike.%25${encodeURIComponent(bizNameQuery)}%25&select=id,name,email,owner_email,phone&limit=1`, {
-          headers: {
-            'apikey': key,
-            'Authorization': `Bearer ${key}`,
-          },
-        });
-        if (bizRes.ok) {
-          const bizRows = await bizRes.json();
-          if (bizRows && bizRows.length > 0) {
-            const b = bizRows[0];
-            const ownerEmail = (b.owner_email || b.email || '').toLowerCase();
-            if (ownerEmail) {
-              return {
-                id: `usr-${b.id}`,
-                name: b.name,
-                username: ownerEmail.split('@')[0],
-                email: ownerEmail,
-                phone: b.phone || '',
-                businessName: b.name,
-                role: 'business_owner',
-                createdAt: new Date().toISOString(),
-              };
-            }
-          }
         }
       }
     }
@@ -2510,7 +2379,6 @@ async function upsertBusinessToSupabase(biz: any) {
   const { url, key } = getEffectiveSupabaseConfig();
   if (!url || !key) return;
   try {
-    const isTony = biz.id === 'biz-1788360528413' || isTonysDigitalMarketingHub(biz);
     const row = {
       id: biz.id,
       name: biz.name,
@@ -2535,8 +2403,8 @@ async function upsertBusinessToSupabase(biz: any) {
       price_level: biz.priceLevel || '$$',
       rating: biz.rating !== undefined ? biz.rating : 5.0,
       review_count: biz.reviewCount || 0,
-      verification_status: isTony ? 'verified' : (biz.verificationStatus || 'unverified'),
-      listing_status: isTony ? 'active' : (biz.listingStatus || 'active'),
+      verification_status: biz.verificationStatus || 'unverified',
+      listing_status: biz.listingStatus || 'active',
       opening_hours: biz.openingHours || { monday: '08:00 - 18:00' },
       services: Array.isArray(biz.services) ? biz.services : ['Professional Service'],
       features: Array.isArray(biz.features) ? biz.features : ['Official AuraCentra Member'],
@@ -2587,18 +2455,17 @@ async function syncSupabaseWithServer() {
         profiles.forEach((p: any) => {
           if (!p.email) return;
           const emailLower = p.email.toLowerCase();
+          if (isLegacyDeletedEmail(emailLower)) return;
           let existing = registeredUsersRegistry.find(u => u.email?.toLowerCase() === emailLower);
-          const isTony = emailLower.includes('tonysdigitalmarketing') || emailLower.includes('anthonydeitutu');
           if (!existing) {
             const newUser = {
               id: p.id,
               name: p.name || emailLower.split('@')[0],
               username: (p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || emailLower.split('@')[0],
               email: p.email,
-              phone: p.phone || (isTony ? '+233 50 820 3673' : ''),
-              role: p.role || (isTony ? 'business_owner' : 'customer'),
+              phone: p.phone || '',
+              role: p.role || 'customer',
               password: '',
-              businessName: isTony ? "Tony's Digital Marketing and Business Hub" : undefined,
               createdAt: p.created_at || new Date().toISOString(),
             };
             registeredUsersRegistry.push(newUser);
@@ -2610,12 +2477,6 @@ async function syncSupabaseWithServer() {
             }
             if (p.phone && !existing.phone) {
               existing.phone = p.phone;
-              updatedUsers = true;
-            }
-            if (isTony) {
-              existing.phone = '+233 50 820 3673';
-              (existing as any).businessName = "Tony's Digital Marketing and Business Hub";
-              existing.role = 'business_owner';
               updatedUsers = true;
             }
           }
@@ -2640,7 +2501,6 @@ async function syncSupabaseWithServer() {
         supaBizList.forEach((row: any) => {
           if (isDeletedBusinessRecord(row)) return;
           const id = row.id;
-          const isTony = id === 'biz-1788360528413' || isTonysDigitalMarketingHub(row);
           const mappedBiz = {
             id: row.id,
             name: row.name,
@@ -2665,8 +2525,8 @@ async function syncSupabaseWithServer() {
             priceLevel: row.price_level || '$$',
             rating: Number(row.rating) || 5.0,
             reviewCount: Number(row.review_count) || 0,
-            verificationStatus: isTony ? 'verified' : (row.verification_status || 'unverified'),
-            listingStatus: isTony ? 'active' : (row.listing_status || 'active'),
+            verificationStatus: row.verification_status || 'unverified',
+            listingStatus: row.listing_status || 'active',
             isApproved: true,
             permanentlyEnlisted: true,
             underInvestigation: false,

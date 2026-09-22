@@ -3,33 +3,33 @@ import { INITIAL_BUSINESSES, INITIAL_CATEGORIES, INITIAL_REVIEWS } from '../data
 import { SupabaseService, isSupabaseConfigured } from '../lib/supabase';
 
 const STORAGE_KEYS = {
-  BUSINESSES: 'auracentra_businesses_clean_v26',
-  CATEGORIES: 'auracentra_categories_clean_v26',
-  REVIEWS: 'auracentra_reviews_clean_v26',
-  CURRENT_USER: 'auracentra_user_clean_v26',
-  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v26',
-  SAVED_BUSINESSES: 'auracentra_saved_clean_v26',
-  SEARCH_HISTORY: 'auracentra_search_history_clean_v26',
-  THEME: 'auracentra_theme_clean_v26',
-  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v26',
-  INQUIRIES: 'auracentra_inquiries_clean_v26',
-  PROMOTIONS: 'auracentra_promotions_clean_v26',
-  REPORTS: 'auracentra_reports_clean_v26',
-  SUGGESTIONS: 'auracentra_suggestions_clean_v26',
-  FEEDBACK: 'auracentra_feedback_clean_v26',
-  NEWS_LIKES: 'auracentra_news_likes_v26',
-  USER_NOTIFICATIONS: 'auracentra_user_notifications_v26',
+  BUSINESSES: 'auracentra_businesses_clean_v28',
+  CATEGORIES: 'auracentra_categories_clean_v28',
+  REVIEWS: 'auracentra_reviews_clean_v28',
+  CURRENT_USER: 'auracentra_user_clean_v28',
+  REGISTERED_ACCOUNTS: 'auracentra_registered_accounts_v28',
+  SAVED_BUSINESSES: 'auracentra_saved_clean_v28',
+  SEARCH_HISTORY: 'auracentra_search_history_clean_v28',
+  THEME: 'auracentra_theme_clean_v28',
+  SHOW_EXECUTIVE_SECTION: 'auracentra_show_executive_clean_v28',
+  INQUIRIES: 'auracentra_inquiries_clean_v28',
+  PROMOTIONS: 'auracentra_promotions_clean_v28',
+  REPORTS: 'auracentra_reports_clean_v28',
+  SUGGESTIONS: 'auracentra_suggestions_clean_v28',
+  FEEDBACK: 'auracentra_feedback_clean_v28',
+  NEWS_LIKES: 'auracentra_news_likes_v28',
+  USER_NOTIFICATIONS: 'auracentra_user_notifications_v28',
 };
 
-const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v26';
-const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v26';
+const APPROVED_STORAGE_KEY = 'auracentra_approved_business_ids_v28';
+const DYNAMIC_DELETED_KEY = 'auracentra_permanently_deleted_ids_v28';
 
 // Immediate complete purge of legacy accounts, mock data, and business records
 try {
-  const currentV26Keys = [...Object.values(STORAGE_KEYS), APPROVED_STORAGE_KEY, DYNAMIC_DELETED_KEY];
+  const currentV28Keys = [...Object.values(STORAGE_KEYS), APPROVED_STORAGE_KEY, DYNAMIC_DELETED_KEY];
   const allKeys = Object.keys(localStorage);
   for (const key of allKeys) {
-    if (key.startsWith('auracentra_') && !currentV26Keys.includes(key)) {
+    if (key.startsWith('auracentra_') && !currentV28Keys.includes(key)) {
       localStorage.removeItem(key);
     }
   }
@@ -40,7 +40,7 @@ try {
 // ============================================================================
 // INDEXED-DB PERSISTENCE (High capacity client-side storage for rich data & media)
 // ============================================================================
-const IDB_NAME = 'auracentra_idb_v26';
+const IDB_NAME = 'auracentra_idb_v28';
 const IDB_STORE = 'keyval';
 let idbDatabasePromise: Promise<IDBDatabase> | null = null;
 
@@ -191,6 +191,13 @@ export const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [
   'biz-nyaho-clinic',
   'biz-buka-accra',
   'biz-vodam-kumasi',
+  'biz-1788360528413',
+  'biz-1789479904226',
+  'biz-test-sync-1',
+  'biz-1789998929571',
+  'biz-tonys-digital-marketing-hub',
+  'biz-1790069272618',
+  'biz-ghana-fresh-organics-101',
 ];
 
 export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
@@ -198,6 +205,12 @@ export const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
   'Nyaho Medical Centre',
   'Buka Restaurant Osu',
   'Sweet Gardens Hotel Kumasi',
+  "Tony's Digital Marketing and Business Hub",
+  "Tony’s Digital Marketing and Business Hub",
+  'Test Persistence Listing',
+  'Accra Tech Solutions Hub',
+  'Accra Express Logistics',
+  'Ghana Fresh Organics Ltd',
 ];
 
 // Permanently approved & verified enterprise listings across all sessions
@@ -276,33 +289,15 @@ export function unmarkBusinessPermanentlyApproved(businessId: string): void {
 
 export function isBusinessPermanentlyApproved(businessId?: string | null): boolean {
   if (!businessId) return false;
-  if (businessId === 'biz-1788360528413' || businessId === 'biz-1789479904226' || businessId.includes('tony')) return true;
   return getApprovedBusinessIds().has(businessId);
 }
 
 export function isTonysDigitalMarketingHub(b: Partial<Business> | null | undefined): boolean {
-  if (!b) return false;
-  const id = (b.id || '').toLowerCase();
-  const name = (b.name || '').toLowerCase();
-  const slug = (b.slug || '').toLowerCase();
-  const email = (b.email || '').toLowerCase();
-  const phone = (b.phone || '').replace(/\D/g, '');
-  return (
-    id === 'biz-tonys-digital-marketing-hub' ||
-    id.includes('tony') ||
-    name.includes("tony's digital marketing") ||
-    name.includes('tonys digital marketing') ||
-    name.includes('tony') ||
-    slug.includes('tony') ||
-    email.includes('tonysdigitalmarketing') ||
-    phone.includes('0508203673') ||
-    phone.includes('508203673')
-  );
+  return false;
 }
 
 export function isDeletedBusiness(b: Partial<Business> | null | undefined): boolean {
   if (!b) return true;
-  if (isTonysDigitalMarketingHub(b)) return false;
   const id = b.id || '';
   const name = (b.name || '').trim().toLowerCase();
 
@@ -348,13 +343,6 @@ export function getStoredBusinesses(): Business[] {
           }
         });
 
-        // Ensure pre-enlisted businesses (Tony's Digital Marketing Hub) remain present
-        INITIAL_BUSINESSES.forEach((initBiz) => {
-          if (!clean.some((c) => c.id === initBiz.id || c.name.toLowerCase() === initBiz.name.toLowerCase())) {
-            clean.unshift(initBiz);
-          }
-        });
-
         runtimeBusinessesCache = clean;
         return clean;
       }
@@ -363,13 +351,12 @@ export function getStoredBusinesses(): Business[] {
     console.error('Failed to load businesses from storage', e);
   }
 
-  // Store INITIAL_BUSINESSES immediately so first load has zero latency
   if (INITIAL_BUSINESSES.length > 0) {
     safeSetItem(STORAGE_KEYS.BUSINESSES, JSON.stringify(INITIAL_BUSINESSES));
   }
 
-  runtimeBusinessesCache = [...INITIAL_BUSINESSES];
-  return [...INITIAL_BUSINESSES];
+  runtimeBusinessesCache = [];
+  return [];
 }
 
 // Background hydration from IndexedDB to restore rich media if localStorage had sanitized versions
@@ -703,7 +690,14 @@ export const DEFAULT_ADMIN_ACCOUNT: UserAccountRecord = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
-export const LEGACY_TEST_EMAILS: string[] = [];
+export const LEGACY_TEST_EMAILS: string[] = [
+  'tonysdigitalmarketing@gmail.com',
+  'anthonydeitutu29@gmail.com',
+  'anthonydeitutu61@gmail.com',
+  'anthonydeitutu0@gmail.com',
+  'cleanupcleaner9988@gmail.com',
+  'tempadmin_cleanup@gmail.com',
+];
 
 export function isLegacyDeletedEmail(email?: string | null): boolean {
   if (!email) return false;
@@ -716,23 +710,19 @@ export function getRegisteredAccounts(): UserAccountRecord[] {
     if (data) {
       const parsed: UserAccountRecord[] = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        let result = parsed.filter((a) => {
+        const result = parsed.filter((a) => {
           if (!a || !a.email) return false;
           const em = a.email.toLowerCase().trim();
           if (isLegacyDeletedEmail(em)) return false;
           return true;
         });
-        if (!result.some((a) => a.email.toLowerCase() === DEFAULT_ADMIN_ACCOUNT.email.toLowerCase())) {
-          result = [DEFAULT_ADMIN_ACCOUNT, ...result];
-        }
-        safeSetItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, JSON.stringify(result));
         return result;
       }
     }
   } catch (e) {
     console.error('Failed to load registered accounts from storage', e);
   }
-  return [DEFAULT_ADMIN_ACCOUNT];
+  return [];
 }
 
 export function saveRegisteredAccount(account: UserAccountRecord): void {
@@ -937,22 +927,7 @@ export function findRegisteredAccountByIdentifier(identifier?: string): UserAcco
   }) || null;
   if (acc) return acc;
 
-  // 5. Special match for Tony's Digital Marketing Hub
-  const isTony = (
-    cleanLower.includes('tony') &&
-    (cleanLower.includes('marketing') || cleanLower.includes('digital') || cleanLower.includes('hub'))
-  ) || cleanNoPunct.includes('tonysdigitalmarketing');
-
-  if (isTony) {
-    acc = accounts.find((a) => 
-      a.email.toLowerCase() === 'tonysdigitalmarketing@gmail.com' ||
-      a.email.toLowerCase().includes('tony') ||
-      (a.name && a.name.toLowerCase().includes('tony'))
-    ) || null;
-    if (acc) return acc;
-  }
-
-  // 6. Match against stored businesses
+  // Match against stored businesses by owner email
   try {
     const businesses = getStoredBusinesses();
     const matchedBiz = businesses.find((b) => {
@@ -961,7 +936,6 @@ export function findRegisteredAccountByIdentifier(identifier?: string): UserAcco
       if (bName === cleanLower || bNameNoPunct === cleanNoPunct) return true;
       if (cleanNoPunct.length >= 6 && bNameNoPunct.includes(cleanNoPunct)) return true;
       if (bNameNoPunct.length >= 6 && cleanNoPunct.includes(bNameNoPunct)) return true;
-      if (isTony && isTonysDigitalMarketingHub(b)) return true;
       return false;
     });
 
@@ -970,16 +944,6 @@ export function findRegisteredAccountByIdentifier(identifier?: string): UserAcco
       if (ownerEmail) {
         acc = findRegisteredAccountByEmail(ownerEmail);
         if (acc) return acc;
-        return {
-          id: matchedBiz.ownerId || `usr-${matchedBiz.id}`,
-          name: matchedBiz.name,
-          username: matchedBiz.slug || ownerEmail.split('@')[0],
-          email: ownerEmail,
-          phone: matchedBiz.phone || '',
-          businessName: matchedBiz.name,
-          role: 'business_owner',
-          createdAt: matchedBiz.createdAt || new Date().toISOString(),
-        };
       }
     }
   } catch (e) {}

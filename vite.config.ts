@@ -18,7 +18,7 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     build: {
-      chunkSizeWarningLimit: 1200,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -30,6 +30,9 @@ export default defineConfig(() => {
             }
             if (id.includes('node_modules/recharts')) {
               return 'vendor-charts';
+            }
+            if (id.includes('node_modules/@supabase')) {
+              return 'vendor-supabase';
             }
           },
         },

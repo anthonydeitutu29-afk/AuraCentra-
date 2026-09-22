@@ -29,7 +29,6 @@ import {
   PlatformFeedback,
   GhanaNewsArticle
 } from './types';
-import { INITIAL_BUSINESSES } from './data/initialData';
 import { 
   getStoredBusinesses, 
   saveBusinesses, 
@@ -318,18 +317,18 @@ export default function App() {
     });
 
     const unsubscribe = FirestoreSync.subscribeBusinesses((liveBusinesses) => {
-      if (Array.isArray(liveBusinesses) && liveBusinesses.length > 0) {
+      if (Array.isArray(liveBusinesses)) {
         const cleanLive = liveBusinesses.filter((b) => !isDeletedBusiness(b));
         if (cleanLive.length === 0) {
+          setBusinesses([]);
+          saveBusinesses([]);
           return;
         }
 
         setBusinesses((prev) => {
           const approvedIds = getApprovedBusinessIds();
           const map = new Map<string, Business>();
-          // Only preserve fresh local businesses that aren't deleted
-          prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => map.set(b.id, b));
-          
+
           cleanLive.forEach((b) => {
             const isApprovedGlobally = 
               approvedIds.has(b.id) || 
@@ -338,43 +337,27 @@ export default function App() {
               b.listingStatus === 'active' || 
               b.verificationStatus === 'verified';
 
-            const existing = map.get(b.id);
-            if (existing) {
-              const isLocalApproved = 
-                isApprovedGlobally || 
-                existing.listingStatus === 'active' || 
-                existing.verificationStatus === 'verified' || 
-                existing.isApproved === true || 
-                existing.permanentlyEnlisted === true;
+            map.set(b.id, {
+              ...b,
+              listingStatus: isApprovedGlobally ? 'active' : (b.listingStatus || 'active'),
+              isApproved: isApprovedGlobally ? true : (b.isApproved ?? true),
+              permanentlyEnlisted: true
+            });
+            if (isApprovedGlobally) {
+              markBusinessPermanentlyApproved(b.id);
+            }
+          });
 
-              map.set(b.id, {
-                ...existing,
-                ...b,
-                listingStatus: isLocalApproved ? 'active' : b.listingStatus,
-                isApproved: isLocalApproved ? true : b.isApproved,
-                permanentlyEnlisted: true,
-                verificationDetails: b.verificationDetails || existing.verificationDetails,
-                coordinates: b.coordinates || existing.coordinates,
-              });
-              if (isLocalApproved) {
-                markBusinessPermanentlyApproved(b.id);
-              }
-            } else {
-              map.set(b.id, {
-                ...b,
-                listingStatus: isApprovedGlobally ? 'active' : (b.listingStatus || 'active'),
-                isApproved: isApprovedGlobally ? true : (b.isApproved ?? true),
-                permanentlyEnlisted: true
-              });
-              if (isApprovedGlobally) {
-                markBusinessPermanentlyApproved(b.id);
-              }
+          // Also preserve any business registered locally in the last 15 seconds that hasn't synced yet
+          const now = Date.now();
+          prev.filter((b) => !isDeletedBusiness(b)).forEach((b) => {
+            if (!map.has(b.id) && b.createdAt && (now - new Date(b.createdAt).getTime() < 15000)) {
+              map.set(b.id, b);
             }
           });
 
           const clean = Array.from(map.values()).filter((b) => !isDeletedBusiness(b));
           
-          // Avoid triggering unnecessary React re-renders and storage thrash if data hasn't changed
           if (
             clean.length === prev.length &&
             clean.every((c, i) => 
@@ -857,7 +840,7 @@ export default function App() {
     setComparedBusinessIds((prev) => prev.filter((id) => id !== businessId));
   };
 
-  const handleRegisterBusiness = (newBusiness: Business) => {
+  const handleRegisterBusiness = (newBusiness: Business, autoNavigateToPortal = true) => {
     const nowIso = new Date().toISOString();
     const enlistedBusiness: Business = {
       ...newBusiness,
@@ -878,10 +861,21 @@ export default function App() {
 
     // Reset filters so the business is immediately visible on the home directory
     setFilters(initialFilters);
+    setIsAutoDetectedRegion(false);
 
-    setCurrentNavTab('home');
-    setSelectedBusiness(null);
-    setCurrentView('portal');
+    // Clean URL hash so hashchange listener doesn't trigger and force currentView back to 'enlist'
+    if (typeof window !== 'undefined' && (window.location.hash.startsWith('#enlist') || window.location.hash.startsWith('#register') || window.location.hash.startsWith('#add-business'))) {
+      try {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        window.location.hash = '';
+      } catch {}
+    }
+
+    if (autoNavigateToPortal) {
+      setCurrentNavTab('home');
+      setSelectedBusiness(null);
+      setCurrentView('portal');
+    }
 
     setBusinesses((prev) => {
       const updated = [enlistedBusiness, ...prev.filter((b) => b.id !== enlistedBusiness.id)];
@@ -1806,20 +1800,28 @@ export default function App() {
           theme={theme}
           onToggleTheme={handleToggleTheme}
           onBackToPortal={() => {
+            try {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              window.location.hash = '';
+            } catch {}
+            setCurrentNavTab('home');
             setCurrentView('portal');
-            if (window.location.hash === '#enlist' || window.location.hash === '#register-business' || window.location.hash === '#enlist-business' || window.location.hash === '#add-business') {
-              window.history.pushState(null, '', window.location.pathname + window.location.search);
-            }
+            setSelectedBusiness(null);
+            setFilters(initialFilters);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
           onRegisterBusiness={(newBiz) => {
-            handleRegisterBusiness(newBiz);
-            showToast('Business Enlisted Successfully!', `${newBiz.name} is now listed on AuraCentra Ghana.`, 'success');
+            handleRegisterBusiness(newBiz, false);
           }}
           onOpenAuth={(mode) => handleOpenAuth(mode)}
           onOpenBusinessDashboard={() => {
             setCurrentView('business_dashboard');
           }}
           onSelectBusiness={(biz) => {
+            try {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              window.location.hash = `business-${biz.slug || biz.id}`;
+            } catch {}
             setCurrentView('portal');
             handleSelectBusiness(biz);
           }}

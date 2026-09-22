@@ -530,6 +530,15 @@ export const TriColumnMainLayout: React.FC<TriColumnMainLayoutProps> = ({
                     : 'Try resetting your filter parameters or search term to discover all enterprises.'}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  {businesses.length === 0 && onOpenRegister && (
+                    <button
+                      type="button"
+                      onClick={onOpenRegister}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                    >
+                      Enlist Your Business
+                    </button>
+                  )}
                   {businesses.length > 0 && (
                     <button
                       type="button"
