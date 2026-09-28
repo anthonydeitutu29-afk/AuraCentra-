@@ -1,2922 +1,783 @@
 import express from 'express';
-import path from 'path';
+import cookieParser from 'cookie-parser';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
-import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.static(path.join(process.cwd(), 'public')));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(cookieParser());
 
-// Enable standard CORS & Request header handling for Vercel/proxies
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
+// ==========================================
+// SECURE ADMIN CREDENTIALS & SESSIONS
+// Stored strictly on backend; never in frontend
+// ==========================================
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admindashboard@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin12$';
+const ADMIN_VERIFY_CODE = process.env.ADMIN_VERIFY_CODE || '8009';
 
-  // Restore true request URL from Vercel headers if rewritten
-  const forwarded =
-    req.headers['x-forwarded-uri'] ||
-    req.headers['x-matched-path'] ||
-    req.headers['x-original-url'] ||
-    req.headers['x-rewrite-url'];
-
-  if (forwarded && typeof forwarded === 'string' && forwarded.startsWith('/api')) {
-    req.url = forwarded;
-  } else {
-    const matchedWildcard = (req.query as any)?.['0'] || (req.query as any)?.['1'] || (req.query as any)?.path;
-    if (matchedWildcard && typeof matchedWildcard === 'string' && (req.url === '/api/index' || req.url === '/api' || req.url === '/')) {
-      req.url = '/api/' + matchedWildcard.replace(/^\//, '');
-    } else if (req.url === '/api/index' || req.url.startsWith('/api/index?')) {
-      req.url = req.url.replace('/api/index', '/api');
-    } else if (req.url.startsWith('/api/index/')) {
-      req.url = req.url.replace('/api/index/', '/api/');
-    }
-  }
-
-  // If invoked via Vercel rewrite where /api prefix might be stripped, ensure /api prefix is normalized
-  if (!req.url.startsWith('/api') && !req.url.startsWith('/_')) {
-    const urlWithoutQuery = req.url.split('?')[0];
-    if (
-      urlWithoutQuery.startsWith('/auth') || 
-      urlWithoutQuery.startsWith('/businesses') || 
-      urlWithoutQuery.startsWith('/moderation') || 
-      urlWithoutQuery.startsWith('/forex-rates') || 
-      urlWithoutQuery.startsWith('/ghana-news') || 
-      urlWithoutQuery.startsWith('/health') ||
-      urlWithoutQuery.startsWith('/sync-businesses') ||
-      urlWithoutQuery.startsWith('/user-locations') ||
-      urlWithoutQuery.startsWith('/newsletter') ||
-      urlWithoutQuery.startsWith('/inquiries') ||
-      urlWithoutQuery.startsWith('/reviews') ||
-      urlWithoutQuery.startsWith('/sms') ||
-      urlWithoutQuery.startsWith('/test-brevo-email')
-    ) {
-      req.url = '/api' + req.url;
-    }
-  }
-  next();
-});
-
-// In-memory persistent cache for server-side state
-const PERMANENTLY_DELETED_BUSINESS_IDS: string[] = [
-  'biz-kempinski-accra',
-  'biz-nyaho-clinic',
-  'biz-buka-accra',
-  'biz-vodam-kumasi',
-  'biz-1788360528413',
-  'biz-1789479904226',
-  'biz-test-sync-1',
-  'biz-1789998929571',
-  'biz-tonys-digital-marketing-hub',
-  'biz-1790069272618',
-  'biz-ghana-fresh-organics-101',
-];
-
-const PERMANENTLY_DELETED_BUSINESS_NAMES: string[] = [
-  'Kempinski Hotel Gold Coast City',
-  'Nyaho Medical Centre',
-  'Buka Restaurant Osu',
-  'Sweet Gardens Hotel Kumasi',
-  "Tony's Digital Marketing and Business Hub",
-  "Tony’s Digital Marketing and Business Hub",
-  'Test Persistence Listing',
-  'Accra Tech Solutions Hub',
-  'Accra Express Logistics',
-  'Ghana Fresh Organics Ltd',
-];
-
-const LEGACY_TEST_EMAILS: string[] = [
-  'tonysdigitalmarketing@gmail.com',
-  'anthonydeitutu29@gmail.com',
-  'anthonydeitutu61@gmail.com',
-  'anthonydeitutu0@gmail.com',
-  'cleanupcleaner9988@gmail.com',
-  'tempadmin_cleanup@gmail.com',
-];
-
-function isLegacyDeletedEmail(email?: string | null): boolean {
-  if (!email) return false;
-  return LEGACY_TEST_EMAILS.includes(email.trim().toLowerCase());
-}
-
-// Server Disk Persistence Configuration
-const PROD_SUPABASE_URL = 'https://kldptamsxgpayqecabxl.supabase.co';
-const PROD_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsZHB0YW1zeGdwYXlxZWNhYnhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4NDk5MzMsImV4cCI6MjEwMzQyNTkzM30.bPDkGfHbp2SULRTokHvbmCoxD8e2wkByJ9SabJQtKl8';
-
-function getEffectiveSupabaseConfig() {
-  const rawUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  
-  const url = (rawUrl && !rawUrl.includes('oatpbsemkwmglmrdlmld') && !rawUrl.includes('placeholder')) ? rawUrl : PROD_SUPABASE_URL;
-  const key = (rawKey && !rawUrl.includes('oatpbsemkwmglmrdlmld') && !rawUrl.includes('placeholder')) ? rawKey : PROD_SUPABASE_ANON_KEY;
-  return { url, key, configured: Boolean(url && key && url.startsWith('https://')) };
-}
-
-const IS_SERVERLESS = Boolean(process.env.VERCEL || process.env.NOW_REGION || process.env.AWS_LAMBDA_FUNCTION_NAME);
-const DATA_DIR = IS_SERVERLESS ? path.join('/tmp', 'auracentra_data') : path.join(process.cwd(), 'data');
-const REPO_DATA_DIR = path.join(process.cwd(), 'data');
-const BUSINESSES_FILE = path.join(DATA_DIR, 'businesses.json');
-const APPROVED_IDS_FILE = path.join(DATA_DIR, 'approved_ids.json');
-const DELETED_IDS_FILE = path.join(DATA_DIR, 'deleted_ids.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-
-function ensureDataDirectory() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (IS_SERVERLESS) {
-      const repoBiz = path.join(REPO_DATA_DIR, 'businesses.json');
-      const repoIds = path.join(REPO_DATA_DIR, 'approved_ids.json');
-      const repoDel = path.join(REPO_DATA_DIR, 'deleted_ids.json');
-      const repoUsers = path.join(REPO_DATA_DIR, 'users.json');
-      if (!fs.existsSync(BUSINESSES_FILE) && fs.existsSync(repoBiz)) {
-        try { fs.copyFileSync(repoBiz, BUSINESSES_FILE); } catch {}
-      }
-      if (!fs.existsSync(APPROVED_IDS_FILE) && fs.existsSync(repoIds)) {
-        try { fs.copyFileSync(repoIds, APPROVED_IDS_FILE); } catch {}
-      }
-      if (!fs.existsSync(DELETED_IDS_FILE) && fs.existsSync(repoDel)) {
-        try { fs.copyFileSync(repoDel, DELETED_IDS_FILE); } catch {}
-      }
-      if (!fs.existsSync(USERS_FILE) && fs.existsSync(repoUsers)) {
-        try { fs.copyFileSync(repoUsers, USERS_FILE); } catch {}
-      }
-    }
-  } catch (e) {
-    console.warn('Could not create data directory:', e);
-  }
-}
-
-function loadDeletedIdsFromDisk(): Set<string> {
-  const set = new Set<string>();
-  try {
-    ensureDataDirectory();
-    let targetFile = DELETED_IDS_FILE;
-    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'deleted_ids.json'))) {
-      targetFile = path.join(REPO_DATA_DIR, 'deleted_ids.json');
-    }
-    if (fs.existsSync(targetFile)) {
-      const content = fs.readFileSync(targetFile, 'utf-8');
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        parsed.forEach((id: string) => set.add(id));
-      }
-    }
-  } catch (e) {
-    console.warn('Could not load deleted ids from disk:', e);
-  }
-  return set;
-}
-
-function saveDeletedIdsToDisk(ids: Set<string>) {
-  try {
-    ensureDataDirectory();
-    fs.writeFileSync(DELETED_IDS_FILE, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
-    if (!IS_SERVERLESS) {
-      try {
-        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
-        fs.writeFileSync(path.join(REPO_DATA_DIR, 'deleted_ids.json'), JSON.stringify(Array.from(ids), null, 2), 'utf-8');
-      } catch {}
-    }
-  } catch (e) {
-    console.warn('Could not save deleted ids to disk:', e);
-  }
-}
-
-const deletedBusinessIdsCache: Set<string> = loadDeletedIdsFromDisk();
-
-function isTonysDigitalMarketingHub(b: any): boolean {
-  return false;
-}
-
-function isDeletedBusinessRecord(b: any): boolean {
-  if (!b) return true;
-  const id = b.id || '';
-  const name = (b.name || '').trim().toLowerCase();
-  if (id && (PERMANENTLY_DELETED_BUSINESS_IDS.includes(id) || deletedBusinessIdsCache.has(id))) return true;
-  if (name && PERMANENTLY_DELETED_BUSINESS_NAMES.some((dn) => dn.toLowerCase() === name || name.includes(dn.toLowerCase()))) return true;
-  return false;
-}
-
-function loadApprovedIdsFromDisk(): Set<string> {
-  const set = new Set<string>();
-  try {
-    ensureDataDirectory();
-    let targetFile = APPROVED_IDS_FILE;
-    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'approved_ids.json'))) {
-      targetFile = path.join(REPO_DATA_DIR, 'approved_ids.json');
-    }
-    if (fs.existsSync(targetFile)) {
-      const content = fs.readFileSync(targetFile, 'utf-8');
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        parsed.forEach((id: string) => {
-          if (!deletedBusinessIdsCache.has(id)) {
-            set.add(id);
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('Could not load approved ids from disk:', e);
-  }
-  return set;
-}
-
-
-function saveApprovedIdsToDisk(ids: Set<string>) {
-  try {
-    ensureDataDirectory();
-    fs.writeFileSync(APPROVED_IDS_FILE, JSON.stringify(Array.from(ids), null, 2), 'utf-8');
-    if (!IS_SERVERLESS) {
-      try {
-        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
-        fs.writeFileSync(path.join(REPO_DATA_DIR, 'approved_ids.json'), JSON.stringify(Array.from(ids), null, 2), 'utf-8');
-      } catch {}
-    }
-  } catch (e) {
-    console.warn('Could not save approved ids to disk:', e);
-  }
-}
-
-const approvedIdsCache: Set<string> = loadApprovedIdsFromDisk();
-
-function saveBusinessesToDisk(businesses: any[]) {
-  try {
-    ensureDataDirectory();
-    fs.writeFileSync(BUSINESSES_FILE, JSON.stringify(businesses, null, 2), 'utf-8');
-    if (!IS_SERVERLESS) {
-      try {
-        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
-        fs.writeFileSync(path.join(REPO_DATA_DIR, 'businesses.json'), JSON.stringify(businesses, null, 2), 'utf-8');
-      } catch {}
-    }
-  } catch (e) {
-    console.warn('Could not save businesses to disk:', e);
-  }
-}
-
-function loadBusinessesFromDisk(): any[] {
-  try {
-    ensureDataDirectory();
-    let targetFile = BUSINESSES_FILE;
-    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'businesses.json'))) {
-      targetFile = path.join(REPO_DATA_DIR, 'businesses.json');
-    }
-    if (fs.existsSync(targetFile)) {
-      const content = fs.readFileSync(targetFile, 'utf-8');
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((b) => !isDeletedBusinessRecord(b));
-      }
-    }
-  } catch (e) {
-    console.warn('Could not load businesses from disk:', e);
-  }
-  return [];
-}
-
-const DEFAULT_INITIAL_BUSINESSES: any[] = [];
-
-let businessesCache: any[] = (() => {
-  const fromDisk = loadBusinessesFromDisk();
-  let baseList: any[] = [];
-  if (fromDisk && fromDisk.length > 0) {
-    baseList = fromDisk.filter(b => !isDeletedBusinessRecord(b));
-  }
-
-  // Retain probation status or enlist active
-  baseList.forEach(b => {
-    if (b.listingStatus === 'probation' || b.listingStatus === 'under_investigation' || b.underInvestigation) {
-      b.listingStatus = 'probation';
-      b.underInvestigation = true;
-      approvedIdsCache.delete(b.id);
-    } else if (b.listingStatus === 'rejected') {
-      b.listingStatus = 'rejected';
-      approvedIdsCache.delete(b.id);
-    } else {
-      b.listingStatus = 'active';
-      b.isApproved = true;
-      b.permanentlyEnlisted = true;
-      b.underInvestigation = false;
-      approvedIdsCache.add(b.id);
-    }
-  });
-  saveApprovedIdsToDisk(approvedIdsCache);
-  saveBusinessesToDisk(baseList);
-  return baseList;
-})();
-let inquiriesCache: any[] = [];
-let reviewsCache: any[] = [];
-let newsletterCache: string[] = [];
-let userLocationsCache: any[] = [];
-function saveUsersToDisk(users: any[]) {
-  try {
-    ensureDataDirectory();
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
-    if (!IS_SERVERLESS) {
-      try {
-        if (!fs.existsSync(REPO_DATA_DIR)) fs.mkdirSync(REPO_DATA_DIR, { recursive: true });
-        fs.writeFileSync(path.join(REPO_DATA_DIR, 'users.json'), JSON.stringify(users, null, 2), 'utf-8');
-      } catch {}
-    }
-  } catch (e) {
-    console.warn('Could not save users to disk:', e);
-  }
-}
-
-function loadUsersFromDisk(): Array<{
-  id: string;
-  name: string;
-  username?: string;
-  email: string;
-  phone?: string;
-  password?: string;
-  role: string;
-  createdAt: string;
-}> {
-  try {
-    ensureDataDirectory();
-    let targetFile = USERS_FILE;
-    if (!fs.existsSync(targetFile) && fs.existsSync(path.join(REPO_DATA_DIR, 'users.json'))) {
-      targetFile = path.join(REPO_DATA_DIR, 'users.json');
-    }
-    if (fs.existsSync(targetFile)) {
-      const content = fs.readFileSync(targetFile, 'utf-8');
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((u: any) => u && u.email && !isLegacyDeletedEmail(u.email));
-      }
-    }
-  } catch (e) {
-    console.warn('Could not load users from disk:', e);
-  }
-  return [];
-}
-
-let registeredUsersRegistry = loadUsersFromDisk();
-
-function normalizePhone(phone?: string): string {
-  if (!phone) return '';
-  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '').trim();
-  if (cleaned.startsWith('+233')) {
-    cleaned = '0' + cleaned.slice(4);
-  } else if (cleaned.startsWith('233') && cleaned.length >= 12) {
-    cleaned = '0' + cleaned.slice(3);
-  }
-  return cleaned;
-}
-
-function normalizeUsername(username?: string): string {
-  if (!username) return '';
-  return username.trim().toLowerCase().replace(/^@+/, '');
-}
-
-// Verification Token & OTP Caches
-interface VerificationTokenRecord {
+// In-memory session and 2FA stores with expiration
+interface AdminSession {
   token: string;
-  code: string;
   email: string;
-  name: string;
-  role: string;
-  businessName?: string;
-  verified: boolean;
+  role: 'ADMIN';
+  createdAt: number;
   expiresAt: number;
-  createdAt: string;
-  verifiedAt?: string;
-  ipAddress?: string;
-  deliveryMethod?: string;
 }
 
-const verificationTokensCache = new Map<string, VerificationTokenRecord>();
-const emailOtpsCache = new Map<string, { code: string; expiresAt: number }>();
-const phoneOtpsCache = new Map<string, { code: string; expiresAt: number }>();
-const verifiedEmails = new Set<string>();
-const verifiedPhones = new Set<string>();
-const mailDispatchLogs: any[] = [];
-
-// Cryptographic token signing secret for stateless serverless functions (Vercel, AWS Lambda, Cloud Run)
-const TOKEN_SIGNING_SECRET = process.env.TOKEN_SECRET || process.env.SUPABASE_ANON_KEY || 'auracentra-ghana-secure-token-2026';
-
-function createSignedVerificationToken(payload: {
+interface TempLoginSession {
+  tempToken: string;
   email: string;
-  name: string;
-  role: string;
-  code: string;
+  createdAt: number;
   expiresAt: number;
-  businessName?: string;
-}): string {
-  const randomPrefix = crypto.randomBytes(12).toString('hex');
-  const cleanPayload = {
-    r: randomPrefix,
-    e: payload.email.toLowerCase(),
-    n: payload.name,
-    ro: payload.role,
-    c: payload.code,
-    exp: payload.expiresAt,
-    b: payload.businessName || '',
-  };
-  const b64 = Buffer.from(JSON.stringify(cleanPayload)).toString('base64url');
-  const sig = crypto.createHmac('sha256', TOKEN_SIGNING_SECRET).update(b64).digest('base64url');
-  return `actk_${b64}.${sig}`;
 }
 
-function verifySignedToken(rawToken: string): VerificationTokenRecord | null {
-  if (!rawToken) return null;
-  const token = rawToken.trim();
+const activeAdminSessions = new Map<string, AdminSession>();
+const pending2FASessions = new Map<string, TempLoginSession>();
 
-  // 1. Check in-memory cache first (if available in this process instance)
-  if (verificationTokensCache.has(token)) {
-    const cached = verificationTokensCache.get(token)!;
-    if (cached.expiresAt > Date.now()) {
-      return cached;
-    }
-  }
+// Rate limiting & Brute force protection
+const loginAttempts = new Map<string, { count: number; lockedUntil?: number }>();
 
-  // 2. Decode self-contained cryptographic token for serverless/stateless invocation
-  try {
-    if (token.startsWith('actk_')) {
-      const parts = token.slice(5).split('.');
-      if (parts.length === 2) {
-        const [b64, sig] = parts;
-        const expectedSig = crypto.createHmac('sha256', TOKEN_SIGNING_SECRET).update(b64).digest('base64url');
-        if (sig === expectedSig) {
-          const data = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
-          if (data && data.e && data.exp && data.exp > Date.now()) {
-            const record: VerificationTokenRecord = {
-              token,
-              code: data.c || '',
-              email: data.e,
-              name: data.n || 'Member',
-              role: data.ro || 'customer',
-              businessName: data.b || undefined,
-              verified: verifiedEmails.has(data.e),
-              expiresAt: data.exp,
-              createdAt: new Date().toISOString(),
-            };
-            return record;
-          }
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[Token Verification Parse Error]', e);
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  if (!record) return true;
+  if (record.lockedUntil && record.lockedUntil > now) {
+    return false;
   }
-  return null;
+  if (record.lockedUntil && record.lockedUntil <= now) {
+    loginAttempts.delete(ip);
+    return true;
+  }
+  return record.count < 6;
 }
 
-// Helper function to dispatch emails via Resend API, Brevo API, or SMTP
-async function dispatchOutboundEmail(options: {
-  to: string;
-  subject: string;
-  text: string;
-  html: string;
-}): Promise<{ success: boolean; provider: string; messageId?: string; previewUrl?: string | false }> {
-  // 1. Check for RESEND_API_KEY
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: process.env.SMTP_FROM || 'AuraCentra Ghana <onboarding@resend.dev>',
-          to: [options.to],
-          subject: options.subject,
-          text: options.text,
-          html: options.html,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        console.log(`[AuraCentra Email via Resend API] Sent to ${options.to}, ID: ${data.id}`);
-        return { success: true, provider: 'Resend API', messageId: data.id };
-      } else {
-        console.warn('[Resend API Error]', data);
-      }
-    } catch (resendErr: any) {
-      console.warn('[Resend API Exception]', resendErr.message);
-    }
+function recordFailedAttempt(ip: string) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip) || { count: 0 };
+  record.count += 1;
+  if (record.count >= 5) {
+    record.lockedUntil = now + 5 * 60 * 1000; // 5-minute lockout
   }
-
-  // 2. Check for BREVO_API_KEY
-  const brevoApiKey = process.env.BREVO_API_KEY?.trim();
-  if (brevoApiKey) {
-    try {
-      const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'tonysdigitalmarketing@gmail.com').trim();
-      const senderName = (process.env.BREVO_SENDER_NAME || 'AuraCentra Ghana').trim();
-      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-        method: 'POST',
-        headers: {
-          'api-key': brevoApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sender: { name: senderName, email: senderEmail },
-          to: [{ email: options.to }],
-          subject: options.subject,
-          textContent: options.text,
-          htmlContent: options.html,
-        }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        console.log(`[AuraCentra Email via Brevo API] Sent to ${options.to} from ${senderEmail}, ID: ${data.messageId}`);
-        return { success: true, provider: 'Brevo API', messageId: data.messageId };
-      } else {
-        console.warn('[Brevo API Error]', data);
-      }
-    } catch (brevoErr: any) {
-      console.warn('[Brevo API Exception]', brevoErr.message);
-    }
-  }
-
-  // 3. Check for Custom SMTP Transporter
-  if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT) || 587,
-        secure: Number(process.env.SMTP_PORT) === 465,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS || '',
-        },
-      });
-      const info = await transporter.sendMail({
-        from: process.env.SMTP_FROM || `"AuraCentra Ghana" <${process.env.SMTP_USER}>`,
-        to: options.to,
-        subject: options.subject,
-        text: options.text,
-        html: options.html,
-      });
-      console.log(`[AuraCentra Email via SMTP] Sent to ${options.to}, MsgID: ${info.messageId}`);
-      return { success: true, provider: `SMTP (${process.env.SMTP_HOST})`, messageId: info.messageId };
-    } catch (smtpErr: any) {
-      console.warn('[Custom SMTP Error]', smtpErr.message);
-    }
-  }
-
-  // 4. Default Sandbox / Ethereal Webmail Relay
-  try {
-    const testAccount = await nodemailer.createTestAccount();
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass,
-      },
-    });
-    const info = await transporter.sendMail({
-      from: '"AuraCentra Ghana Security" <security@auracentra.com>',
-      to: options.to,
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
-    });
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    console.log(`[AuraCentra Email via Webmail Relay] Sent to ${options.to}`, previewUrl ? `Preview: ${previewUrl}` : '');
-    return {
-      success: true,
-      provider: 'AuraCentra Webmail Relay & Ethereal Gateway',
-      messageId: info.messageId,
-      previewUrl,
-    };
-  } catch (e: any) {
-    console.warn('[Ethereal Relay Exception]', e.message);
-    return {
-      success: true,
-      provider: 'AuraCentra In-App Live Email Gateway',
-      messageId: `msg-${Date.now()}`,
-    };
-  }
+  loginAttempts.set(ip, record);
 }
 
-
-// Live Bank of Ghana Interbank exchange rates
-const getLiveForexRates = () => {
-  const now = new Date();
-  return {
-    base: 'GHS',
-    lastUpdated: now.toISOString(),
-    formattedTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-    source: 'Bank of Ghana Interbank Reference Rate',
-    rates: [
-      { currency: 'USD', name: 'US Dollar', flag: '🇺🇸', rate: 11.03, buy: 10.98, sell: 11.08, change: -0.12, isPositive: false },
-      { currency: 'GBP', name: 'British Pound', flag: '🇬🇧', rate: 15.05, buy: 14.98, sell: 15.12, change: 0.18, isPositive: true },
-      { currency: 'EUR', name: 'Euro', flag: '🇪🇺', rate: 12.88, buy: 12.82, sell: 12.94, change: -0.04, isPositive: false },
-      { currency: 'CAD', name: 'Canadian Dollar', flag: '🇨🇦', rate: 8.42, buy: 8.36, sell: 8.48, change: 0.05, isPositive: true },
-      { currency: 'CNY', name: 'Chinese Yuan', flag: '🇨🇳', rate: 1.54, buy: 1.51, sell: 1.57, change: 0.02, isPositive: true },
-      { currency: 'ZAR', name: 'South African Rand', flag: '🇿🇦', rate: 0.62, buy: 0.60, sell: 0.64, change: -0.01, isPositive: false },
-    ]
-  };
-};
-
-// Curated Ghana Business News
-const getGhanaBusinessNews = () => {
-  return [
-    {
-      id: 'news-1',
-      title: 'Bank of Ghana Reports Strong Growth in Digital Merchant Payments for 2026',
-      summary: 'Interbank electronic transactions surge 38% across Accra, Kumasi, and Takoradi as retail SMEs embrace digital settlement rails.',
-      category: 'Fintech & Banking',
-      source: 'Graphic Business Ghana',
-      publishedAt: '2 hours ago',
-      readTime: '3 min read',
-      url: 'https://graphic.com.gh/business',
-      verified: true
-    },
-    {
-      id: 'news-2',
-      title: 'Ghana Enterprises Agency Launches GH₵50M SME Export Expansion Facility',
-      summary: 'Targeted support for certified agro-processors, indigenous textile manufacturers, and light industrial producers entering AfCFTA markets.',
-      category: 'SME Grants & Policy',
-      source: 'JoyBusiness',
-      publishedAt: '4 hours ago',
-      readTime: '4 min read',
-      url: 'https://myjoyonline.com/business',
-      verified: true
-    },
-    {
-      id: 'news-3',
-      title: 'Tema Industrial City Expands Logistics Infrastructure for Regional Trade',
-      summary: 'New bonded container facilities and modernized cold chain warehousing commissioned to lower freight delays.',
-      category: 'Trade & Logistics',
-      source: 'Ghana Business News',
-      publishedAt: 'Yesterday',
-      readTime: '5 min read',
-      url: 'https://ghanabusinessnews.com',
-      verified: true
-    }
-  ];
-};
-
-// ============================================================================
-// API ROUTES
-// ============================================================================
-
-// 1. Health & Server Diagnostics
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    platform: 'AuraCentra Ghana Cloud Backend',
-    database: 'Firestore Connected',
-    databaseId: 'ai-studio-auracentra-942f0ded-90e5-4cee-a523-c94a3d49486c',
-    timestamp: new Date().toISOString(),
-    uptimeSeconds: Math.floor(process.uptime()),
-    features: ['Real-time Firestore sync', 'Bank of Ghana FX Feed', 'Business Lead Router', 'Admin Moderation']
-  });
-});
-
-// 2. Bank of Ghana FX Rates
-app.get('/api/forex', (req, res) => {
-  res.json(getLiveForexRates());
-});
-
-// 3. Ghana Business News Feed
-app.get('/api/news', (req, res) => {
-  res.json({
-    status: 'ok',
-    articles: getGhanaBusinessNews(),
-    total: 3,
-    lastRefreshed: new Date().toISOString()
-  });
-});
-
-// 4. Platform Statistics Endpoint
-app.get('/api/stats', (req, res) => {
-  const verifiedCount = businessesCache.filter(b => b.verificationStatus === 'verified').length || 18;
-  const totalCount = businessesCache.length || 24;
-  const totalLeads = inquiriesCache.length + 84;
-  
-  res.json({
-    totalBusinesses: totalCount,
-    verifiedBusinesses: verifiedCount,
-    activeRegions: 16,
-    totalCustomerLeads: totalLeads,
-    averageRating: 4.88,
-    responseTimeAvg: '< 15 mins'
-  });
-});
-
-// Ghana Post GPS Prefix Database for Server-Side Verification
-const GHANA_POST_DISTRICT_REGIONS: Record<string, { region: string; district: string; lat: number; lng: number }> = {
-  GA: { region: 'Greater Accra', district: 'Accra Metropolitan', lat: 5.5560, lng: -0.1969 },
-  GS: { region: 'Greater Accra', district: 'Ga South (Weija)', lat: 5.5700, lng: -0.3340 },
-  GW: { region: 'Greater Accra', district: 'Ga West (Amasaman)', lat: 5.7000, lng: -0.3000 },
-  GE: { region: 'Greater Accra', district: 'Ga East (Abokobi/Dome)', lat: 5.7333, lng: -0.1833 },
-  GN: { region: 'Greater Accra', district: 'Ga North (Trobu)', lat: 5.6400, lng: -0.2700 },
-  GB: { region: 'Greater Accra', district: 'Ga Central (Sowutuom)', lat: 5.6000, lng: -0.2800 },
-  GD: { region: 'Greater Accra', district: 'Adentan Municipal', lat: 5.7100, lng: -0.1600 },
-  GT: { region: 'Greater Accra', district: 'Tema Metropolitan', lat: 5.6698, lng: -0.0166 },
-  GK: { region: 'Greater Accra', district: 'Kpone Katamanso', lat: 5.6900, lng: 0.0600 },
-  GM: { region: 'Greater Accra', district: 'La Nkwantanang Madina', lat: 5.6800, lng: -0.1667 },
-  GL: { region: 'Greater Accra', district: 'La Dade Kotopon / Teshie', lat: 5.5800, lng: -0.1000 },
-  GC: { region: 'Greater Accra', district: 'Ashaiman Municipal', lat: 5.7000, lng: -0.0333 },
-  GG: { region: 'Greater Accra', district: 'Shai Osudoku (Dodowa)', lat: 5.8800, lng: 0.0900 },
-  GP: { region: 'Greater Accra', district: 'Ningo Prampram / Ada', lat: 5.7500, lng: 0.2000 },
-  GR: { region: 'Greater Accra', district: 'Greater Accra Regional Grid', lat: 5.6037, lng: -0.1870 },
-  VH: { region: 'Volta', district: 'Ho Municipal', lat: 6.6101, lng: 0.4785 },
-  VE: { region: 'Volta', district: 'Hohoe Municipal', lat: 7.1500, lng: 0.4667 },
-  VK: { region: 'Volta', district: 'Keta / Kpando', lat: 5.9200, lng: 0.9900 },
-  VA: { region: 'Volta', district: 'Ketu South (Aflao) / Anloga', lat: 6.1200, lng: 1.1900 },
-  VN: { region: 'Volta', district: 'Ketu North / North Tongu', lat: 6.2200, lng: 0.9900 },
-  VS: { region: 'Volta', district: 'South Tongu (Sogakope)', lat: 6.0000, lng: 0.6000 },
-  VC: { region: 'Volta', district: 'Central Tongu (Adidome)', lat: 6.0700, lng: 0.5200 },
-  VD: { region: 'Volta', district: 'South Dayi (Kpeve)', lat: 6.6800, lng: 0.3300 },
-  VT: { region: 'Volta', district: 'Tongu District Belt', lat: 6.0300, lng: 0.5800 },
-  VR: { region: 'Volta', district: 'Volta Regional Grid', lat: 6.6101, lng: 0.4785 },
-  AK: { region: 'Ashanti', district: 'Kumasi Metropolitan', lat: 6.6885, lng: -1.6244 },
-  AA: { region: 'Ashanti', district: 'Asokwa / Konongo', lat: 6.6600, lng: -1.6000 },
-  AO: { region: 'Ashanti', district: 'Oforikrom / Obuasi', lat: 6.6800, lng: -1.5800 },
-  AT: { region: 'Ashanti', district: 'Old Tafo / Atwima', lat: 6.7300, lng: -1.6100 },
-  AS: { region: 'Ashanti', district: 'Suame / Bekwai', lat: 6.7200, lng: -1.6400 },
-  AN: { region: 'Ashanti', district: 'Asokore Mampong / Mampong', lat: 6.7000, lng: -1.5700 },
-  AB: { region: 'Ashanti', district: 'Bekwai / Bosomtwe', lat: 6.4500, lng: -1.5800 },
-  AE: { region: 'Ashanti', district: 'Ejisu Municipal', lat: 6.7100, lng: -1.5100 },
-  AM: { region: 'Ashanti', district: 'Mampong Municipal', lat: 7.0600, lng: -1.4000 },
-  AW: { region: 'Ashanti', district: 'Ahafo Ano South / North', lat: 6.8100, lng: -1.8700 },
-  AR: { region: 'Ashanti', district: 'Ashanti Regional Grid', lat: 6.6885, lng: -1.6244 },
-  WS: { region: 'Western', district: 'Sekondi-Takoradi Metro', lat: 4.8845, lng: -1.7555 },
-  WT: { region: 'Western', district: 'Tarkwa Nsuaem', lat: 5.3000, lng: -1.9800 },
-  WP: { region: 'Western', district: 'Prestea Huni Valley', lat: 5.4300, lng: -2.1400 },
-  WE: { region: 'Western', district: 'Effia Kwesimintsim / Ellembelle', lat: 4.9000, lng: -1.7700 },
-  WA: { region: 'Western', district: 'Ahanta West', lat: 4.8800, lng: -1.9700 },
-  WJ: { region: 'Western', district: 'Jomoro (Elubo/Half Assini)', lat: 5.1000, lng: -2.7700 },
-  WW: { region: 'Western', district: 'Wassa Amenfi', lat: 5.6200, lng: -2.3100 },
-  WR: { region: 'Western', district: 'Western Regional Grid', lat: 4.9340, lng: -1.7700 },
-  WN: { region: 'Western North', district: 'Sefwi Wiawso Municipal', lat: 6.2000, lng: -2.4800 },
-  WB: { region: 'Western North', district: 'Bibiani / Bodi / Bia', lat: 6.4600, lng: -2.3300 },
-  CC: { region: 'Central', district: 'Cape Coast Metropolitan', lat: 5.1053, lng: -1.2466 },
-  CK: { region: 'Central', district: 'Komenda / Elmina', lat: 5.0800, lng: -1.3500 },
-  CM: { region: 'Central', district: 'Mfantseman (Mankessim)', lat: 5.2700, lng: -1.0200 },
-  CE: { region: 'Central', district: 'Effutu (Winneba)', lat: 5.3500, lng: -0.6300 },
-  CG: { region: 'Central', district: 'Gomoa West/Central/East', lat: 5.2800, lng: -0.7300 },
-  CA: { region: 'Central', district: 'Agona (Swedru) / Kasoa', lat: 5.5300, lng: -0.7000 },
-  CT: { region: 'Central', district: 'Twifo Praso', lat: 5.6100, lng: -1.5500 },
-  CU: { region: 'Central', district: 'Upper Denkyira (Dunkwa)', lat: 5.9700, lng: -1.9800 },
-  CR: { region: 'Central', district: 'Central Regional Grid', lat: 5.1053, lng: -1.2466 },
-  EN: { region: 'Eastern', district: 'New Juaben (Koforidua)', lat: 6.0945, lng: -0.2591 },
-  EA: { region: 'Eastern', district: 'Akuapem (Nsawam/Akropong) / Akosombo', lat: 5.8100, lng: -0.3500 },
-  EE: { region: 'Eastern', district: 'East Akim (Kibi)', lat: 6.1600, lng: -0.5500 },
-  EW: { region: 'Eastern', district: 'West Akim (Asamankese)', lat: 5.8600, lng: -0.6600 },
-  EB: { region: 'Eastern', district: 'Birim Central (Akim Oda)', lat: 5.9200, lng: -0.9800 },
-  EK: { region: 'Eastern', district: 'Kwahu (Nkawkaw)', lat: 6.5500, lng: -0.7700 },
-  EY: { region: 'Eastern', district: 'Yilo Krobo (Somanya)', lat: 6.0900, lng: -0.0200 },
-  EM: { region: 'Eastern', district: 'Lower Manya Krobo', lat: 6.1300, lng: 0.0100 },
-  ES: { region: 'Eastern', district: 'Suhum Municipal', lat: 6.0400, lng: -0.4500 },
-  ED: { region: 'Eastern', district: 'Denkyembour (Akwatia)', lat: 6.0500, lng: -0.8000 },
-  ER: { region: 'Eastern', district: 'Eastern Regional Grid', lat: 6.0784, lng: -0.2588 },
-  OT: { region: 'Oti', district: 'Krachi East (Dambai)', lat: 7.6667, lng: 0.1833 },
-  OK: { region: 'Oti', district: 'Krachi West / Kadjebi', lat: 7.7900, lng: -0.0400 },
-  ON: { region: 'Oti', district: 'Nkwanta South / North', lat: 8.2600, lng: 0.5200 },
-  OJ: { region: 'Oti', district: 'Jasikan Municipal', lat: 7.4100, lng: 0.4700 },
-  OB: { region: 'Oti', district: 'Biakoye (Nkonya)', lat: 7.1500, lng: 0.3200 },
-  OG: { region: 'Oti', district: 'Guan District', lat: 7.1800, lng: 0.5000 },
-  OR: { region: 'Oti', district: 'Oti Regional Grid', lat: 7.8833, lng: 0.2000 },
-  NT: { region: 'Northern', district: 'Tamale Metropolitan', lat: 9.4008, lng: -0.8393 },
-  NS: { region: 'Northern', district: 'Sagnarigu / Savelugu', lat: 9.4300, lng: -0.8500 },
-  NY: { region: 'Northern', district: 'Yendi Municipal', lat: 9.4400, lng: -0.0100 },
-  NN: { region: 'Northern', district: 'Nanton District', lat: 9.5500, lng: -0.7300 },
-  NK: { region: 'Northern', district: 'Kumbungu / Karaga', lat: 9.5700, lng: -0.9500 },
-  NM: { region: 'Northern', district: 'Mion District', lat: 9.4200, lng: -0.2700 },
-  NG: { region: 'Northern', district: 'Gushegu Municipal', lat: 9.9200, lng: -0.2200 },
-  NB: { region: 'Northern', district: 'Nanumba (Bimbilla)', lat: 8.8600, lng: -0.0600 },
-  NZ: { region: 'Northern', district: 'Zabzugu / Tatale', lat: 9.2900, lng: 0.3700 },
-  NR: { region: 'Northern', district: 'Northern Regional Grid', lat: 9.4008, lng: -0.8393 },
-  SD: { region: 'Savannah', district: 'West Gonja (Damongo)', lat: 9.0833, lng: -1.8167 },
-  SB: { region: 'Savannah', district: 'Bole District', lat: 9.0300, lng: -2.4800 },
-  SS: { region: 'Savannah', district: 'Sawla Tuna / Salaga', lat: 9.2800, lng: -2.4200 },
-  SC: { region: 'Savannah', district: 'Central Gonja (Buipe)', lat: 8.7600, lng: -1.4800 },
-  SN: { region: 'Savannah', district: 'North Gonja (Daboya)', lat: 9.5300, lng: -1.3800 },
-  SR: { region: 'Savannah', district: 'Savannah Regional Grid', lat: 9.0833, lng: -1.8167 },
-  NE: { region: 'North East', district: 'East Mamprusi (Nalerigu)', lat: 10.5333, lng: -0.3667 },
-  NW: { region: 'North East', district: 'West Mamprusi (Walewale)', lat: 10.3500, lng: -0.8000 },
-  NC: { region: 'North East', district: 'Chereponi District', lat: 10.1300, lng: 0.2800 },
-  UB: { region: 'Upper East', district: 'Bolgatanga / Bawku / Builsa', lat: 10.7856, lng: -0.8514 },
-  UN: { region: 'Upper East', district: 'Navrongo / Paga', lat: 10.8900, lng: -1.0900 },
-  UK: { region: 'Upper East', district: 'Bongo District', lat: 10.9100, lng: -0.8100 },
-  UT: { region: 'Upper East', district: 'Talensi (Tongo)', lat: 10.7000, lng: -0.8000 },
-  UG: { region: 'Upper East', district: 'Garu / Tempane / Pusiga', lat: 10.8500, lng: -0.1800 },
-  UE: { region: 'Upper East', district: 'Upper East Regional Grid', lat: 10.7856, lng: -0.8514 },
-  UW: { region: 'Upper West', district: 'Wa Municipal', lat: 10.0601, lng: -2.5099 },
-  UL: { region: 'Upper West', district: 'Lawra / Lambussie', lat: 10.6400, lng: -2.8200 },
-  UJ: { region: 'Upper West', district: 'Jirapa Municipal', lat: 10.5300, lng: -2.7000 },
-  UD: { region: 'Upper West', district: 'Daffiama Bussie Issa', lat: 10.4200, lng: -2.3300 },
-  BS: { region: 'Bono', district: 'Sunyani Municipal', lat: 7.3399, lng: -2.3268 },
-  BB: { region: 'Bono', district: 'Berekum / Banda', lat: 7.4500, lng: -2.5800 },
-  BD: { region: 'Bono', district: 'Dormaa Central', lat: 7.2800, lng: -2.8800 },
-  BW: { region: 'Bono', district: 'Wenchi Municipal', lat: 7.7400, lng: -2.1000 },
-  BJ: { region: 'Bono', district: 'Jaman South / North', lat: 7.5800, lng: -2.7700 },
-  BA: { region: 'Bono', district: 'Bono Regional Grid', lat: 7.3400, lng: -2.3200 },
-  BT: { region: 'Bono East', district: 'Techiman Municipal', lat: 7.5833, lng: -1.9333 },
-  BK: { region: 'Bono East', district: 'Kintampo Municipal', lat: 8.0500, lng: -1.7300 },
-  BN: { region: 'Bono East', district: 'Nkoranza Municipal', lat: 7.5600, lng: -1.7000 },
-  BP: { region: 'Bono East', district: 'Pru (Yeji/Prang)', lat: 8.2200, lng: -0.8500 },
-  BE: { region: 'Bono East', district: 'Bono East Regional Grid', lat: 7.5816, lng: -1.9351 },
-  AG: { region: 'Ahafo', district: 'Asunafo (Goaso)', lat: 6.8000, lng: -2.5167 },
-  AF: { region: 'Ahafo', district: 'Ahafo Regional Grid', lat: 7.0000, lng: -2.5000 },
-  AH: { region: 'Ahafo', district: 'Ahafo Regional Network', lat: 7.0000, lng: -2.5000 },
-};
-
-// Official Ghana Post GPS Verification API
-app.get('/api/verify-ghanapost-gps', (req, res) => {
-  const address = (req.query.address as string || '').trim().toUpperCase().replace(/\s+/g, '');
-  if (!address) {
-    res.status(400).json({ status: 'error', message: 'Address parameter is required' });
-    return;
-  }
-
-  const match = address.match(/^([A-Z]{2,3})[-]?([0-9]{2,5})[-]?([0-9]{3,6})$/);
-  if (!match) {
-    res.status(400).json({
-      status: 'invalid_format',
-      message: 'Invalid GhanaPost GPS format. Example: GA-183-9024 (Accra), VH-045-8821 (Volta), AK-039-4921 (Kumasi).'
-    });
-    return;
-  }
-
-  const prefix = match[1];
-  const districtCode = match[2];
-  const propertyCode = match[3];
-  const info = GHANA_POST_DISTRICT_REGIONS[prefix] || GHANA_POST_DISTRICT_REGIONS[prefix.slice(0, 2)];
-
-  if (!info) {
-    res.status(404).json({
-      status: 'unrecognized_region',
-      message: `Prefix ${prefix} is not an official Ghana Post GPS regional/district code.`
-    });
-    return;
-  }
-
-  const dNum = parseInt(districtCode, 10) || 100;
-  const pNum = parseInt(propertyCode, 10) || 1000;
-  const latOffset = ((dNum % 40) - 20) * 0.002;
-  const lngOffset = ((pNum % 40) - 20) * 0.002;
-
-  res.json({
-    status: 'success',
-    verification: {
-      isValid: true,
-      formattedAddress: `${prefix}-${districtCode}-${propertyCode}`,
-      regionCode: prefix,
-      regionName: `${info.region} Region`,
-      districtName: info.district,
-      coordinates: {
-        lat: Number((info.lat + latOffset).toFixed(5)),
-        lng: Number((info.lng + lngOffset).toFixed(5))
-      },
-      verifiedAt: new Date().toISOString(),
-      source: 'Ghana National Digital Addressing System (NDPAS) Verification Engine'
-    }
-  });
-});
-
-// User Location Verification & Real-Time Tracking Engine
-app.post('/api/track-user-location', (req, res) => {
-  try {
-    const data = req.body;
-    if (!data || !data.sessionId) {
-      res.status(400).json({ error: 'Missing session or tracking payload' });
-      return;
-    }
-
-    // Detect client IP
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
-                     req.socket.remoteAddress || 
-                     data.ipAddress || 
-                     '154.160.18.42';
-
-    const enrichedRecord = {
-      ...data,
-      ipAddress: clientIp,
-      serverReceivedAt: new Date().toISOString(),
-      status: 'online'
-    };
-
-    // Upsert into memory cache
-    userLocationsCache = [
-      enrichedRecord,
-      ...userLocationsCache.filter(u => u.sessionId !== data.sessionId && u.id !== data.id)
-    ].slice(0, 100); // keep most recent 100
-
-    res.json({
-      status: 'success',
-      message: 'Location tracked and verified successfully',
-      record: enrichedRecord
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Tracking failed' });
-  }
-});
-
-app.get('/api/user-locations', (req, res) => {
-  // Aggregate stats
-  const total = userLocationsCache.length;
-  const ghanaCount = userLocationsCache.filter(u => u.isGhanaLocation).length;
-  const gpsVerifiedCount = userLocationsCache.filter(u => u.verificationMethod === 'gps_high_precision').length;
-
-  res.json({
-    status: 'success',
-    total,
-    ghanaCount,
-    gpsVerifiedCount,
-    locations: userLocationsCache
-  });
-});
-
-app.post('/api/clear-user-locations', (req, res) => {
-  userLocationsCache = [];
-  res.json({ status: 'success', message: 'Location logs cleared' });
-});
-
-// ============================================================================
-// AUTHENTICATION: SECURE EMAIL LINK & 6-DIGIT VERIFICATION ENGINE
-// ============================================================================
-
-function escapeHtml(str: string) {
-  return (str || '').replace(/[&<>"']/g, (m) => {
-    switch (m) {
-      case '&': return '&amp;';
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '"': return '&quot;';
-      case "'": return '&#039;';
-      default: return m;
-    }
-  });
+function clearRateLimit(ip: string) {
+  loginAttempts.delete(ip);
 }
 
-function generateVerificationEmailHtml(params: {
-  name: string;
-  email: string;
-  role: string;
-  businessName?: string;
-  verificationLink: string;
-  code: string;
-  ipAddress?: string;
-}) {
-  const isBusiness = params.role === 'business_owner';
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Your AuraCentra Account</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px 12px; }
-    .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.06); }
-    .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #155dfc 100%); padding: 36px 28px; text-align: center; color: #ffffff; }
-    .header h1 { margin: 12px 0 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
-    .badge { display: inline-block; padding: 5px 14px; background: rgba(255,255,255,0.18); border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; }
-    .content { padding: 36px 30px; }
-    .greeting { font-size: 18px; font-weight: 800; margin-bottom: 12px; color: #0f172a; }
-    .desc { font-size: 14px; line-height: 1.65; color: #475569; margin-bottom: 24px; }
-    .btn-container { text-align: center; margin: 30px 0; }
-    .btn-verify { display: inline-block; background-color: #155dfc; color: #ffffff !important; padding: 15px 36px; font-size: 15px; font-weight: 800; text-decoration: none; border-radius: 16px; box-shadow: 0 6px 18px rgba(21, 93, 252, 0.35); }
-    .code-box { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; margin: 26px 0; }
-    .code-title { font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
-    .code-value { font-size: 32px; font-weight: 900; font-family: monospace; letter-spacing: 8px; color: #0f172a; }
-    .security-notice { font-size: 12px; color: #64748b; background: #f8fafc; border-left: 3px solid #155dfc; padding: 14px 18px; border-radius: 0 10px 10px 0; margin-top: 26px; line-height: 1.6; }
-    .footer { background: #f8fafc; padding: 22px 28px; border-top: 1px solid #f1f5f9; text-align: center; font-size: 11px; color: #94a3b8; line-height: 1.6; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <div class="badge">Official Security Verification</div>
-      <h1>AuraCentra Ghana</h1>
-    </div>
-    <div class="content">
-      <div class="greeting">Hello ${escapeHtml(params.name)},</div>
-      <div class="desc">
-        Thank you for registering ${isBusiness ? `your business <strong>${escapeHtml(params.businessName || 'organization')}</strong>` : 'your account'} on <strong>AuraCentra Ghana</strong>.
-        <br><br>
-        To verify your email address and activate your secure access, please click the verified activation button below:
-      </div>
-
-      <div class="btn-container">
-        <a href="${params.verificationLink}" class="btn-verify" target="_blank" rel="noopener noreferrer">
-          Verify My Email Account
-        </a>
-      </div>
-
-      <div class="code-box">
-        <div class="code-title">Or Enter 6-Digit Security Code</div>
-        <div class="code-value">${params.code}</div>
-      </div>
-
-      <div class="security-notice">
-        <strong>Security Check:</strong> This email link and verification code are cryptographically protected and valid for 24 hours. If you did not make this request, please disregard this email.
-      </div>
-    </div>
-    <div class="footer">
-      &copy; ${new Date().getFullYear()} AuraCentra Ghana &bull; National Business & Services Directory<br>
-      High-Trust Enterprise Registry &bull; Accra, Ghana
-    </div>
-  </div>
-</body>
-</html>`;
-}
-
-// 1. Dispatch Real Email with Verification Link & 6-Digit Code
-app.post('/api/auth/send-verification-email', async (req, res) => {
-  try {
-    const { email, name, role, businessName, appUrl } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const cleanName = (name || 'Member').trim();
-    const userRole = (role || 'customer').trim();
-
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      res.status(400).json({ error: 'A valid email address is required' });
-      return;
-    }
-
-    // Generate 64-character crypto token + 6-digit numeric security code
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours validity
-
-    const token = createSignedVerificationToken({
-      email: cleanEmail,
-      name: cleanName,
-      role: userRole,
-      code,
-      expiresAt,
-      businessName: businessName?.trim(),
-    });
-
-    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
-                     req.socket.remoteAddress || 
-                     '154.160.18.42';
-
-    // Store in active verification records
-    const record: VerificationTokenRecord = {
-      token,
-      code,
-      email: cleanEmail,
-      name: cleanName,
-      role: userRole,
-      businessName: businessName?.trim(),
-      verified: false,
-      expiresAt,
-      createdAt: new Date().toISOString(),
-      ipAddress: clientIp,
-    };
-    verificationTokensCache.set(token, record);
-    emailOtpsCache.set(cleanEmail, { code, expiresAt });
-
-    // Determine verification target URL
-    const hostHeader = req.get('host') || 'localhost:3000';
-    const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-    const resolvedOrigin = appUrl || process.env.APP_URL || `${protocol}://${hostHeader}`;
-    const verificationLink = `${resolvedOrigin}/api/auth/verify-email-link?token=${token}`;
-    const viewMailUrl = `${resolvedOrigin}/api/auth/view-mail-html?token=${token}`;
-
-    const htmlContent = generateVerificationEmailHtml({
-      name: cleanName,
-      email: cleanEmail,
-      role: userRole,
-      businessName,
-      verificationLink,
-      code,
-      ipAddress: clientIp,
-    });
-
-    // Dispatch email via Resend, Brevo, SMTP, or Webmail Relay
-    const dispatchResult = await dispatchOutboundEmail({
-      to: cleanEmail,
-      subject: `[Action Required] Verify Your AuraCentra Ghana Account (${code})`,
-      text: `Hello ${cleanName},\n\nPlease verify your AuraCentra Ghana account by clicking this link: ${verificationLink}\n\nOr enter 6-digit code: ${code}\n\nSecurity verification valid for 24 hours.`,
-      html: htmlContent,
-    });
-
-    record.deliveryMethod = dispatchResult.provider;
-
-    const logEntry = {
-      id: `mail-${Date.now()}`,
-      to: cleanEmail,
-      name: cleanName,
-      subject: `Verify Your AuraCentra Ghana Account (${code})`,
-      token,
-      code,
-      verificationLink,
-      viewMailUrl,
-      previewUrl: dispatchResult.previewUrl || false,
-      provider: dispatchResult.provider,
-      status: dispatchResult.success ? 'delivered' : 'queued',
-      sentAt: new Date().toISOString(),
-      expiresAt: new Date(expiresAt).toISOString(),
-    };
-    mailDispatchLogs.unshift(logEntry);
-    if (mailDispatchLogs.length > 50) mailDispatchLogs.pop();
-
-    res.json({
-      status: 'success',
-      message: `An official verification email has been dispatched to ${cleanEmail}. Check your inbox or access the Webmail view.`,
-      email: cleanEmail,
-      token,
-      code,
-      verificationLink,
-      viewMailUrl,
-      previewUrl: dispatchResult.previewUrl || false,
-      provider: dispatchResult.provider,
-      mailId: logEntry.id,
-      expiresAt: new Date(expiresAt).toISOString(),
-    });
-  } catch (err: any) {
-    console.error('[send-verification-email Error]', err);
-    res.status(500).json({ error: err.message || 'Failed to dispatch verification email' });
-  }
-});
-
-// View Full Dispatched HTML Email (Webmail Simulator / Direct In-App Inbox)
-app.get('/api/auth/view-mail-html', (req, res) => {
-  const token = (req.query.token as string || '').trim();
-  const email = (req.query.email as string || '').trim().toLowerCase();
-
-  let record: VerificationTokenRecord | undefined | null;
-  if (token) {
-    record = verifySignedToken(token);
-  } else if (email) {
-    for (const rec of verificationTokensCache.values()) {
-      if (rec.email === email) {
-        record = rec;
-        break;
-      }
-    }
-  }
-
-  if (!record) {
-    res.status(404).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Email Message Not Found</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
-        <h3 style="color:#e11d48;">No Active Verification Message Found</h3>
-        <p>Could not locate the requested email message. Please request a new verification email.</p>
-        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
-      </body>
-      </html>
-    `);
-    return;
-  }
-
-  const hostHeader = req.get('host') || 'localhost:3000';
-  const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
-  const resolvedOrigin = process.env.APP_URL || `${protocol}://${hostHeader}`;
-  const verificationLink = `${resolvedOrigin}/api/auth/verify-email-link?token=${record.token}`;
-
-  const html = generateVerificationEmailHtml({
-    name: record.name,
-    email: record.email,
-    role: record.role,
-    businessName: record.businessName,
-    verificationLink,
-    code: record.code,
-    ipAddress: record.ipAddress,
-  });
-
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Official Verification Email - ${record.email}</title>
-      <meta name="viewport" content="width=device-width, initial-scale=1">
-      <style>
-        .webmail-bar { background: #0f172a; color: #94a3b8; padding: 10px 16px; font-family: -apple-system, sans-serif; font-size: 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; }
-        .webmail-bar span { color: #f8fafc; font-weight: bold; }
-        .badge-live { background: #10b981; color: #ffffff; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-      </style>
-    </head>
-    <body style="margin:0; background:#f1f5f9;">
-      <div class="webmail-bar">
-        <div>Dispatched To: <span>${record.email}</span> &bull; Provider: <span>${record.deliveryMethod || 'AuraCentra Gateway'}</span></div>
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span class="badge-live">Live Webmail View</span>
-          <a href="/" style="color:#60a5fa; text-decoration:none; font-weight:600;">Return to App</a>
-        </div>
-      </div>
-      <div style="padding: 20px 0;">
-        ${html}
-      </div>
-    </body>
-    </html>
-  `);
-});
-
-// Query Latest Email Info for Client Diagnostics
-app.get('/api/auth/latest-email', (req, res) => {
-  const email = (req.query.email as string || '').trim().toLowerCase();
-  if (!email) {
-    res.status(400).json({ error: 'Email parameter is required' });
-    return;
-  }
-
-  for (const rec of verificationTokensCache.values()) {
-    if (rec.email === email) {
-      res.json({
-        email: rec.email,
-        name: rec.name,
-        code: rec.code,
-        token: rec.token,
-        verified: rec.verified,
-        provider: rec.deliveryMethod || 'AuraCentra Mail Gateway',
-        createdAt: rec.createdAt,
-        expiresAt: new Date(rec.expiresAt).toISOString(),
-        viewMailUrl: `/api/auth/view-mail-html?token=${rec.token}`,
-      });
-      return;
-    }
-  }
-
-  res.status(404).json({ error: 'No verification record found for this email address' });
-});
-
-
-// 2. Clickable Email Verification Link Handler (User clicks link in their email inbox)
-app.get('/api/auth/verify-email-link', (req, res) => {
-  const token = (req.query.token as string || '').trim();
+// Authentication middleware
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : req.cookies?.auracentra_admin_session;
 
   if (!token) {
-    res.status(400).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Invalid Verification Link</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
-        <h2 style="color:#e11d48;">Verification Link Missing</h2>
-        <p>No security token was provided. Please check your verification email link.</p>
-        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
-      </body>
-      </html>
-    `);
-    return;
+    return res.status(401).json({ success: false, error: 'Unauthorized. Administrator access required.' });
   }
 
-  const record = verifySignedToken(token);
-
-  if (!record) {
-    res.status(404).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Link Expired or Invalid</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
-        <h2 style="color:#e11d48;">Verification Link Expired or Not Found</h2>
-        <p>This verification link is invalid or has already expired. Please request a new verification email from AuraCentra.</p>
-        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
-      </body>
-      </html>
-    `);
-    return;
+  const session = activeAdminSessions.get(token);
+  if (!session || session.expiresAt < Date.now()) {
+    if (session) activeAdminSessions.delete(token);
+    return res.status(401).json({ success: false, error: 'Session expired. Please log in again.' });
   }
 
-  if (record.expiresAt < Date.now()) {
-    res.status(410).send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Link Expired</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-      <body style="font-family:sans-serif; text-align:center; padding:40px 20px; background:#f8fafc;">
-        <h2 style="color:#e11d48;">Verification Link Expired</h2>
-        <p>This verification link expired. Please request a fresh link from the login or registration window.</p>
-        <a href="/" style="display:inline-block; margin-top:20px; padding:12px 24px; background:#155dfc; color:#fff; text-decoration:none; border-radius:12px; font-weight:bold;">Return to AuraCentra</a>
-      </body>
-      </html>
-    `);
-    return;
+  (req as any).adminUser = session;
+  next();
+}
+
+// ==========================================
+// AUDIT LOG & BUSINESS SUBMISSION STORES
+// ==========================================
+export interface AdminAuditLogEntry {
+  id: string;
+  action: string;
+  businessId?: string;
+  businessName?: string;
+  previousStatus?: string;
+  newStatus?: string;
+  reason?: string;
+  adminEmail: string;
+  timestamp: string;
+}
+
+const auditLogs: AdminAuditLogEntry[] = [
+  {
+    id: 'log-seed-1',
+    action: 'System Initialized',
+    businessName: 'AuraCentra Core Ecosystem',
+    newStatus: 'OPERATIONAL',
+    reason: 'Security & administration rules bootstrapped',
+    adminEmail: 'admindashboard@gmail.com',
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
   }
+];
 
-  // Mark as verified in persistent set and cache
-  record.verified = true;
-  record.verifiedAt = new Date().toISOString();
-  verifiedEmails.add(record.email);
-  if (verificationTokensCache.has(token)) {
-    verificationTokensCache.get(token)!.verified = true;
-  }
+export interface EnlistmentSubmission {
+  id: string;
+  submissionId: string;
+  ownerFullName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  name: string;
+  businessType: string;
+  description: string;
+  category: string;
+  additionalCategories: string[];
+  sector: string;
+  yearEstablished?: string;
+  employeesCount?: string;
+  phone: string;
+  whatsapp?: string;
+  email?: string;
+  website?: string;
+  region: string;
+  city: string;
+  area: string;
+  streetDescription?: string;
+  ghanaPostGps?: string;
+  latitude?: number;
+  longitude?: number;
+  logoUrl?: string;
+  coverImage?: string;
+  photos: string[];
+  socialLinks: {
+    facebook?: string;
+    instagram?: string;
+    tiktok?: string;
+    x?: string;
+    linkedin?: string;
+    youtube?: string;
+  };
+  productsAndServices: Array<{
+    id: string;
+    type: 'product' | 'service';
+    name: string;
+    description: string;
+    price?: string;
+    image?: string;
+  }>;
+  contactChannels: {
+    phone: boolean;
+    whatsapp: boolean;
+    email: boolean;
+    website: boolean;
+    social: boolean;
+  };
+  openingHours: string;
+  acceptEnquiries: boolean;
+  // Verification details - PRIVATE, NEVER PUBLIC
+  verification: {
+    registrationNumber?: string;
+    ghanaCardNumber?: string;
+    documentUrls?: string[];
+    proofOfAddress?: string;
+    notes?: string;
+  };
+  status: 'pending_review' | 'under_review' | 'verification_required' | 'approved' | 'published' | 'rejected' | 'suspended';
+  verified: boolean;
+  featured?: boolean;
+  correctionNotes?: string;
+  internalAdminNotes?: string[];
+  submissionHistory: Array<{
+    status: string;
+    timestamp: string;
+    note: string;
+  }>;
+  metrics: {
+    views: number;
+    enquiries: number;
+    phoneClicks: number;
+    whatsappClicks: number;
+    websiteClicks: number;
+    socialClicks: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
-  const redirectUrl = `/?email_verified=true&email=${encodeURIComponent(record.email)}&name=${encodeURIComponent(record.name)}&role=${encodeURIComponent(record.role)}`;
+// In-memory submissions store initialized empty - only authentic user-enlisted businesses are stored
+const submissionsStore = new Map<string, EnlistmentSubmission>();
+const seedSubmissions: EnlistmentSubmission[] = [];
 
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Email Verified Successfully - AuraCentra Ghana</title>
-      <meta http-equiv="refresh" content="3;url=${redirectUrl}">
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #0f172a; color: #ffffff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .card { max-width: 460px; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 28px; padding: 40px 30px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .icon { width: 72px; height: 72px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #10b981; font-size: 36px; }
-        h1 { font-size: 24px; font-weight: 900; margin: 0 0 10px; color: #ffffff; }
-        p { color: #94a3b8; font-size: 14px; line-height: 1.6; margin: 0 0 24px; }
-        .btn { display: inline-block; background: #155dfc; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 16px; font-weight: 800; font-size: 14px; box-shadow: 0 10px 25px -5px rgba(21, 93, 252, 0.4); }
-        .timer { font-size: 12px; color: #64748b; margin-top: 16px; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <div class="icon">✓</div>
-        <h1>Email Verified!</h1>
-        <p>Your email address <strong>${escapeHtml(record.email)}</strong> has been verified successfully. Your AuraCentra account is now fully active.</p>
-        <a href="${redirectUrl}" class="btn">Continue to AuraCentra Ghana</a>
-        <div class="timer">Redirecting automatically in 3 seconds...</div>
-      </div>
-    </body>
-    </html>
-  `);
-});
+// ==========================================
+// 1. SECURE ADMIN AUTHENTICATION FLOW
+// ==========================================
 
-// 3. Verify with 6-Digit Code or Token via API
-app.post('/api/auth/verify-email-token', (req, res) => {
-  try {
-    const { email, code, token } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const cleanCode = (code || '').trim();
-    const cleanToken = (token || '').trim();
-
-    if (!cleanEmail) {
-      res.status(400).json({ error: 'Email address is required' });
-      return;
-    }
-
-    let isMatch = false;
-
-    if (cleanToken) {
-      const record = verifySignedToken(cleanToken);
-      if (record && record.email.toLowerCase() === cleanEmail && record.expiresAt > Date.now()) {
-        record.verified = true;
-        record.verifiedAt = new Date().toISOString();
-        isMatch = true;
-      }
-    }
-
-    if (!isMatch && cleanCode) {
-      const cachedOtp = emailOtpsCache.get(cleanEmail);
-      // Master code 123456 or cached OTP check
-      if (cleanCode === '123456' || (cachedOtp && cachedOtp.code === cleanCode && cachedOtp.expiresAt > Date.now())) {
-        isMatch = true;
-      } else {
-        // Also check in tokens cache by email & code
-        for (const record of verificationTokensCache.values()) {
-          if (record.email === cleanEmail && record.code === cleanCode && record.expiresAt > Date.now()) {
-            record.verified = true;
-            record.verifiedAt = new Date().toISOString();
-            isMatch = true;
-            break;
-          }
-        }
-      }
-    }
-
-    if (isMatch) {
-      verifiedEmails.add(cleanEmail);
-      res.json({
-        status: 'success',
-        verified: true,
-        email: cleanEmail,
-        message: 'Email address verified and secured successfully!',
-      });
-    } else {
-      res.status(400).json({
-        status: 'error',
-        verified: false,
-        message: 'Invalid or expired verification code / link token. Please check your email.',
-      });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Verification failed' });
-  }
-});
-
-// Test Brevo Transactional Email Gateway
-app.post('/api/test-brevo-email', async (req, res) => {
-  try {
-    const { email } = req.body;
-    const recipientEmail = (email || 'tonysdigitalmarketing@gmail.com').trim().toLowerCase();
-
-    const apiKey = process.env.BREVO_API_KEY;
-    if (!apiKey) {
-      res.status(400).json({
-        status: 'error',
-        configured: false,
-        message: 'BREVO_API_KEY is not configured yet in the Settings / environment variables.',
-      });
-      return;
-    }
-
-    const senderEmail = (process.env.BREVO_SENDER_EMAIL || 'tonysdigitalmarketing@gmail.com').trim();
-    const senderName = (process.env.BREVO_SENDER_NAME || 'AuraCentra Ghana').trim();
-    const testCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { name: senderName, email: senderEmail },
-        to: [{ email: recipientEmail }],
-        subject: `[Test] AuraCentra Ghana - Live Brevo Email Verification (${testCode})`,
-        htmlContent: `
-          <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-            <div style="text-align: center; margin-bottom: 24px;">
-              <h1 style="color: #0f172a; margin: 0; font-size: 22px; font-weight: 800;">AuraCentra Ghana</h1>
-              <p style="color: #64748b; margin: 4px 0 0; font-size: 13px;">Official Email Gateway Test</p>
-            </div>
-            <p style="font-size: 15px; color: #334155; line-height: 1.6;">Hello,</p>
-            <p style="font-size: 15px; color: #334155; line-height: 1.6;">This email confirms that your <strong>Brevo (Sendinblue)</strong> email integration is active and successfully authenticated from <strong>${senderEmail}</strong>.</p>
-            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 18px; text-align: center; margin: 24px 0;">
-              <span style="display: block; font-size: 12px; color: #64748b; font-weight: bold; text-transform: uppercase; margin-bottom: 6px;">Test Security Code</span>
-              <span style="font-size: 32px; font-weight: 900; color: #155dfc; letter-spacing: 6px; font-family: monospace;">${testCode}</span>
-            </div>
-            <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Sender: <strong>${senderEmail}</strong><br>Recipient: <strong>${recipientEmail}</strong></p>
-          </div>
-        `,
-      }),
+// SCREEN 1: Email & Password verification -> returns tempToken
+app.post('/api/admin/login-stage1', (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many failed login attempts. Account temporarily locked for 5 minutes for security.'
     });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      res.json({
-        status: 'success',
-        configured: true,
-        messageId: data.messageId,
-        senderEmail,
-        recipient: recipientEmail,
-        message: `Live test email successfully dispatched to ${recipientEmail} from ${senderEmail}!`,
-      });
-    } else {
-      res.status(response.status).json({
-        status: 'error',
-        configured: true,
-        error: data,
-        message: data.message || 'Failed to dispatch email via Brevo API',
-      });
-    }
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 4. Check Email Verification Status (For live polling while user has the email open)
-app.get('/api/auth/check-verification-status', (req, res) => {
-  const email = (req.query.email as string || '').trim().toLowerCase();
-  if (!email) {
-    res.status(400).json({ error: 'Email query parameter is required' });
-    return;
   }
 
-  let isVerified = verifiedEmails.has(email);
-  if (!isVerified) {
-    // Check if any active verification token for this email was marked verified
-    for (const record of verificationTokensCache.values()) {
-      if (record.email === email && record.verified) {
-        isVerified = true;
-        verifiedEmails.add(email);
-        break;
-      }
-    }
+  const { email, password } = req.body;
+  const genericError = 'Invalid administrator credentials.';
+
+  if (!email || !password) {
+    recordFailedAttempt(ip);
+    return res.status(401).json({ success: false, error: genericError });
   }
 
-  res.json({
-    email,
-    verified: isVerified,
-    checkedAt: new Date().toISOString(),
+  const trimmedEmail = String(email).trim().toLowerCase();
+  const trimmedPassword = String(password).trim();
+
+  // Compare strictly on server
+  if (trimmedEmail !== ADMIN_EMAIL.toLowerCase() || trimmedPassword !== ADMIN_PASSWORD) {
+    recordFailedAttempt(ip);
+    return res.status(401).json({ success: false, error: genericError });
+  }
+
+  // Issue 2FA temporary stage token valid for 5 minutes
+  const tempToken = crypto.randomBytes(32).toString('hex');
+  pending2FASessions.set(tempToken, {
+    tempToken,
+    email: ADMIN_EMAIL,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 5 * 60 * 1000
+  });
+
+  return res.json({
+    success: true,
+    tempToken,
+    message: 'Stage 1 verified. Please provide administrator verification code.'
   });
 });
 
-// 4b. Instant Email Verification Endpoint (1-Click activation for test & high-reliability verification)
-app.post('/api/auth/instant-verify-email', (req, res) => {
-  try {
-    const { email } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
-    if (!cleanEmail) {
-      res.status(400).json({ error: 'Email query or body parameter is required' });
-      return;
-    }
-
-    verifiedEmails.add(cleanEmail);
-
-    for (const record of verificationTokensCache.values()) {
-      if (record.email === cleanEmail) {
-        record.verified = true;
-        record.verifiedAt = new Date().toISOString();
-      }
-    }
-
-    res.json({
-      status: 'success',
-      verified: true,
-      email: cleanEmail,
-      message: 'Email address verified and unlocked instantly!',
-      verifiedAt: new Date().toISOString(),
+// SCREEN 2: 2FA Verification Code -> returns full admin session token
+app.post('/api/admin/login-stage2', (req, res) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({
+      success: false,
+      error: 'Too many attempts. Locked for 5 minutes.'
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
   }
-});
 
-// 5. Inspect Outbound Mail Transmission Logs
-app.get('/api/auth/mail-logs', (req, res) => {
-  const email = (req.query.email as string || '').trim().toLowerCase();
-  const logs = email 
-    ? mailDispatchLogs.filter(l => l.to.toLowerCase() === email)
-    : mailDispatchLogs.slice(0, 15);
+  const { tempToken, verificationCode } = req.body;
+  const genericError = 'Invalid administrator credentials.';
 
-  res.json({
-    status: 'success',
-    count: logs.length,
-    logs,
+  if (!tempToken || !verificationCode) {
+    recordFailedAttempt(ip);
+    return res.status(401).json({ success: false, error: genericError });
+  }
+
+  const pending = pending2FASessions.get(tempToken);
+  if (!pending || pending.expiresAt < Date.now()) {
+    if (pending) pending2FASessions.delete(tempToken);
+    recordFailedAttempt(ip);
+    return res.status(401).json({ success: false, error: 'Verification session expired. Please restart login.' });
+  }
+
+  const cleanCode = String(verificationCode).trim();
+  if (cleanCode !== ADMIN_VERIFY_CODE) {
+    recordFailedAttempt(ip);
+    return res.status(401).json({ success: false, error: genericError });
+  }
+
+  // Verified! Clean up temp session and rate limits
+  pending2FASessions.delete(tempToken);
+  clearRateLimit(ip);
+
+  // Generate secure admin session token (valid for 12 hours)
+  const sessionToken = crypto.randomBytes(48).toString('hex');
+  const session: AdminSession = {
+    token: sessionToken,
+    email: ADMIN_EMAIL,
+    role: 'ADMIN',
+    createdAt: Date.now(),
+    expiresAt: Date.now() + 12 * 60 * 60 * 1000
+  };
+
+  activeAdminSessions.set(sessionToken, session);
+
+  // Set httpOnly cookie for extra security
+  res.cookie('auracentra_admin_session', sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 12 * 60 * 60 * 1000
+  });
+
+  // Record in audit log
+  auditLogs.unshift({
+    id: `log-${Date.now()}`,
+    action: 'Administrator Authenticated',
+    adminEmail: ADMIN_EMAIL,
+    reason: 'Two-stage authentication successful',
+    timestamp: new Date().toISOString()
+  });
+
+  return res.json({
+    success: true,
+    admin: {
+      email: ADMIN_EMAIL,
+      role: 'ADMIN',
+      name: 'System Administrator'
+    },
+    token: sessionToken
   });
 });
 
-// 6. Legacy fallback OTP endpoints for compatibility
-app.post('/api/auth/send-email-otp', (req, res) => {
-  const { email } = req.body;
-  const cleanEmail = (email || '').trim().toLowerCase();
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 15 * 60 * 1000;
-  emailOtpsCache.set(cleanEmail, { code, expiresAt });
-  res.json({ status: 'success', code, expiresAt: new Date(expiresAt).toISOString() });
-});
-
-app.post('/api/auth/verify-email-otp', (req, res) => {
-  const { email, code } = req.body;
-  const cleanEmail = (email || '').trim().toLowerCase();
-  const cleanCode = (code || '').trim();
-  const cached = emailOtpsCache.get(cleanEmail);
-  const isValid = cleanCode === '123456' || (cached && cached.code === cleanCode && cached.expiresAt > Date.now());
-  if (isValid) {
-    verifiedEmails.add(cleanEmail);
-    res.json({ status: 'success', verified: true });
-  } else {
-    res.status(400).json({ status: 'error', message: 'Invalid or expired code' });
-  }
-});
-
-// Phone SMS OTP
-app.post('/api/auth/send-phone-otp', (req, res) => {
-  const { phone } = req.body;
-  let cleanPhone = (phone || '').replace(/[\s\-\(\)]/g, '').trim();
-  if (cleanPhone.startsWith('+233')) cleanPhone = '0' + cleanPhone.substring(4);
-  if (cleanPhone.startsWith('233')) cleanPhone = '0' + cleanPhone.substring(3);
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 15 * 60 * 1000;
-  phoneOtpsCache.set(cleanPhone, { code: otpCode, expiresAt });
-  res.json({ status: 'success', code: otpCode, expiresAt: new Date(expiresAt).toISOString() });
-});
-
-app.post('/api/auth/verify-phone-otp', (req, res) => {
-  const { phone, code } = req.body;
-  let cleanPhone = (phone || '').replace(/[\s\-\(\)]/g, '').trim();
-  if (cleanPhone.startsWith('+233')) cleanPhone = '0' + cleanPhone.substring(4);
-  if (cleanPhone.startsWith('233')) cleanPhone = '0' + cleanPhone.substring(3);
-  const cleanCode = (code || '').trim();
-  const cached = phoneOtpsCache.get(cleanPhone);
-  const isValid = cleanCode === '123456' || (cached && cached.code === cleanCode && cached.expiresAt > Date.now());
-  if (isValid) {
-    verifiedPhones.add(cleanPhone);
-    res.json({ status: 'success', verified: true });
-  } else {
-    res.status(400).json({ status: 'error', message: 'Invalid OTP' });
-  }
-});
-
-// Verification Status Check
-app.get('/api/auth/status', (req, res) => {
-  const email = (req.query.email as string || '').trim().toLowerCase();
-  let phone = (req.query.phone as string || '').replace(/[\s\-\(\)]/g, '').trim();
-  if (phone.startsWith('+233')) phone = '0' + phone.substring(4);
-  if (phone.startsWith('233')) phone = '0' + phone.substring(3);
-
+// Admin verification status check
+app.get('/api/admin/me', requireAdmin, (req, res) => {
+  const admin = (req as any).adminUser;
   res.json({
-    emailVerified: email ? verifiedEmails.has(email) : false,
-    phoneVerified: phone ? verifiedPhones.has(phone) : false,
+    authenticated: true,
+    admin: {
+      email: admin.email,
+      role: admin.role
+    }
   });
 });
 
-// Safe Supabase Config Provider for frontend clients
-app.get('/api/supabase/config', (req, res) => {
-  const { url, key, configured } = getEffectiveSupabaseConfig();
-  res.json({
-    configured,
-    supabaseUrl: url,
-    supabaseAnonKey: key,
+// Admin Logout
+app.post('/api/admin/logout', requireAdmin, (req, res) => {
+  const token = req.headers.authorization?.substring(7) || req.cookies?.auracentra_admin_session;
+  if (token) {
+    activeAdminSessions.delete(token);
+  }
+  res.clearCookie('auracentra_admin_session');
+
+  auditLogs.unshift({
+    id: `log-${Date.now()}`,
+    action: 'Administrator Logged Out',
+    adminEmail: ADMIN_EMAIL,
+    timestamp: new Date().toISOString()
   });
+
+  res.json({ success: true, message: 'Logged out successfully.' });
 });
 
-// Fetch Profile from Supabase or Registry
-app.get('/api/auth/profile', async (req, res) => {
-  try {
-    const email = (req.query.email as string || '').trim().toLowerCase();
-    if (!email) {
-      res.status(400).json({ error: 'Email is required' });
-      return;
-    }
+// ==========================================
+// 2. ADMIN DASHBOARD & REVIEW ENDPOINTS
+// ==========================================
 
-    const isAdminEmail = email === 'admindashboard@gmail.com';
+// Dashboard stats overview
+app.get('/api/admin/stats', requireAdmin, (req, res) => {
+  const all = Array.from(submissionsStore.values());
 
-    // If currently in registeredUsersRegistry (admin or freshly registered user)
-    const activeUser = registeredUsersRegistry.find(u => u.email.toLowerCase() === email);
-    if (activeUser) {
-      res.json({
-        status: 'success',
-        profile: {
-          id: activeUser.id,
-          name: activeUser.name,
-          username: activeUser.username,
-          email: activeUser.email,
-          phone: activeUser.phone || null,
-          role: isAdminEmail ? 'admin' : activeUser.role,
-          avatar: null,
-          auth_provider: 'email',
-          phone_verified: true,
-          email_verified: true,
-          saved_business_ids: [],
-          owned_business_ids: [],
-          created_at: activeUser.createdAt,
-          updated_at: activeUser.createdAt,
-        },
-      });
-      return;
-    }
+  const stats = {
+    totalBusinesses: all.length,
+    pendingSubmissions: all.filter(s => s.status === 'pending_review').length,
+    underReview: all.filter(s => s.status === 'under_review').length,
+    approvedBusinesses: all.filter(s => s.status === 'approved').length,
+    publishedBusinesses: all.filter(s => s.status === 'published').length,
+    rejectedBusinesses: all.filter(s => s.status === 'rejected').length,
+    suspendedBusinesses: all.filter(s => s.status === 'suspended').length,
+    verificationRequired: all.filter(s => s.status === 'verification_required').length,
+    reportedListings: 0,
+    recentSubmissions: all.slice(-5).reverse(),
+    recentActivity: auditLogs.slice(0, 10)
+  };
 
-    if (isAdminEmail) {
-      res.json({
-        status: 'success',
-        profile: {
-          id: 'admin-super-01',
-          name: 'AuraCentra Executive Admin',
-          username: 'admin',
-          email: 'admindashboard@gmail.com',
-          phone: '+233 50 820 3673',
-          role: 'admin',
-          avatar: null,
-          auth_provider: 'email',
-          phone_verified: true,
-          email_verified: true,
-          saved_business_ids: [],
-          owned_business_ids: [],
-          created_at: '2026-01-01T00:00:00.000Z',
-          updated_at: '2026-01-01T00:00:00.000Z',
-        },
-      });
-      return;
-    }
+  res.json({ success: true, stats });
+});
 
-    // Account not found or has been permanently deleted
-    res.status(404).json({ error: 'Account not found' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+// List submissions with search, filters, and sorting
+app.get('/api/admin/businesses', requireAdmin, (req, res) => {
+  let list = Array.from(submissionsStore.values());
+
+  const { status, category, region, query, sort } = req.query;
+
+  if (status && status !== 'all') {
+    list = list.filter(s => s.status === status);
   }
-});
-
-// Check Unique Account Availability (Email, Phone, Username)
-app.post('/api/auth/check-uniqueness', async (req, res) => {
-  try {
-    const { email, phone, username, excludeAccountId, allowExisting } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
-    const cleanPhone = normalizePhone(phone);
-    const cleanUsername = normalizeUsername(username);
-
-    // If allowExisting is specified, treat existing account as valid for update/claim
-    if (allowExisting) {
-      res.json({
-        isUnique: true,
-        isExistingUser: true,
-        message: 'Account available for registration and update.',
-      });
-      return;
-    }
-
-    // 1. Check in-memory registry
-    for (const acc of registeredUsersRegistry) {
-      if (excludeAccountId && acc.id === excludeAccountId) continue;
-
-      if (cleanEmail && acc.email.toLowerCase() === cleanEmail) {
-        res.json({
-          isUnique: true,
-          isExistingUser: true,
-          conflictField: 'email',
-          message: `The email address "${cleanEmail}" is recognized. You can log in or continue to re-verify.`,
-        });
-        return;
-      }
-
-      if (cleanPhone && cleanPhone.length >= 9 && acc.phone) {
-        if (normalizePhone(acc.phone) === cleanPhone) {
-          res.status(409).json({
-            isUnique: false,
-            conflictField: 'phone',
-            message: `The phone number "${phone.trim()}" is already linked to an existing account. Each phone number can only be used once.`,
-          });
-          return;
-        }
-      }
-
-      if (cleanUsername) {
-        const accUser = acc.username ? normalizeUsername(acc.username) : normalizeUsername(acc.email.split('@')[0]);
-        if (accUser === cleanUsername) {
-          res.json({
-            isUnique: true,
-            isExistingUser: true,
-            conflictField: 'username',
-            message: `The username "@${cleanUsername}" is recognized.`,
-          });
-          return;
-        }
-      }
-    }
-
-    // 2. Check Supabase DB if configured
-    const { url, key } = getEffectiveSupabaseConfig();
-
-    if (url && key && cleanEmail) {
-      try {
-        const supaRes = await fetch(`${url}/rest/v1/profiles?email=eq.${encodeURIComponent(cleanEmail)}&select=id,email,phone,name`, {
-          headers: {
-            'apikey': key,
-            'Authorization': `Bearer ${key}`,
-          },
-        });
-        if (supaRes.ok) {
-          const rows = await supaRes.json();
-          if (rows && rows.length > 0) {
-            const conflict = rows.find((r: any) => (!excludeAccountId || r.id !== excludeAccountId) && !LEGACY_TEST_EMAILS.includes((r.email || '').toLowerCase()));
-            if (conflict) {
-              res.json({
-                isUnique: true,
-                isExistingUser: true,
-                conflictField: 'email',
-                message: `The email address "${cleanEmail}" is recognized in the registry.`,
-              });
-              return;
-            }
-          }
-        }
-      } catch (supaErr) {
-        console.warn('[Uniqueness Supabase Check Notice]', supaErr);
-      }
-    }
-
-    res.json({
-      isUnique: true,
-      message: 'Email, phone number, and username are available for registration.',
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Uniqueness check failed' });
+  if (category && category !== 'all') {
+    list = list.filter(s => s.category.toLowerCase().includes(String(category).toLowerCase()));
   }
-});
-
-// Sync Profile directly to Supabase from Server
-app.post('/api/auth/sync-profile', async (req, res) => {
-  try {
-    const { id, name, username, email, phone, role, auth_provider, phone_verified, password } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
-    
-    if (!cleanEmail) {
-      res.status(400).json({ error: 'Email is required' });
-      return;
-    }
-
-    // If email was previously in legacy deleted list, remove it since user is now registering freshly
-    const legacyIdx = LEGACY_TEST_EMAILS.indexOf(cleanEmail);
-    if (legacyIdx >= 0) {
-      LEGACY_TEST_EMAILS.splice(legacyIdx, 1);
-    }
-
-    // Upsert into registeredUsersRegistry
-    const existingIndex = registeredUsersRegistry.findIndex(
-      u => u.email.toLowerCase() === cleanEmail || (id && u.id === id)
+  if (region && region !== 'all') {
+    list = list.filter(s => s.region.toLowerCase().includes(String(region).toLowerCase()));
+  }
+  if (query) {
+    const q = String(query).toLowerCase();
+    list = list.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.ownerFullName.toLowerCase().includes(q) ||
+      s.city.toLowerCase().includes(q) ||
+      s.submissionId.toLowerCase().includes(q)
     );
-
-    const userEntry = {
-      id: id || (existingIndex >= 0 ? registeredUsersRegistry[existingIndex].id : `usr-${Date.now()}`),
-      name: name || cleanEmail.split('@')[0],
-      username: username ? normalizeUsername(username) : normalizeUsername(cleanEmail.split('@')[0]),
-      email: cleanEmail,
-      phone: phone || '',
-      password: password || (existingIndex >= 0 ? registeredUsersRegistry[existingIndex].password : undefined),
-      role: role || 'customer',
-      createdAt: existingIndex >= 0 ? registeredUsersRegistry[existingIndex].createdAt : new Date().toISOString(),
-    };
-
-    if (existingIndex >= 0) {
-      registeredUsersRegistry[existingIndex] = userEntry;
-    } else {
-      registeredUsersRegistry.push(userEntry);
-    }
-    saveUsersToDisk(registeredUsersRegistry);
-
-    const { url, key } = getEffectiveSupabaseConfig();
-
-    if (url && key) {
-      const response = await fetch(`${url}/rest/v1/profiles`, {
-        method: 'POST',
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'resolution=merge-duplicates',
-        },
-        body: JSON.stringify({
-          id: userEntry.id,
-          name: userEntry.name,
-          email: cleanEmail,
-          phone: phone || null,
-          role: role || 'customer',
-          auth_provider: auth_provider || 'email',
-          phone_verified: Boolean(phone_verified),
-          updated_at: new Date().toISOString(),
-        }),
-      });
-
-      if (response.ok) {
-        res.json({ status: 'success', synced: true, message: `Profile for ${cleanEmail} saved to Supabase profiles table.` });
-        return;
-      } else {
-        const errorText = await response.text();
-        console.warn('[Supabase Server Sync Warning]', errorText);
-      }
-    }
-
-    res.json({ status: 'success', synced: false, message: 'Saved to local registry' });
-  } catch (err: any) {
-    console.error('[Sync Profile Error]', err);
-    res.status(500).json({ error: err.message });
   }
+
+  // Sort
+  if (sort === 'oldest') {
+    list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  } else {
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  res.json({ success: true, count: list.length, businesses: list });
 });
 
-// Helper: Resolve identifier to an account (Email, Phone, Username, Full Name, or Business Name)
-function resolveUserAccount(rawIdentifier: string): any | null {
-  const clean = (rawIdentifier || '').trim();
-  if (!clean) return null;
-  const cleanLower = clean.toLowerCase();
-  const cleanNoPunct = cleanLower.replace(/[^a-z0-9]/g, '');
-
-  // 1. Super admin
-  if (cleanLower === 'admin' || cleanLower === 'admindashboard@gmail.com') {
-    return registeredUsersRegistry.find(u => u.email.toLowerCase() === 'admindashboard@gmail.com') || {
-      id: 'admin-super-01',
-      name: 'AuraCentra Executive Admin',
-      username: 'admin',
-      email: 'admindashboard@gmail.com',
-      phone: '+233 24 000 0000',
-      role: 'admin',
-      password: 'Admin12$',
-      createdAt: '2026-01-01T00:00:00.000Z',
-    };
+// Get single structured submission for detailed review
+app.get('/api/admin/businesses/:id', requireAdmin, (req, res) => {
+  const businessId = String(req.params.id);
+  const business = submissionsStore.get(businessId);
+  if (!business) {
+    return res.status(404).json({ success: false, error: 'Business submission not found.' });
   }
-
-  // 2. Direct email, username, phone match
-  let found = registeredUsersRegistry.find(u => {
-    if (!u) return false;
-    if (u.email && u.email.toLowerCase() === cleanLower) return true;
-    if (u.username && u.username.toLowerCase() === cleanLower) return true;
-    if (u.phone && normalizePhone(u.phone) === normalizePhone(clean)) return true;
-    return false;
-  });
-  if (found) return found;
-
-  // 3. Match against Account Name or Business Name
-  found = registeredUsersRegistry.find(u => {
-    if (!u) return false;
-    const nameLower = (u.name || '').toLowerCase();
-    const nameNoPunct = nameLower.replace(/[^a-z0-9]/g, '');
-    if (nameLower === cleanLower || nameNoPunct === cleanNoPunct) return true;
-    if (cleanNoPunct.length >= 4 && nameNoPunct.includes(cleanNoPunct)) return true;
-    if (nameNoPunct.length >= 4 && cleanNoPunct.includes(nameNoPunct)) return true;
-    if ((u as any).businessName) {
-      const bLower = (u as any).businessName.toLowerCase();
-      const bNoPunct = bLower.replace(/[^a-z0-9]/g, '');
-      if (bLower === cleanLower || bNoPunct === cleanNoPunct) return true;
-      if (cleanNoPunct.length >= 4 && bNoPunct.includes(cleanNoPunct)) return true;
-    }
-    return false;
-  });
-  if (found) return found;
-
-  // Check businessesCache for matching business
-  const matchedBiz = businessesCache.find(b => {
-    if (!b) return false;
-    const bNameLower = (b.name || '').toLowerCase();
-    const bNameNoPunct = bNameLower.replace(/[^a-z0-9]/g, '');
-    if (bNameLower === cleanLower || bNameNoPunct === cleanNoPunct) return true;
-    if (cleanNoPunct.length >= 6 && bNameNoPunct.includes(cleanNoPunct)) return true;
-    if (bNameNoPunct.length >= 6 && cleanNoPunct.includes(bNameNoPunct)) return true;
-    return false;
-  });
-
-  if (matchedBiz) {
-    const ownerEmail = (matchedBiz.ownerEmail || (matchedBiz as any).owner_email || matchedBiz.email || '').toLowerCase();
-    if (ownerEmail && !isLegacyDeletedEmail(ownerEmail)) {
-      found = registeredUsersRegistry.find(u => u.email.toLowerCase() === ownerEmail);
-      if (found) return found;
-    }
-  }
-
-  return null;
-}
-
-// Helper: Query Supabase for user by identifier
-async function lookupUserInSupabase(cleanId: string): Promise<any | null> {
-  const cleanLower = cleanId.toLowerCase();
-  if (isLegacyDeletedEmail(cleanLower)) return null;
-
-  const { url, key } = getEffectiveSupabaseConfig();
-  if (!url || !key) return null;
-
-  try {
-    let queryUrl = '';
-    if (cleanId.includes('@')) {
-      queryUrl = `${url}/rest/v1/profiles?email=eq.${encodeURIComponent(cleanLower)}&select=id,name,email,phone,role,created_at`;
-    } else {
-      const sanitized = cleanId.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().split(/\s+/)[0];
-      if (sanitized && sanitized.length >= 3) {
-        queryUrl = `${url}/rest/v1/profiles?name=ilike.%25${encodeURIComponent(sanitized)}%25&select=id,name,email,phone,role,created_at`;
-      }
-    }
-
-    if (queryUrl) {
-      const supaRes = await fetch(queryUrl, {
-        headers: {
-          'apikey': key,
-          'Authorization': `Bearer ${key}`,
-        },
-      });
-      if (supaRes.ok) {
-        const rows = await supaRes.json();
-        if (rows && rows.length > 0) {
-          const row = rows[0];
-          if (row.email && isLegacyDeletedEmail(row.email)) return null;
-          return {
-            id: row.id,
-            name: row.name || cleanId.split('@')[0],
-            username: (row.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || (row.email ? row.email.split('@')[0] : 'user'),
-            email: row.email,
-            phone: row.phone || '',
-            role: row.role || 'customer',
-            createdAt: row.created_at || new Date().toISOString(),
-          };
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[lookupUserInSupabase]', e);
-  }
-  return null;
-}
-
-// Verify Account Password Endpoint
-app.post('/api/auth/verify-password', async (req, res) => {
-  try {
-    const { email, identifier, password } = req.body || {};
-    const rawId = (identifier || email || '').trim();
-    const cleanId = rawId.toLowerCase();
-    const cleanPassword = (password || '').trim();
-
-    if (!cleanId || !cleanPassword) {
-      res.status(400).json({ valid: false, error: 'Email/identifier and password are required.' });
-      return;
-    }
-
-    // Default admin account - ONLY admindashboard@gmail.com with Admin12$
-    if ((cleanId === 'admindashboard@gmail.com' || cleanId === 'admin') && cleanPassword === 'Admin12$') {
-      res.json({ valid: true });
-      return;
-    }
-
-    let found = resolveUserAccount(rawId);
-    if (!found) {
-      found = await lookupUserInSupabase(rawId);
-    }
-
-    if (found) {
-      if (found.password && found.password === cleanPassword) {
-        res.json({ valid: true });
-        return;
-      }
-      if (!found.password || found.password === 'MySecretPassword123' || found.password === 'Password123#') {
-        res.json({ valid: true, fallbackToClient: true });
-        return;
-      }
-      res.json({ valid: false, error: 'Incorrect password' });
-      return;
-    }
-
-    res.json({ valid: false, error: 'Account not found or password does not match' });
-  } catch (err: any) {
-    res.status(500).json({ valid: false, error: err.message });
-  }
+  res.json({ success: true, business });
 });
 
-// Check if an Account Exists (prevent unauthorized login attempts - supports both GET and POST)
-const handleCheckAccountExists = async (req: express.Request, res: express.Response) => {
-  try {
-    const rawId = String(req.query.identifier || req.query.email || req.body?.identifier || req.body?.email || '').trim();
-    const identifier = rawId.toLowerCase();
-    if (!identifier) {
-      res.status(400).json({ exists: false, error: 'Identifier parameter is required.' });
-      return;
-    }
-
-    if (identifier === 'admindashboard@gmail.com' || identifier === 'admin') {
-      const adminData = {
-        id: 'admin-super-01',
-        name: 'AuraCentra Executive Admin',
-        username: 'admin',
-        email: 'admindashboard@gmail.com',
-        phone: '+233 24 000 0000',
-        role: 'admin',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      };
-      res.json({ exists: true, email: 'admindashboard@gmail.com', user: adminData, account: adminData });
-      return;
-    }
-
-    let found = resolveUserAccount(rawId);
-    if (!found) {
-      found = await lookupUserInSupabase(rawId);
-      if (found) {
-        if (!registeredUsersRegistry.some(u => u.email.toLowerCase() === found.email.toLowerCase())) {
-          registeredUsersRegistry.push({ ...found });
-          saveUsersToDisk(registeredUsersRegistry);
-        }
-      }
-    }
-
-    if (found) {
-      const accData = {
-        id: found.id,
-        name: found.name,
-        username: found.username || found.email.split('@')[0],
-        email: found.email,
-        phone: found.phone,
-        businessName: (found as any).businessName,
-        role: found.role,
-        createdAt: found.createdAt,
-      };
-      res.json({ 
-        exists: true, 
-        email: found.email,
-        user: accData,
-        account: accData,
-      });
-      return;
-    }
-
-    res.json({ exists: false });
-  } catch (err: any) {
-    res.status(500).json({ exists: false, error: err.message });
+// Admin Review Actions: Approve, Request Changes, Reject, Suspend, Restore, Toggle Verification, Add Note
+app.post('/api/admin/businesses/:id/action', requireAdmin, (req, res) => {
+  const businessId = String(req.params.id);
+  const business = submissionsStore.get(businessId);
+  if (!business) {
+    return res.status(404).json({ success: false, error: 'Business submission not found.' });
   }
-};
 
-app.get('/api/auth/check-account-exists', handleCheckAccountExists);
-app.post('/api/auth/check-account-exists', handleCheckAccountExists);
+  const { action, reason, note, markVerified } = req.body;
+  const previousStatus = business.status;
+  const now = new Date().toISOString();
 
-// User Direct Login Endpoint
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { identifier, email, password } = req.body || {};
-    const rawId = (identifier || email || '').trim();
-    const cleanId = rawId.toLowerCase();
-    const cleanPassword = (password || '').trim();
-
-    if (!cleanId || !cleanPassword) {
-      res.status(400).json({ success: false, error: 'Email, phone, username, or business name and password are required.' });
-      return;
-    }
-
-    // Default admin account
-    if ((cleanId === 'admindashboard@gmail.com' || cleanId === 'admin') && cleanPassword === 'Admin12$') {
-      res.json({
-        success: true,
-        user: {
-          id: 'admin-super-01',
-          name: 'AuraCentra Executive Admin',
-          username: 'admin',
-          email: 'admindashboard@gmail.com',
-          phone: '+233 24 000 0000',
-          role: 'admin',
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
+  switch (action) {
+    case 'approve':
+      business.status = 'published';
+      business.verified = markVerified !== undefined ? Boolean(markVerified) : business.verified;
+      business.correctionNotes = undefined;
+      business.submissionHistory.push({
+        status: 'published',
+        timestamp: now,
+        note: reason || 'Application approved and published to AuraCentra public directory.'
       });
-      return;
+      break;
+
+    case 'request_changes':
+      business.status = 'verification_required';
+      business.correctionNotes = reason || 'Additional verification information or correction required.';
+      business.submissionHistory.push({
+        status: 'verification_required',
+        timestamp: now,
+        note: `Correction requested: ${reason || 'Details need update'}`
+      });
+      break;
+
+    case 'reject':
+      business.status = 'rejected';
+      business.correctionNotes = reason || 'Submission did not meet directory verification criteria.';
+      business.submissionHistory.push({
+        status: 'rejected',
+        timestamp: now,
+        note: `Rejected: ${reason || 'Guidelines not met'}`
+      });
+      break;
+
+    case 'suspend':
+      business.status = 'suspended';
+      business.submissionHistory.push({
+        status: 'suspended',
+        timestamp: now,
+        note: `Suspended: ${reason || 'Administrative hold'}`
+      });
+      break;
+
+    case 'restore':
+      business.status = 'published';
+      business.submissionHistory.push({
+        status: 'published',
+        timestamp: now,
+        note: 'Listing restored to active directory.'
+      });
+      break;
+
+    case 'toggle_verified':
+      business.verified = !business.verified;
+      business.submissionHistory.push({
+        status: business.status,
+        timestamp: now,
+        note: business.verified ? 'Granted official verified enterprise badge' : 'Verified badge revoked'
+      });
+      break;
+
+    case 'add_note':
+      business.internalAdminNotes = business.internalAdminNotes || [];
+      business.internalAdminNotes.push(`${new Date().toLocaleDateString()}: ${note}`);
+      break;
+
+    default:
+      return res.status(400).json({ success: false, error: 'Invalid administrative action.' });
+  }
+
+  business.updatedAt = now;
+  submissionsStore.set(business.id, business);
+
+  // Log in Audit Trail
+  auditLogs.unshift({
+    id: `log-${Date.now()}`,
+    action: `Business ${action.replace('_', ' ').toUpperCase()}`,
+    businessId: business.id,
+    businessName: business.name,
+    previousStatus,
+    newStatus: business.status,
+    reason: reason || note,
+    adminEmail: ADMIN_EMAIL,
+    timestamp: now
+  });
+
+  res.json({
+    success: true,
+    business,
+    message: `Action ${action} executed successfully.`
+  });
+});
+
+// Audit Logs endpoint
+app.get('/api/admin/audit-logs', requireAdmin, (req, res) => {
+  res.json({ success: true, count: auditLogs.length, logs: auditLogs });
+});
+
+// ==========================================
+// 3. BUSINESS ENLISTMENT & OWNER DASHBOARD
+// ==========================================
+
+// Submit complete 11-step business application
+app.post('/api/enlist/submit', (req, res) => {
+  try {
+    const data = req.body;
+
+    if (!data.name || !data.phone || !data.category || !data.region || !data.city) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required business fields (Name, Phone, Category, Region, City).'
+      });
     }
 
-    let found = resolveUserAccount(rawId);
-    if (!found) {
-      found = await lookupUserInSupabase(rawId);
-      if (found) {
-        const existingIdx = registeredUsersRegistry.findIndex(u => u.email.toLowerCase() === found.email.toLowerCase());
-        if (existingIdx >= 0) {
-          registeredUsersRegistry[existingIdx] = { ...registeredUsersRegistry[existingIdx], ...found, password: cleanPassword };
-          found = registeredUsersRegistry[existingIdx];
-        } else {
-          registeredUsersRegistry.push({ ...found, password: cleanPassword });
+    const id = `biz-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const submissionId = `AC-GH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
+
+    const newSubmission: EnlistmentSubmission = {
+      id,
+      submissionId,
+      ownerFullName: data.ownerFullName || 'Business Owner',
+      ownerEmail: data.ownerEmail || data.email || '',
+      ownerPhone: data.ownerPhone || data.phone || '',
+      name: data.name.trim(),
+      businessType: data.businessType || 'Sole Proprietorship',
+      description: data.description || '',
+      category: data.category,
+      additionalCategories: Array.isArray(data.additionalCategories) ? data.additionalCategories : [],
+      sector: data.sector || data.category,
+      yearEstablished: data.yearEstablished || '',
+      employeesCount: data.employeesCount || '',
+      phone: data.phone,
+      whatsapp: data.whatsapp || data.phone,
+      email: data.email || '',
+      website: data.website || '',
+      region: data.region,
+      city: data.city,
+      area: data.area || data.city,
+      streetDescription: data.streetDescription || '',
+      ghanaPostGps: data.ghanaPostGps || '',
+      latitude: data.latitude || 5.6037,
+      longitude: data.longitude || -0.1870,
+      logoUrl: data.logoUrl || '',
+      coverImage: data.coverImage || '',
+      photos: Array.isArray(data.photos) ? data.photos : [],
+      socialLinks: data.socialLinks || {},
+      productsAndServices: Array.isArray(data.productsAndServices) ? data.productsAndServices : [],
+      contactChannels: data.contactChannels || { phone: true, whatsapp: true, email: true, website: false, social: false },
+      openingHours: data.openingHours || 'Mon - Fri: 8:00 AM - 5:00 PM',
+      acceptEnquiries: data.acceptEnquiries !== undefined ? Boolean(data.acceptEnquiries) : true,
+      verification: {
+        registrationNumber: data.registrationNumber || '',
+        ghanaCardNumber: data.ghanaCardNumber || '',
+        documentUrls: Array.isArray(data.documentUrls) ? data.documentUrls : [],
+        proofOfAddress: data.proofOfAddress || '',
+        notes: data.verificationNotes || ''
+      },
+      // INITIAL STATUS MUST ALWAYS BE PENDING_REVIEW; NEVER AUTO-VERIFIED
+      status: 'pending_review',
+      verified: false,
+      featured: false,
+      submissionHistory: [
+        {
+          status: 'pending_review',
+          timestamp: now,
+          note: 'Business application submitted for official verification review.'
         }
-        saveUsersToDisk(registeredUsersRegistry);
-      }
-    }
+      ],
+      metrics: {
+        views: 0,
+        enquiries: 0,
+        phoneClicks: 0,
+        whatsappClicks: 0,
+        websiteClicks: 0,
+        socialClicks: 0
+      },
+      createdAt: now,
+      updatedAt: now
+    };
 
-    if (!found) {
-      res.status(404).json({ success: false, error: 'This information has not been used to create an account before. Please check your credentials or register a new account.' });
-      return;
-    }
+    submissionsStore.set(id, newSubmission);
 
-    // Password verification logic
-    let isPasswordValid = false;
-
-    // 1. Direct password match
-    if (found.password && found.password === cleanPassword) {
-      isPasswordValid = true;
-    }
-
-    // 2. Try Supabase Auth password verification if available
-    const { url, key } = getEffectiveSupabaseConfig();
-    if (!isPasswordValid && url && key && found.email) {
-      try {
-        const supaAuthRes = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-          method: 'POST',
-          headers: {
-            'apikey': key,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: found.email, password: cleanPassword }),
-        });
-        if (supaAuthRes.ok) {
-          isPasswordValid = true;
-        }
-      } catch (e) {}
-    }
-
-    // 3. Fallback: If no password was set, or if password was an empty/placeholder password, or user is Tony
-    if (!isPasswordValid) {
-      const isPlaceholder = !found.password || found.password === 'MySecretPassword123' || found.password === 'Password123#' || found.password === 'AnyPassword123';
-      const isTonyUser = (
-        cleanId.includes('tony') ||
-        (found.email && (found.email.toLowerCase().includes('anthonydeitutu') || found.email.toLowerCase().includes('tonysdigitalmarketing')))
-      );
-      if ((isPlaceholder || isTonyUser) && cleanPassword.length >= 4) {
-        isPasswordValid = true;
-      }
-    }
-
-    if (!isPasswordValid) {
-      res.status(401).json({ success: false, error: 'Incorrect password. Please enter the password used to create this account.' });
-      return;
-    }
-
-    // Update password in registry to the authenticated password for seamless future logins
-    found.password = cleanPassword;
-    saveUsersToDisk(registeredUsersRegistry);
+    auditLogs.unshift({
+      id: `log-${Date.now()}`,
+      action: 'New Business Submitted',
+      businessId: id,
+      businessName: newSubmission.name,
+      newStatus: 'pending_review',
+      adminEmail: 'system',
+      timestamp: now
+    });
 
     res.json({
       success: true,
-      user: {
-        id: found.id,
-        name: found.name,
-        username: found.username || found.email.split('@')[0],
-        email: found.email,
-        phone: found.phone || '',
-        businessName: (found as any).businessName,
-        role: found.role || 'customer',
-        createdAt: found.createdAt,
-      },
+      submissionId,
+      businessId: id,
+      businessName: newSubmission.name,
+      submissionDate: now,
+      status: 'Pending Review',
+      message: 'Your business has been submitted! Our team will review your submission and verification information before your business is published.'
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message || 'Failed to submit business listing.' });
   }
 });
 
-// Admin Dashboard Security Verification Code Endpoint (Passcode: 8009 strictly for admindashboard@gmail.com)
-app.post('/api/admin/verify-code', (req, res) => {
-  try {
-    const { code, email } = req.body || {};
-    const cleanCode = String(code || '').trim();
-    const cleanEmail = String(email || '').trim().toLowerCase();
-
-    if (cleanEmail !== 'admindashboard@gmail.com') {
-      res.status(403).json({ success: false, valid: false, message: 'Access restricted strictly to admindashboard@gmail.com.' });
-      return;
-    }
-
-    if (cleanCode === '8009') {
-      res.json({ success: true, valid: true, message: 'Administrator security verification approved.' });
-      return;
-    }
-
-    res.status(401).json({ success: false, valid: false, message: 'Invalid administrator verification code. Access Denied.' });
-  } catch (err: any) {
-    res.status(500).json({ success: false, valid: false, message: err.message });
-  }
-});
-
-// Permanent Account & Business Deletion Endpoint
-app.post('/api/auth/delete-account', async (req, res) => {
-  try {
-    const { email, userId, deleteBusinesses, password } = req.body;
-    const cleanEmail = (email || '').trim().toLowerCase();
-
-    if (!cleanEmail && !userId) {
-      res.status(400).json({ error: 'Email or User ID is required for account deletion' });
-      return;
-    }
-
-    // Verify password if provided
-    if (password) {
-      const user = registeredUsersRegistry.find(u => 
-        (cleanEmail && u.email.toLowerCase() === cleanEmail) || 
-        (userId && u.id === userId)
-      );
-      if (user && user.password && user.password !== password.trim()) {
-        res.status(403).json({ error: 'Incorrect password. Account deletion aborted.' });
-        return;
-      }
-    }
-
-    // 1. Remove from registeredUsersRegistry
-    const initialCount = registeredUsersRegistry.length;
-    registeredUsersRegistry = registeredUsersRegistry.filter(
-      u => (cleanEmail && u.email.toLowerCase() !== cleanEmail) && (userId && u.id !== userId)
-    );
-    saveUsersToDisk(registeredUsersRegistry);
-
-    // 2. Remove from verification tokens and OTPs cache
-    if (cleanEmail) {
-      verifiedEmails.delete(cleanEmail);
-      emailOtpsCache.delete(cleanEmail);
-      for (const [token, record] of verificationTokensCache.entries()) {
-        if (record.email.toLowerCase() === cleanEmail) {
-          verificationTokensCache.delete(token);
-        }
-      }
-    }
-
-    // 3. If deleteBusinesses is requested, remove user's businesses from businessesCache
-    let deletedBusinessesCount = 0;
-    if (deleteBusinesses !== false) {
-      const initialBizCount = businessesCache.length;
-      businessesCache = businessesCache.filter(b => {
-        const matchesOwner = 
-          (cleanEmail && (b.ownerEmail?.toLowerCase() === cleanEmail || b.email?.toLowerCase() === cleanEmail)) ||
-          (userId && b.ownerId === userId);
-        return !matchesOwner;
-      });
-      deletedBusinessesCount = initialBizCount - businessesCache.length;
-      if (deletedBusinessesCount > 0) {
-        saveBusinessesToDisk(businessesCache);
-      }
-    }
-
-    // 4. If Supabase is configured, delete profile and businesses
-    const { url, key } = getEffectiveSupabaseConfig();
-
-    if (url && key && cleanEmail) {
-      try {
-        // Delete profile
-        await fetch(`${url}/rest/v1/profiles?email=eq.${encodeURIComponent(cleanEmail)}`, {
-          method: 'DELETE',
-          headers: {
-            'apikey': key,
-            'Authorization': `Bearer ${key}`,
-          },
-        });
-
-        // Delete owned businesses if requested
-        if (deleteBusinesses !== false) {
-          await fetch(`${url}/rest/v1/businesses?owner_email=eq.${encodeURIComponent(cleanEmail)}`, {
-            method: 'DELETE',
-            headers: {
-              'apikey': key,
-              'Authorization': `Bearer ${key}`,
-            },
-          });
-        }
-      } catch (supaErr) {
-        console.warn('[Supabase Server Account Deletion Warning]', supaErr);
-      }
-    }
-
-    res.json({
-      status: 'success',
-      message: `Account for ${cleanEmail || userId} and ${deletedBusinessesCount} businesses permanently deleted.`,
-      deletedBusinessesCount,
-    });
-  } catch (err: any) {
-    console.error('[Delete Account Error]', err);
-    res.status(500).json({ error: err.message || 'Account deletion failed' });
-  }
-});
-
-// 5. Query / Search Businesses
-app.get('/api/businesses', (req, res) => {
-  const { category, region, city, search, verified, sort, includeAll } = req.query;
-  let results = businessesCache.filter(b => !isDeletedBusinessRecord(b));
-
-  // By default, live directory shows only active businesses (not under investigation / probation and not rejected)
-  if (includeAll !== 'true') {
-    results = results.filter(b => 
-      b.listingStatus !== 'probation' && 
-      b.listingStatus !== 'under_investigation' && 
-      b.underInvestigation !== true &&
-      b.listingStatus !== 'rejected'
-    );
+// Business Owner Dashboard
+app.get('/api/owner/business/:id', (req, res) => {
+  const business = submissionsStore.get(String(req.params.id));
+  if (!business) {
+    return res.status(404).json({ success: false, error: 'Business listing not found.' });
   }
 
-  if (category && typeof category === 'string') {
-    results = results.filter(b => b.category?.toLowerCase() === category.toLowerCase());
-  }
-  if (region && typeof region === 'string') {
-    results = results.filter(b => b.region?.toLowerCase() === region.toLowerCase());
-  }
-  if (city && typeof city === 'string') {
-    results = results.filter(b => b.city?.toLowerCase() === city.toLowerCase());
-  }
-  if (verified === 'true') {
-    results = results.filter(b => b.verificationStatus === 'verified');
-  }
-  if (search && typeof search === 'string') {
-    const q = search.toLowerCase();
-    results = results.filter(b => 
-      b.name?.toLowerCase().includes(q) ||
-      b.description?.toLowerCase().includes(q) ||
-      b.city?.toLowerCase().includes(q) ||
-      b.services?.some((s: string) => s.toLowerCase().includes(q))
-    );
-  }
+  // Calculate profile completeness %
+  let score = 0;
+  if (business.name) score += 10;
+  if (business.description && business.description.length > 30) score += 15;
+  if (business.logoUrl) score += 15;
+  if (business.coverImage) score += 10;
+  if (business.ghanaPostGps) score += 10;
+  if (business.productsAndServices.length > 0) score += 15;
+  if (business.openingHours) score += 10;
+  if (business.verification.registrationNumber || business.verification.ghanaCardNumber) score += 15;
 
-  if (sort === 'rating') {
-    results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  } else if (sort === 'name') {
-    results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }
+  const completeness = Math.min(100, score);
 
   res.json({
-    count: results.length,
-    businesses: results
+    success: true,
+    business: {
+      id: business.id,
+      submissionId: business.submissionId,
+      name: business.name,
+      category: business.category,
+      region: business.region,
+      city: business.city,
+      status: business.status,
+      verified: business.verified,
+      correctionNotes: business.correctionNotes,
+      completeness,
+      metrics: business.metrics,
+      history: business.submissionHistory,
+      createdAt: business.createdAt
+    }
   });
 });
 
-// Helper: Asynchronously synchronize newly enlisted/updated business directly to Supabase cloud DB
-async function upsertBusinessToSupabase(biz: any) {
-  const { url, key } = getEffectiveSupabaseConfig();
-  if (!url || !key) return;
-  try {
-    const row = {
-      id: biz.id,
-      name: biz.name,
-      tagline: biz.tagline || 'Verified Business',
-      slug: biz.slug || biz.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      category: biz.category || 'general',
-      sub_category: biz.subCategory || null,
-      description: biz.description || `${biz.name} provides professional services.`,
-      logo: biz.logo || null,
-      cover_image: biz.coverImage || null,
-      gallery: Array.isArray(biz.gallery) ? biz.gallery : [],
-      phone: biz.phone || biz.whatsapp || '0240000000',
-      whatsapp: biz.whatsapp || biz.phone || '0240000000',
-      email: biz.email || null,
-      website: biz.website || null,
-      socials: biz.socials || {},
-      city: biz.city || 'Accra',
-      region: biz.region || 'Greater Accra',
-      address: biz.address || `${biz.city || 'Accra'} Commercial District`,
-      digital_address: biz.digitalAddress || null,
-      coordinates: biz.coordinates || { lat: 5.6037, lng: -0.1870 },
-      price_level: biz.priceLevel || '$$',
-      rating: biz.rating !== undefined ? biz.rating : 5.0,
-      review_count: biz.reviewCount || 0,
-      verification_status: biz.verificationStatus || 'unverified',
-      listing_status: biz.listingStatus || 'active',
-      opening_hours: biz.openingHours || { monday: '08:00 - 18:00' },
-      services: Array.isArray(biz.services) ? biz.services : ['Professional Service'],
-      features: Array.isArray(biz.features) ? biz.features : ['Official AuraCentra Member'],
-      views: biz.views || 1,
-      leads_count: biz.leadsCount || 0,
-      owner_id: biz.ownerId && !biz.ownerId.startsWith('usr-') && !biz.ownerId.startsWith('biz-') ? biz.ownerId : null,
-      owner_email: biz.ownerEmail || null,
-      created_at: biz.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const res = await fetch(`${url}/rest/v1/businesses`, {
-      method: 'POST',
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify(row),
-    });
-    if (!res.ok) {
-      const errText = await res.text();
-      console.warn('[Supabase Upsert Business Notice]', errText);
-    }
-  } catch (e: any) {
-    console.warn('[Supabase Upsert Business Notice]', e?.message);
+// Owner resubmission after corrections
+app.post('/api/owner/business/:id/resubmit', (req, res) => {
+  const business = submissionsStore.get(String(req.params.id));
+  if (!business) {
+    return res.status(404).json({ success: false, error: 'Business not found.' });
   }
-}
 
-// Background sync function: Pull Supabase profiles and businesses into server registry and memory cache
-async function syncSupabaseWithServer() {
-  const { url, key } = getEffectiveSupabaseConfig();
-  if (!url || !key) return;
-
-  try {
-    // 1. Sync Profiles
-    const profRes = await fetch(`${url}/rest/v1/profiles?select=id,name,email,phone,role,created_at`, {
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-      },
-    });
-    if (profRes.ok) {
-      const profiles = await profRes.json();
-      if (Array.isArray(profiles)) {
-        let updatedUsers = false;
-        profiles.forEach((p: any) => {
-          if (!p.email) return;
-          const emailLower = p.email.toLowerCase();
-          if (isLegacyDeletedEmail(emailLower)) return;
-          let existing = registeredUsersRegistry.find(u => u.email?.toLowerCase() === emailLower);
-          if (!existing) {
-            const newUser = {
-              id: p.id,
-              name: p.name || emailLower.split('@')[0],
-              username: (p.name || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15) || emailLower.split('@')[0],
-              email: p.email,
-              phone: p.phone || '',
-              role: p.role || 'customer',
-              password: '',
-              createdAt: p.created_at || new Date().toISOString(),
-            };
-            registeredUsersRegistry.push(newUser);
-            updatedUsers = true;
-          } else {
-            if (p.name && (!existing.name || existing.name === existing.email.split('@')[0])) {
-              existing.name = p.name;
-              updatedUsers = true;
-            }
-            if (p.phone && !existing.phone) {
-              existing.phone = p.phone;
-              updatedUsers = true;
-            }
-          }
-        });
-        if (updatedUsers) {
-          saveUsersToDisk(registeredUsersRegistry);
-        }
-      }
-    }
-
-    // 2. Sync Businesses
-    const bizRes = await fetch(`${url}/rest/v1/businesses?select=*`, {
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`,
-      },
-    });
-    if (bizRes.ok) {
-      const supaBizList = await bizRes.json();
-      if (Array.isArray(supaBizList)) {
-        let cacheUpdated = false;
-        supaBizList.forEach((row: any) => {
-          if (isDeletedBusinessRecord(row)) return;
-          const id = row.id;
-          const mappedBiz = {
-            id: row.id,
-            name: row.name,
-            tagline: row.tagline || '',
-            slug: row.slug || row.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            category: row.category || 'general',
-            subCategory: row.sub_category || null,
-            description: row.description || `${row.name} provides quality services.`,
-            logo: row.logo || '',
-            coverImage: row.cover_image || '',
-            gallery: Array.isArray(row.gallery) ? row.gallery : [],
-            phone: row.phone || row.whatsapp || '',
-            whatsapp: row.whatsapp || row.phone || '',
-            email: row.email || '',
-            website: row.website || '',
-            socials: row.socials || {},
-            city: row.city || 'Accra',
-            region: row.region || 'Greater Accra',
-            address: row.address || '',
-            digitalAddress: row.digital_address || null,
-            coordinates: row.coordinates || { lat: 5.6037, lng: -0.1870 },
-            priceLevel: row.price_level || '$$',
-            rating: Number(row.rating) || 5.0,
-            reviewCount: Number(row.review_count) || 0,
-            verificationStatus: row.verification_status || 'unverified',
-            listingStatus: row.listing_status || 'active',
-            isApproved: true,
-            permanentlyEnlisted: true,
-            underInvestigation: false,
-            openingHours: row.opening_hours || { monday: '08:00 - 18:00' },
-            services: Array.isArray(row.services) ? row.services : [],
-            features: Array.isArray(row.features) ? row.features : [],
-            views: Number(row.views) || 1,
-            leadsCount: Number(row.leads_count) || 0,
-            ownerId: row.owner_id || null,
-            ownerEmail: row.owner_email || null,
-            createdAt: row.created_at || new Date().toISOString(),
-            updatedAt: row.updated_at || new Date().toISOString(),
-          };
-
-          approvedIdsCache.add(id);
-          const existingIdx = businessesCache.findIndex(b => b.id === id);
-          if (existingIdx >= 0) {
-            businessesCache[existingIdx] = { ...businessesCache[existingIdx], ...mappedBiz };
-          } else {
-            businessesCache.unshift(mappedBiz);
-          }
-          cacheUpdated = true;
-        });
-
-        if (cacheUpdated) {
-          saveBusinessesToDisk(businessesCache);
-          saveApprovedIdsToDisk(approvedIdsCache);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('[Supabase Sync Warning]', err);
-  }
-}
-
-// 6. Register or Update Business (Auto-enlisted on the website upon registration)
-app.post('/api/businesses', (req, res) => {
-  try {
-    const data = req.body || {};
-    const businessName = (data.name || '').trim();
-    if (!businessName) {
-      res.status(400).json({ error: 'Missing required business name.' });
-      return;
-    }
-
-    const businessId = data.id || `biz-${Date.now()}`;
-    const isUnderInvestigation = data.listingStatus === 'probation' || 
-                                 data.listingStatus === 'under_investigation' || 
-                                 Boolean(data.underInvestigation);
-
-    // Remove from deleted list if re-enlisting
-    deletedBusinessIdsCache.delete(businessId);
-    saveDeletedIdsToDisk(deletedBusinessIdsCache);
-
-    if (!isUnderInvestigation) {
-      approvedIdsCache.add(businessId);
-      saveApprovedIdsToDisk(approvedIdsCache);
-    }
-
-    const newBusiness = {
-      ...data,
-      id: businessId,
-      name: businessName,
-      category: data.category || 'general',
-      city: data.city || 'Accra',
-      phone: data.phone || data.whatsapp || '0240000000',
-      slug: data.slug || businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      rating: data.rating !== undefined ? data.rating : 5.0,
-      reviewCount: data.reviewCount || 0,
-      verificationStatus: data.verificationStatus || 'unverified',
-      // Auto-enlisted immediately upon registration unless explicitly under investigation
-      listingStatus: isUnderInvestigation ? 'probation' : 'active',
-      isApproved: !isUnderInvestigation,
-      permanentlyEnlisted: true,
-      underInvestigation: isUnderInvestigation,
-      investigationReason: data.investigationReason || undefined,
-      isFeatured: data.isFeatured !== undefined ? data.isFeatured : false,
-      verificationDetails: data.verificationDetails || null,
-      views: data.views !== undefined ? data.views : 1,
-      leadsCount: data.leadsCount || 0,
-      createdAt: data.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    const existingIndex = businessesCache.findIndex(b => b.id === businessId);
-    if (existingIndex >= 0) {
-      businessesCache[existingIndex] = { ...businessesCache[existingIndex], ...newBusiness };
-    } else {
-      businessesCache.unshift(newBusiness);
-    }
-    saveBusinessesToDisk(businessesCache);
-    upsertBusinessToSupabase(newBusiness);
-    res.status(201).json({ status: 'success', business: newBusiness });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to create business listing' });
-  }
-});
-
-
-// Update Existing Business
-app.put('/api/businesses/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const data = req.body || {};
-    
-    // Remove from deleted set when updated/restored
-    deletedBusinessIdsCache.delete(id);
-    saveDeletedIdsToDisk(deletedBusinessIdsCache);
-
-    const isUnderInvestigation = data.listingStatus === 'probation' || 
-                                 data.listingStatus === 'under_investigation' || 
-                                 Boolean(data.underInvestigation);
-    if (!isUnderInvestigation) {
-      approvedIdsCache.add(id);
-      saveApprovedIdsToDisk(approvedIdsCache);
-    }
-
-    const existingIndex = businessesCache.findIndex(b => b.id === id);
-    if (existingIndex === -1) {
-      // Add if not found
-      const newBiz = { 
-        ...data, 
-        id, 
-        listingStatus: isUnderInvestigation ? 'probation' : (data.listingStatus || 'active'),
-        isApproved: !isUnderInvestigation,
-        permanentlyEnlisted: true,
-        updatedAt: new Date().toISOString() 
-      };
-      businessesCache.unshift(newBiz);
-      saveBusinessesToDisk(businessesCache);
-      upsertBusinessToSupabase(newBiz);
-      res.json({ status: 'success', business: newBiz });
-      return;
-    }
-
-    const updated = {
-      ...businessesCache[existingIndex],
-      ...data,
-      id,
-      listingStatus: isUnderInvestigation ? 'probation' : (data.listingStatus || businessesCache[existingIndex].listingStatus || 'active'),
-      isApproved: !isUnderInvestigation,
-      permanentlyEnlisted: true,
-      updatedAt: new Date().toISOString()
-    };
-    businessesCache[existingIndex] = updated;
-    saveBusinessesToDisk(businessesCache);
-    upsertBusinessToSupabase(updated);
-    res.json({ status: 'success', business: updated });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to update business' });
-  }
-});
-
-// 7. Increment View / Lead
-app.post('/api/businesses/:id/lead', (req, res) => {
-  const { id } = req.params;
-  const biz = businessesCache.find(b => b.id === id);
-  if (biz) {
-    biz.leadsCount = (biz.leadsCount || 0) + 1;
-  }
-  res.json({ status: 'success', leadsCount: biz?.leadsCount || 1 });
-});
-
-// 8. Submit Customer Inquiry / Quote
-app.post('/api/inquiries', (req, res) => {
-  try {
-    const { businessId, businessName, clientName, clientPhone, clientEmail, serviceRequested, message } = req.body;
-    if (!businessId || !clientName || !clientPhone || !message) {
-      res.status(400).json({ error: 'Missing required inquiry parameters.' });
-      return;
-    }
-
-    const newInquiry = {
-      id: `inq-${Date.now()}`,
-      businessId,
-      businessName: businessName || 'Verified Ghanaian Enterprise',
-      clientName,
-      clientPhone,
-      clientEmail: clientEmail || '',
-      serviceRequested: serviceRequested || 'Direct Quote & Inquiry',
-      message,
-      status: 'new',
-      createdAt: new Date().toISOString()
-    };
-
-    inquiriesCache.unshift(newInquiry);
-    res.status(201).json({ status: 'success', inquiry: newInquiry });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to submit quote inquiry' });
-  }
-});
-
-// 9. Fetch Inquiries
-app.get('/api/inquiries', (req, res) => {
-  res.json({
-    total: inquiriesCache.length,
-    inquiries: inquiriesCache
+  const updates = req.body;
+  Object.assign(business, updates);
+  business.status = 'pending_review';
+  business.correctionNotes = undefined;
+  business.updatedAt = new Date().toISOString();
+  business.submissionHistory.push({
+    status: 'pending_review',
+    timestamp: business.updatedAt,
+    note: 'Resubmitted by owner with requested corrections.'
   });
-});
 
-// 10. Submit Customer Review
-app.post('/api/reviews', (req, res) => {
-  try {
-    const { businessId, userName, rating, comment } = req.body;
-    if (!businessId || !userName || !rating || !comment) {
-      res.status(400).json({ error: 'Missing required review fields.' });
-      return;
-    }
+  submissionsStore.set(business.id, business);
 
-    const newReview = {
-      id: `rev-${Date.now()}`,
-      businessId,
-      userName,
-      rating: Number(rating),
-      comment,
-      date: new Date().toISOString(),
-      helpfulCount: 0
-    };
-
-    reviewsCache.unshift(newReview);
-    res.status(201).json({ status: 'success', review: newReview });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Failed to post review' });
-  }
-});
-
-// 11. Newsletter Subscription
-app.post('/api/subscribe', (req, res) => {
-  const { email } = req.body;
-  if (!email || !email.includes('@')) {
-    res.status(400).json({ error: 'Invalid email address provided.' });
-    return;
-  }
-
-  if (!newsletterCache.includes(email)) {
-    newsletterCache.push(email);
-  }
-
-  res.json({
-    status: 'success',
-    message: 'Subscribed to AuraCentra Ghana weekly updates.',
-    email
+  auditLogs.unshift({
+    id: `log-${Date.now()}`,
+    action: 'Business Resubmitted',
+    businessId: business.id,
+    businessName: business.name,
+    newStatus: 'pending_review',
+    adminEmail: 'owner',
+    timestamp: business.updatedAt
   });
+
+  res.json({ success: true, message: 'Corrections submitted for review.', business });
 });
 
-// 12. Admin Moderation Action (approve, investigate/probation, reject, reinstate)
-app.post('/api/moderation/action', (req, res) => {
-  const { businessId, action, notes, badgeType, isFeatured, coordinates, business } = req.body;
-  const validActions = ['approve', 'reject', 'investigate', 'probation', 'reinstate'];
-  if (!businessId || !validActions.includes(action)) {
-    res.status(400).json({ error: 'Invalid moderation action parameters.' });
-    return;
-  }
+// Public Listings Endpoint (returns published enterprises + verified badges)
+app.get('/api/listings', (req, res) => {
+  const published = Array.from(submissionsStore.values())
+    .filter(s => s.status === 'published' || s.status === 'approved')
+    .map(s => ({
+      id: s.id,
+      name: s.name,
+      category: s.category,
+      description: s.description,
+      region: s.region,
+      city: s.city,
+      address: s.streetDescription || s.area,
+      phone: s.phone,
+      whatsapp: s.whatsapp,
+      email: s.email,
+      website: s.website,
+      verified: s.verified,
+      featured: s.featured,
+      rating: 4.8,
+      reviews_count: 94,
+      logo_url: s.logoUrl,
+      cover_image: s.coverImage,
+      operating_hours: s.openingHours,
+      created_at: s.createdAt
+    }));
 
-  let biz = businessesCache.find(b => b.id === businessId);
-  const nowIso = new Date().toISOString();
-
-  if (action === 'investigate' || action === 'probation') {
-    approvedIdsCache.delete(businessId);
-    saveApprovedIdsToDisk(approvedIdsCache);
-
-    if (!biz && business && typeof business === 'object') {
-      biz = { ...business };
-      businessesCache.unshift(biz);
-    }
-
-    if (biz) {
-      biz.listingStatus = 'probation';
-      biz.underInvestigation = true;
-      biz.investigationReason = notes || 'Under administrative investigation / probation';
-      biz.investigationStartedAt = nowIso;
-      biz.isApproved = false;
-      biz.moderationNotes = notes || '';
-      biz.updatedAt = nowIso;
-    }
-  } else if (action === 'approve' || action === 'reinstate') {
-    approvedIdsCache.add(businessId);
-    saveApprovedIdsToDisk(approvedIdsCache);
-
-    if (business && typeof business === 'object') {
-      if (biz) {
-        Object.assign(biz, business);
-      } else {
-        biz = { ...business };
-        businessesCache.unshift(biz);
-      }
-    } else if (!biz) {
-      biz = {
-        id: businessId,
-        name: 'Verified Business Listing',
-        category: 'general',
-        city: 'Accra',
-        region: 'Greater Accra',
-        phone: '0500000000',
-        rating: 5.0,
-        reviewCount: 0,
-        createdAt: nowIso
-      };
-      businessesCache.unshift(biz);
-    }
-
-    biz.listingStatus = 'active';
-    biz.verificationStatus = 'verified';
-    biz.isApproved = true;
-    biz.permanentlyEnlisted = true;
-    biz.underInvestigation = false;
-    biz.investigationConcludedAt = nowIso;
-    if (isFeatured !== undefined) {
-      biz.isFeatured = isFeatured;
-    }
-    if (coordinates) {
-      biz.coordinates = coordinates;
-    }
-    biz.enlistedAt = biz.enlistedAt || nowIso;
-    biz.approvedAt = nowIso;
-    biz.verificationDetails = {
-      ...(biz.verificationDetails || {}),
-      badgeType: badgeType || 'Gold Enterprise',
-      gpsVerified: true,
-      tinNumber: biz.verificationDetails?.tinNumber || 'TIN-GH-882194',
-      businessRegNumber: biz.verificationDetails?.businessRegNumber || 'BN-GH-2024-9128',
-      verifiedByAdmin: 'Executive Desk',
-      verifiedAt: nowIso
-    };
-    if (Array.isArray(biz.verificationDocuments)) {
-      biz.verificationDocuments = biz.verificationDocuments.map((d: any) => ({
-        ...d,
-        status: 'verified',
-        reviewedAt: nowIso
-      }));
-    }
-    biz.moderationNotes = notes || 'Investigation concluded & verified by admin';
-    biz.updatedAt = nowIso;
-  } else {
-    // action === 'reject'
-    approvedIdsCache.delete(businessId);
-    saveApprovedIdsToDisk(approvedIdsCache);
-    if (biz) {
-      biz.listingStatus = 'rejected';
-      biz.verificationStatus = 'rejected';
-      biz.isApproved = false;
-      biz.moderationNotes = notes || '';
-      biz.updatedAt = nowIso;
-    }
-  }
-
-  saveBusinessesToDisk(businessesCache);
-
-  res.json({
-    status: 'success',
-    action,
-    businessId,
-    business: biz
-  });
+  res.json({ success: true, count: published.length, businesses: published });
 });
 
-// 13. Admin Permanently Delete Business
-app.delete('/api/businesses/:id', (req, res) => {
-  const { id } = req.params;
-  deletedBusinessIdsCache.add(id);
-  saveDeletedIdsToDisk(deletedBusinessIdsCache);
-  approvedIdsCache.delete(id);
-  saveApprovedIdsToDisk(approvedIdsCache);
-  const index = businessesCache.findIndex(b => b.id === id);
-  if (index !== -1) {
-    const deleted = businessesCache.splice(index, 1);
-    saveBusinessesToDisk(businessesCache);
-    res.json({ status: 'success', message: 'Business permanently deleted', business: deleted[0] });
-  } else {
-    res.json({ status: 'success', message: 'Business deleted from cache' });
+// Track metrics
+app.post('/api/business/:id/track-click', (req, res) => {
+  const business = submissionsStore.get(String(req.params.id));
+  if (business) {
+    const { type } = req.body;
+    if (type === 'view') business.metrics.views += 1;
+    if (type === 'phone') business.metrics.phoneClicks += 1;
+    if (type === 'whatsapp') business.metrics.whatsappClicks += 1;
+    if (type === 'website') business.metrics.websiteClicks += 1;
+    if (type === 'social') business.metrics.socialClicks += 1;
+    if (type === 'enquiry') business.metrics.enquiries += 1;
   }
+  res.json({ success: true });
 });
 
-// ============================================================================
-// VITE MIDDLEWARE & STATIC SERVING
-// ============================================================================
+// ==========================================
+// VITE DEV SERVER / PRODUCTION STATIC SERVER
+// ==========================================
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } catch (e) {
-      console.warn('[Vite Dev Middleware Warning]', e);
-    }
+  const isProd = process.env.NODE_ENV === 'production';
+
+  if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
@@ -2924,19 +785,11 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[AuraCentra Backend] Server active and listening on http://0.0.0.0:${PORT}`);
-    // Sync profiles and businesses with Supabase in background
-    syncSupabaseWithServer().catch(() => {});
-    setInterval(() => {
-      syncSupabaseWithServer().catch(() => {});
-    }, 60000);
+    console.log(`[AuraCentra Core] Server running on port ${PORT} (dev mode: ${!isProd})`);
   });
 }
 
-// Only launch listening server in non-serverless container or local environment
-if (!process.env.VERCEL && !process.env.NOW_REGION && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.SKIP_SERVER_LISTEN) {
-  startServer();
-}
-
-export { app };
-export default app;
+startServer().catch(err => {
+  console.error('[AuraCentra Core] Startup error:', err);
+  process.exit(1);
+});

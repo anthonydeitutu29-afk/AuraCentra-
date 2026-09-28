@@ -1,42 +1,20 @@
-import tailwindcss from '@tailwindcss/vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig(() => {
-  return {
-    plugins: [react(), tailwindcss()],
-    envPrefix: ['VITE_', 'SUPABASE_', 'NEXT_PUBLIC_'],
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      },
-      dedupe: ['react', 'react-dom'],
-    },
-    server: {
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
-    },
-    build: {
-      chunkSizeWarningLimit: 2000,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules/lucide-react')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('node_modules/motion')) {
-              return 'vendor-motion';
-            }
-            if (id.includes('node_modules/recharts')) {
-              return 'vendor-charts';
-            }
-            if (id.includes('node_modules/@supabase')) {
-              return 'vendor-supabase';
-            }
-          },
-        },
-      },
-    },
-  };
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
+      process.env.VITE_SUPABASE_URL || 'https://oatpbsemkwmglmrdlmld.supabase.co'
+    ),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+      process.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_6sT0WCaqD8kLx74LhDyOJQ_fnEZmhVz'
+    ),
+  },
+  server: {
+    port: 3000,
+    host: true
+  }
 });

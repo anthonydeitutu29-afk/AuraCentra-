@@ -2,39 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <title>AuraCentra | Connect • Discover • Grow</title>
-    <meta name="description" content="AuraCentra is Ghana's premier digital platform where businesses enlist and customers get access to what they need, without stress across all 16 regions of Ghana." />
-    <meta property="og:title" content="AuraCentra - Connect • Discover • Grow" />
-    <meta property="og:description" content="A digital platform where businesses enlist and customers get access to what they need, without stress across all 16 regions of Ghana." />
-    <meta property="og:image" content="/auracentra-logo.png" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231d4ed8'><path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <title>AuraCentra - Verified Ghanaian & African Business Directory</title>
+    <meta name="description" content="Professional Ghanaian & African business discovery, verification, and networking ecosystem connecting trusted enterprises with customers." />
+    <meta property="og:title" content="AuraCentra - Verified Ghanaian & African Business Directory" />
+    <meta property="og:description" content="Professional Ghanaian & African business discovery, verification, and networking ecosystem connecting trusted enterprises with customers." />
+  </head>
+  <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 antialiased min-h-screen transition-colors">
     <script>
       (function() {
         try {
-          var savedTheme = localStorage.getItem('auracentra_theme');
-          var isDark = savedTheme === 'dark';
-          if (isDark) {
+          var stored = localStorage.getItem('auracentra_theme');
+          if (stored === 'dark' || (!stored && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
-            document.documentElement.classList.remove('light');
-            document.documentElement.style.colorScheme = 'dark';
           } else {
             document.documentElement.classList.remove('dark');
-            document.documentElement.classList.add('light');
-            document.documentElement.style.colorScheme = 'light';
           }
         } catch (e) {}
       })();
     </script>
-  </head>
-  <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased font-sans transition-colors duration-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

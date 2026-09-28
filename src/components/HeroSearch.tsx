@@ -1,431 +1,160 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { 
   Search, 
   MapPin, 
-  ArrowRight,
-  ChevronDown,
-  CheckCircle2,
-  Sparkles,
-  History,
-  Clock,
-  Trash2,
-  X
+  ShieldCheck, 
+  ChevronDown, 
+  ArrowRight
 } from 'lucide-react';
-import { Business, Category, FilterState } from '../types';
-import { GHANA_REGIONS } from '../utils/geolocationService';
-import { isDeletedBusiness } from '../utils/storage';
+import heroBackground from '../assets/images/accra_hero_skyline_1790465763128.jpg';
 
 interface HeroSearchProps {
-  categories: Category[];
-  businesses: Business[];
-  filters: FilterState;
-  onFilterChange: (newFilters: Partial<FilterState>) => void;
-  onResetFilters: () => void;
-  searchHistory: string[];
-  onAddSearchHistory: (query: string) => void;
-  onRemoveSearchHistoryItem?: (query: string) => void;
-  onClearSearchHistory: () => void;
-  onSelectBusiness: (business: Business) => void;
-  onShowToast?: (title: string, message?: string, type?: 'success' | 'info' | 'warning' | 'error') => void;
-  onOpenSectors?: () => void;
-  isAutoDetectedRegion?: boolean;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  selectedRegion: string;
+  setSelectedRegion: (region: string) => void;
+  selectedCity?: string;
+  setSelectedCity?: (city: string) => void;
+  selectedSector?: string;
+  setSelectedSector?: (sector: string) => void;
+  sortBy?: string;
+  setSortBy?: (sort: string) => void;
+  verifiedOnly?: boolean;
+  setVerifiedOnly?: (verified: boolean) => void;
+  onClearAll?: () => void;
+  onSearch: () => void;
+  onViewAllCategories?: () => void;
 }
 
+const GHANA_REGIONS = [
+  'All Regions',
+  'All 16 Ghana Regions',
+  'Greater Accra',
+  'Ashanti',
+  'Western',
+  'Western North',
+  'Central',
+  'Eastern',
+  'Volta',
+  'Oti',
+  'Northern',
+  'Savannah',
+  'North East',
+  'Upper East',
+  'Upper West',
+  'Bono',
+  'Bono East',
+  'Ahafo',
+];
+
 export const HeroSearch: React.FC<HeroSearchProps> = ({
-  categories,
-  businesses,
-  filters,
-  onFilterChange,
-  onResetFilters,
-  searchHistory,
-  onAddSearchHistory,
-  onRemoveSearchHistoryItem,
-  onClearSearchHistory,
-  onSelectBusiness,
-  onShowToast,
-  onOpenSectors,
+  searchQuery,
+  setSearchQuery,
+  selectedRegion,
+  setSelectedRegion,
+  onSearch,
 }) => {
-  const [inputValue, setInputValue] = useState(filters.searchQuery);
-  const [selectedRegion, setSelectedRegion] = useState(filters.region || '');
-  const [isFocused, setIsFocused] = useState(false);
-  const [showMorePills, setShowMorePills] = useState(false);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setInputValue(filters.searchQuery);
-  }, [filters.searchQuery]);
-
-  useEffect(() => {
-    setSelectedRegion(filters.region || '');
-  }, [filters.region]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
-        setIsFocused(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (inputValue.trim()) {
-      onAddSearchHistory(inputValue.trim());
-    }
-    onFilterChange({ 
-      searchQuery: inputValue,
-      region: selectedRegion === 'All Regions' ? '' : selectedRegion
-    });
-    setIsFocused(false);
-
-    const directoryEl = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
-    if (directoryEl) {
-      directoryEl.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleQuickTagClick = (tag: string) => {
-    setInputValue(tag);
-    onFilterChange({ searchQuery: tag });
-    onAddSearchHistory(tag);
-    const directoryEl = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
-    if (directoryEl) {
-      directoryEl.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleSelectHistoryItem = (item: string) => {
-    setInputValue(item);
-    onFilterChange({ searchQuery: item });
-    onAddSearchHistory(item);
-    setIsFocused(false);
-    const directoryEl = document.getElementById('discover-businesses-section') || document.getElementById('main-directory-section');
-    if (directoryEl) {
-      directoryEl.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const handleClearAllHistory = (e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    onClearSearchHistory();
-    onShowToast?.('Search History Cleared', 'Your recent search history has been cleared.', 'info');
-  };
-
-  const handleRemoveHistoryItem = (e: React.MouseEvent, item: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onRemoveSearchHistoryItem?.(item);
-  };
-
-  // Autocomplete matches
-  const trimmed = inputValue.trim().toLowerCase();
-  const matchingHistory = trimmed
-    ? searchHistory.filter((h) => h.toLowerCase().includes(trimmed))
-    : searchHistory;
-
-  const matchedBusinesses = trimmed
-    ? businesses
-        .filter(
-          (b) =>
-            b.listingStatus === 'active' &&
-            b.verificationStatus !== 'rejected' &&
-            (b.name.toLowerCase().includes(trimmed) ||
-              b.services?.some((s) => s.toLowerCase().includes(trimmed)) ||
-              b.city.toLowerCase().includes(trimmed))
-        )
-        .slice(0, 4)
-    : [];
-
-  const showDropdown = isFocused && (
-    matchingHistory.length > 0 || 
-    matchedBusinesses.length > 0
-  );
-
   return (
-    <div className="relative w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 transition-colors" id="hero-search-section">
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
-        <div className="max-w-3xl space-y-5 sm:space-y-6">
+    <div className="w-full">
+      {/* 1. HERO BANNER - Full-width main background of the header section */}
+      <section className="relative w-full overflow-hidden min-h-[380px] sm:min-h-[440px] md:min-h-[480px] flex flex-col justify-between text-white shadow-md">
+        
+        {/* Background photo */}
+        <img 
+          src={heroBackground} 
+          alt="Accra Independence Arch and Skyline - Ghana" 
+          className="absolute inset-0 w-full h-full object-cover object-center"
+          loading="eager"
+        />
 
-          {/* Main Headline - High contrast on plain background */}
-          <div className="space-y-2">
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] text-slate-950 dark:text-white">
-              Discover more.<br />
-              <span className="text-[#155DFC] dark:text-[#38BDF8]">Get discovered.</span>
+        {/* Sophisticated gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-900/85 to-slate-900/40" />
+        <div className="absolute inset-0 bg-radial from-transparent via-transparent to-black/40" />
+
+        {/* Floating Handwriting Cursive Text in Upper Right near the Arch */}
+        <div className="absolute right-4 sm:right-10 md:right-16 top-8 sm:top-12 md:top-14 hidden md:block select-none pointer-events-none transform -rotate-6 z-10">
+          <span className="font-serif italic text-lg sm:text-2xl text-white/90 drop-shadow-md font-medium tracking-wide">
+            Local Businesses <br />
+            <span className="text-amber-200">Bigger Opportunities</span>
+          </span>
+        </div>
+
+        {/* Hero Content Container centered at max-w-7xl with fully responsive padding */}
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12 md:py-16 relative z-10 flex flex-col justify-between h-full">
+          
+          {/* Hero Top Content */}
+          <div className="max-w-xl space-y-2 sm:space-y-3 pt-1 text-left">
+            {/* Pill Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-white text-xs font-bold border border-white/20 shadow-xs max-w-full">
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="truncate">Ghana's Trusted Business Directory</span>
+            </div>
+
+            {/* Responsive Big Headline */}
+            <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.08] drop-shadow-sm">
+              Discover more. <br />
+              <span className="text-sky-400 dark:text-sky-300 drop-shadow-[0_2px_10px_rgba(56,189,248,0.4)]">
+                Get discovered.
+              </span>
             </h1>
+
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium max-w-md pt-1">
+              Find verified businesses, vetted service providers, and authentic suppliers across all 16 regions of Ghana.
+            </p>
           </div>
 
-          {/* Subtitle - Sharp & readable */}
-          <p className="text-sm sm:text-base text-slate-700 dark:text-slate-300 max-w-xl font-medium leading-relaxed">
-            Find verified businesses, vetted service providers, and authentic suppliers across all 16 regions of Ghana.
-          </p>
+          {/* Fully Responsive Search Bar Card */}
+          <div className="mt-6 sm:mt-8 md:mt-10 w-full max-w-2xl">
+            <div className="bg-white rounded-2xl sm:rounded-full p-2 sm:p-2.5 shadow-2xl border border-white/40 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 transition-all">
+              
+              {/* Region selector dropdown */}
+              <div className="relative w-full sm:w-44 shrink-0 border-b sm:border-b-0 sm:border-r border-slate-200 pb-2 sm:pb-0 sm:pr-2 text-left">
+                <MapPin className="w-4 h-4 text-blue-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <select
+                  value={selectedRegion}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className="w-full pl-9 pr-6 py-2 bg-transparent text-xs sm:text-sm font-bold text-slate-800 appearance-none focus:outline-hidden cursor-pointer"
+                  aria-label="Filter by Ghana Region"
+                >
+                  {GHANA_REGIONS.map((r) => (
+                    <option key={r} value={r} className="text-slate-900 bg-white">
+                      {r}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
 
-          {/* Integrated Search Bar with clean High-Contrast Borders */}
-          <div ref={searchContainerRef} className="relative z-30 max-w-2xl pt-1">
-            <form
-              onSubmit={handleSearchSubmit}
-                className="bg-white dark:bg-slate-900 rounded-2xl p-2 sm:p-2.5 shadow-md flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-slate-300 dark:border-slate-700 focus-within:border-[#155DFC] dark:focus-within:border-[#38BDF8] transition-all"
+              {/* Keyword search input */}
+              <div className="relative flex-1 w-full text-left">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+                  placeholder="Search businesses, services or locations..."
+                  className="w-full pl-9 pr-3 py-2 bg-transparent text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden"
+                  aria-label="Search query"
+                />
+              </div>
+
+              {/* Blue pill button: Search -> */}
+              <button
+                onClick={onSearch}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl sm:rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/30 transition-all cursor-pointer shrink-0"
               >
-                {/* Search Text Input */}
-                <div className="flex-1 flex items-center gap-2.5 px-3 py-2 min-w-0">
-                  <Search className="w-4 h-4 text-slate-500 dark:text-blue-400 shrink-0" />
-                  <input
-                    type="text"
-                    id="hero-main-search-input"
-                    value={inputValue}
-                    onChange={(e) => {
-                      setInputValue(e.target.value);
-                      setIsFocused(true);
-                    }}
-                    onFocus={() => setIsFocused(true)}
-                    placeholder="Search businesses, services or locations"
-                    className="w-full bg-transparent text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder-slate-400 focus:outline-hidden"
-                  />
-                  {inputValue && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInputValue('');
-                        onFilterChange({ searchQuery: '' });
-                      }}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs p-1 cursor-pointer"
-                      title="Clear search input"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
+                <Search className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Search</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+              </button>
 
-                <div className="hidden sm:block w-px h-7 bg-slate-200 dark:bg-slate-700" />
-
-                {/* Region Dropdown */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/80 sm:bg-transparent rounded-xl sm:rounded-none border border-slate-200 dark:border-slate-700 sm:border-0">
-                  <MapPin className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
-                  <select
-                    id="hero-region-select"
-                    value={selectedRegion}
-                    onChange={(e) => {
-                      setSelectedRegion(e.target.value);
-                      onFilterChange({ region: e.target.value === 'All Regions' ? '' : e.target.value });
-                    }}
-                    className="bg-transparent text-xs sm:text-sm font-bold text-slate-800 dark:text-white focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All Regions</option>
-                    {GHANA_REGIONS.map((reg) => (
-                      <option key={reg.name} value={reg.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                        {reg.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Blue Search Button */}
-                <button
-                  type="submit"
-                  id="hero-submit-search-btn"
-                  className="px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-full bg-[#155DFC] hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-black shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Search className="w-4 h-4 shrink-0" />
-                  <span>Search</span>
-                </button>
-              </form>
-
-              {/* Autocomplete & History Dropdown */}
-              {showDropdown && (
-                <div 
-                  id="hero-search-dropdown-menu"
-                  className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in duration-100 divide-y divide-slate-100 dark:divide-slate-800"
-                >
-                  {/* Recent Searches Section */}
-                  {matchingHistory.length > 0 && (
-                    <div className="p-2 space-y-1">
-                      <div className="flex items-center justify-between px-3 py-1.5">
-                        <div className="text-[11px] font-bold text-slate-600 dark:text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <History className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8]" />
-                          <span>Recent Searches</span>
-                        </div>
-                        <button
-                          type="button"
-                          id="btn-dropdown-clear-history"
-                          onClick={handleClearAllHistory}
-                          className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 flex items-center gap-1 cursor-pointer transition-colors px-1.5 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                          title="Clear all search history"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>Clear All</span>
-                        </button>
-                      </div>
-
-                      {matchingHistory.slice(0, 5).map((item) => (
-                        <div
-                          key={item}
-                          className="w-full px-3 py-2 rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer"
-                          onClick={() => handleSelectHistoryItem(item)}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0 group-hover:text-[#155DFC] dark:group-hover:text-[#38BDF8]" />
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-[#155DFC] dark:group-hover:text-[#38BDF8]">
-                              {item}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => handleRemoveHistoryItem(e, item)}
-                            className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer shrink-0"
-                            title={`Remove "${item}" from history`}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Matching Verified Businesses Section */}
-                  {trimmed && matchedBusinesses.length > 0 && (
-                    <div className="p-2 space-y-1">
-                      <div className="text-[11px] font-bold text-slate-600 dark:text-cyan-300 uppercase tracking-wider px-3 py-1.5">
-                        Matching Verified Businesses
-                      </div>
-                      {matchedBusinesses.map((biz) => (
-                        <button
-                          key={biz.id}
-                          type="button"
-                          onClick={() => {
-                            onSelectBusiness(biz);
-                            setIsFocused(false);
-                          }}
-                          className="w-full px-3 py-2 rounded-xl flex items-center justify-between hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors text-left cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={biz.logo || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=100&q=80'}
-                              alt={biz.name}
-                              className="w-8 h-8 rounded-lg object-cover"
-                              loading="lazy"
-                            />
-                            <div>
-                              <div className="text-xs font-bold text-slate-900 dark:text-white">{biz.name}</div>
-                              <div className="text-[11px] text-slate-500 dark:text-slate-400">{biz.city}, {biz.region} • {biz.category}</div>
-                            </div>
-                          </div>
-                          <ArrowRight className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8]" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
-
-            {/* Recent Searches Pills Row (when history exists) */}
-            {searchHistory.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs" id="hero-recent-search-history-chips">
-                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold">
-                  <History className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8]" />
-                  <span>Recent:</span>
-                </div>
-                {searchHistory.slice(0, 5).map((item) => (
-                  <div
-                    key={item}
-                    className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-blue-50/90 dark:bg-slate-800 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-slate-700 font-semibold text-xs shadow-2xs hover:border-[#155DFC] dark:hover:border-[#38BDF8] transition-all"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSelectHistoryItem(item)}
-                      className="hover:underline cursor-pointer"
-                    >
-                      {item}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => handleRemoveHistoryItem(e, item)}
-                      className="w-4 h-4 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/60 transition-colors cursor-pointer"
-                      title={`Remove "${item}" from history`}
-                    >
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  id="btn-hero-clear-history"
-                  onClick={handleClearAllHistory}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 underline underline-offset-2 transition-colors cursor-pointer ml-1"
-                  title="Clear all search history"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Clear all</span>
-                </button>
-              </div>
-            )}
-
-            {/* Popular Searches Pills */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-              <span className="text-slate-700 dark:text-slate-300 font-bold">Popular searches:</span>
-              {['Restaurants', 'Building Materials', 'Fashion', 'Automotive'].map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => handleQuickTagClick(item)}
-                  className="px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold transition-all cursor-pointer shadow-2xs"
-                >
-                  {item}
-                </button>
-              ))}
-
-              <div className="relative inline-block">
-                <button
-                  type="button"
-                  onClick={() => setShowMorePills(!showMorePills)}
-                  className="px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                >
-                  <span>More</span>
-                  <ChevronDown className="w-3 h-3 text-slate-500 dark:text-slate-400" />
-                </button>
-
-                {showMorePills && (
-                  <div className="absolute left-0 mt-1.5 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-1.5 z-40 space-y-1">
-                    {['Technology', 'Real Estate', 'Healthcare', 'Legal Services', 'Digital Marketing', 'Agriculture', 'Hospitality'].map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        onClick={() => {
-                          handleQuickTagClick(item);
-                          setShowMorePills(false);
-                        }}
-                        className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Value Guarantees Row */}
-            <div className="pt-2 flex flex-wrap items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
-              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>100% Verified Listings</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <CheckCircle2 className="w-4 h-4 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
-                <span>Direct WhatsApp & Call</span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-2xs">
-                <CheckCircle2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span>Zero Broker Fees</span>
-              </div>
-            </div>
+          </div>
 
         </div>
-      </div>
+
+      </section>
     </div>
   );
 };

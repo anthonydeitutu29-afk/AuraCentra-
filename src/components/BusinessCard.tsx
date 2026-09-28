@@ -1,418 +1,155 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
-  CheckCircle2, 
   MapPin, 
   Phone, 
   MessageSquare, 
-  Bookmark, 
-  BookmarkCheck, 
-  Layers, 
-  Clock, 
-  Eye, 
-  QrCode, 
-  FileText,
-  Share2,
-  Check,
-  Globe,
-  ExternalLink,
-  ShieldCheck,
   Star,
-  Sparkles
+  Check,
+  Bookmark,
+  UtensilsCrossed,
+  ShoppingBag,
+  Car,
+  Laptop,
+  Building2
 } from 'lucide-react';
 import { Business } from '../types';
 
 interface BusinessCardProps {
   business: Business;
-  isSaved: boolean;
-  isCompared: boolean;
-  distanceKm?: number;
-  onToggleSave: (businessId: string) => void;
-  onToggleCompare: (business: Business) => void;
-  onSelect: (business: Business) => void;
-  onQuickContactWhatsApp: (business: Business) => void;
-  onOpenQuote?: (business: Business) => void;
-  onOpenQR?: (business: Business) => void;
-  onShare?: (business: Business) => void;
-  onRate?: (business: Business) => void;
+  isSaved?: boolean;
+  onToggleSave?: (id: string) => void;
+  onSelect?: (business: Business) => void;
 }
 
-export const BusinessCard: React.FC<BusinessCardProps> = ({
-  business,
-  isSaved,
-  isCompared,
-  distanceKm,
+export const BusinessCard: React.FC<BusinessCardProps> = ({ 
+  business, 
+  isSaved = false,
   onToggleSave,
-  onToggleCompare,
-  onSelect,
-  onQuickContactWhatsApp,
-  onOpenQuote,
-  onOpenQR,
-  onShare,
-  onRate,
+  onSelect 
 }) => {
-  const [justShared, setJustShared] = useState(false);
+  const cleanPhone = business.phone ? business.phone.replace(/[^0-9+]/g, '') : '';
+  const whatsappNum = business.whatsapp 
+    ? business.whatsapp.replace(/[^0-9]/g, '') 
+    : cleanPhone.replace(/[^0-9]/g, '');
 
-  // Format distance
-  const formattedDistance = distanceKm !== undefined 
-    ? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m away` : `${distanceKm.toFixed(1)} km away`)
-    : null;
+  const fallbackImage = 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=600&q=80';
+  const displayImage = business.cover_image || business.logo_url || fallbackImage;
 
-  // Check if open now based on today's day
-  const daysOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
-  const currentDay = daysOfWeek[new Date().getDay()];
-  const todayHours = business.openingHours ? business.openingHours[currentDay] : 'Open';
-  const isOpen = todayHours && todayHours.toLowerCase() !== 'closed';
-
-  // Check if recently approved/enlisted by admin within the last 48 hours
-  const isJustEnlisted = Boolean(
-    business.isApproved && 
-    business.approvedAt && 
-    (Date.now() - new Date(business.approvedAt).getTime()) < 172800000
-  );
-
-  const handleShareClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (onShare) {
-      onShare(business);
-    } else if (navigator.share) {
-      navigator.share({
-        title: `${business.name} - AuraCentra Ghana`,
-        text: `Discover ${business.name} on AuraCentra Ghana: ${business.tagline || business.description}`,
-        url: window.location.href,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(`${window.location.origin}/#business-${business.id}`);
-      setJustShared(true);
-      setTimeout(() => setJustShared(false), 2000);
-    }
+  // Category Icon helper
+  const getCategoryIcon = (category: string) => {
+    const c = category.toLowerCase();
+    if (c.includes('food') || c.includes('restaurant')) return <UtensilsCrossed className="w-3 h-3 text-slate-500" />;
+    if (c.includes('fashion') || c.includes('beauty')) return <ShoppingBag className="w-3 h-3 text-slate-500" />;
+    if (c.includes('auto') || c.includes('transport')) return <Car className="w-3 h-3 text-slate-500" />;
+    if (c.includes('electronic') || c.includes('gadget') || c.includes('tech')) return <Laptop className="w-3 h-3 text-slate-500" />;
+    return <Building2 className="w-3 h-3 text-slate-500" />;
   };
+
+  const displayRating = business.rating || 4.7;
+  const displayReviews = business.reviews_count || 85;
 
   return (
     <div 
-      className="group relative bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-xl hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300 hover:-translate-y-1 transform-gpu flex flex-col overflow-hidden will-change-transform"
-      id={`business-card-${business.id}`}
+      onClick={() => onSelect && onSelect(business)}
+      className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/90 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group cursor-pointer"
     >
-      {/* Cover Image & Action Badges */}
-      <div 
-        className="relative aspect-[16/10] sm:aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900 cursor-pointer select-none" 
-        onClick={() => onSelect(business)}
-      >
-        <img
-          src={business.coverImage || (business.gallery && business.gallery[0]) || 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80'}
-          alt={business.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="lazy"
-        />
+      <div>
+        {/* Cover Image with Badges matching Image 1 */}
+        <div className="relative h-40 w-full overflow-hidden bg-slate-100 dark:bg-slate-700">
+          <img 
+            src={displayImage} 
+            alt={business.name} 
+            className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-300"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = fallbackImage;
+            }}
+          />
 
-        {/* Subtle Bottom Ambient Gradient so nothing covers the image */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+          {/* Top Left: Verified Green Pill Badge matching Image 1 */}
+          {business.verified && (
+            <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs backdrop-blur-xs">
+              <Check className="w-3 h-3 stroke-[3]" />
+              <span>Verified</span>
+            </div>
+          )}
 
-        {/* Top Badges: Category, Distance & Quick Utility Actions */}
-        <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {isJustEnlisted && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-900/90 dark:bg-slate-800/90 text-emerald-400 backdrop-blur-md border border-emerald-500/40 shadow-xs">
-                <Sparkles className="w-3 h-3 text-emerald-400" />
-                <span>Just Enlisted</span>
-              </span>
-            )}
-
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 dark:bg-black/80 text-slate-900 dark:text-blue-200 backdrop-blur-md shadow-xs border border-slate-200/80 dark:border-slate-800">
-              {business.category}
-            </span>
-
-            {formattedDistance && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900/90 dark:bg-slate-800/90 text-white backdrop-blur-md shadow-xs border border-white/20">
-                <MapPin className="w-3 h-3 text-slate-300" />
-                <span>{formattedDistance}</span>
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {/* Share Button */}
-            <button
-              type="button"
-              onClick={handleShareClick}
-              className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
-                justShared
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
-              }`}
-              title="Share business profile"
-              aria-label="Share business"
-            >
-              {justShared ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-            </button>
-
-            {/* Compare Toggle Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleCompare(business);
-              }}
-              className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
-                isCompared
-                  ? 'bg-[#155DFC] text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
-              }`}
-              title={isCompared ? 'Remove from compare' : 'Compare with other businesses'}
-              aria-label="Compare business"
-            >
-              <Layers className="w-3.5 h-3.5" />
-            </button>
-
-            {/* QR Code Share Button */}
-            {onOpenQR && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenQR(business);
-                }}
-                className="p-2 rounded-full backdrop-blur-md bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer"
-                title="View QR Code & Share"
-                aria-label="View QR Code"
-              >
-                <QrCode className="w-3.5 h-3.5" />
-              </button>
-            )}
-
-            {/* Bookmark / Save Button */}
+          {/* Top Right: Bookmark Heart/Save Button matching Image 1 */}
+          {onToggleSave && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleSave(business.id);
               }}
-              className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
-                isSaved
-                  ? 'bg-rose-500 text-white shadow-xs'
-                  : 'bg-white/90 dark:bg-black/70 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800'
-              }`}
-              title={isSaved ? 'Remove from saved' : 'Save business'}
-              aria-label="Save business"
+              className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-xs text-white flex items-center justify-center transition-colors cursor-pointer"
+              title={isSaved ? 'Saved' : 'Save business'}
             >
-              {isSaved ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+              <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-amber-400 text-amber-400' : 'text-white'}`} />
             </button>
-          </div>
-        </div>
-
-        {/* Bottom Badge inside Cover: Verification & Open Status */}
-        <div className="absolute bottom-2.5 sm:bottom-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between text-white text-xs">
-          <div className="flex items-center gap-1.5">
-            {business.verificationStatus === 'verified' ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#155DFC] backdrop-blur-sm font-bold text-[11px] shadow-xs">
-                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                <span>Verified Enterprise</span>
-              </span>
-            ) : business.verificationStatus === 'pending' ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/95 backdrop-blur-sm font-bold text-[11px]">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Pending Review</span>
-              </span>
-            ) : null}
-          </div>
-
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider backdrop-blur-md shadow-xs ${
-            isOpen ? 'bg-emerald-500/90 text-white' : 'bg-slate-700/90 text-white'
-          }`}>
-            {isOpen ? 'Open Now' : 'Closed'}
-          </span>
-        </div>
-      </div>
-
-      {/* Main Card Body */}
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-        <div>
-          {/* Business Title & Logo */}
-          <div className="flex items-start gap-3 mb-2.5">
-            <img
-              src={business.logo || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80'}
-              alt={`${business.name} logo`}
-              className="w-11 h-11 rounded-xl object-contain border border-slate-200 dark:border-slate-800 shrink-0 bg-white p-1 shadow-xs relative z-10"
-              loading="lazy"
-            />
-            <div className="flex-1 min-w-0">
-              <h3 
-                onClick={() => onSelect(business)}
-                className="text-base font-bold text-slate-900 dark:text-white truncate cursor-pointer hover:text-[#155DFC] dark:hover:text-[#38BDF8] transition-colors"
-                title={business.name}
-              >
-                {business.name}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-300 truncate font-semibold">
-                {business.subCategory || business.category}
-              </p>
-            </div>
-          </div>
-
-          {/* Location & GPS Info */}
-          <div className="flex items-center gap-2 text-xs mb-2.5">
-            <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300 truncate font-medium">
-              <MapPin className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8] shrink-0" />
-              <span className="truncate">{business.city}, {business.region}</span>
-            </div>
-            {business.digitalAddress && (
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-                {business.digitalAddress}
-              </span>
-            )}
-          </div>
-
-          {/* Authentic Rating Row - Determined exclusively by verified ratings */}
-          <div className="flex items-center justify-between gap-1.5 text-xs mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-            {business.reviewCount > 0 && business.rating > 0 ? (
-              <div className="flex items-center gap-1.5 text-amber-500 font-bold">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span>{business.rating.toFixed(1)}</span>
-                <span className="text-slate-500 dark:text-slate-400 font-normal text-[11px]">
-                  ({business.reviewCount} {business.reviewCount === 1 ? 'review' : 'reviews'})
-                </span>
-              </div>
-            ) : (
-              <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                <Star className="w-3 h-3 text-slate-300 dark:text-slate-600" />
-                <span>Unrated (No reviews yet)</span>
-              </span>
-            )}
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onRate) onRate(business);
-                else onSelect(business);
-              }}
-              className="text-[11px] font-bold text-[#155DFC] hover:text-blue-700 hover:underline cursor-pointer flex items-center gap-0.5"
-            >
-              <span>Rate & Review</span>
-            </button>
-          </div>
-
-          {/* Tagline / Brief Description */}
-          <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-3 leading-relaxed">
-            {business.tagline || business.description}
-          </p>
-
-          {/* Highlighted Services Tags */}
-          {business.services && business.services.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-3.5">
-              {business.services.slice(0, 3).map((service, idx) => (
-                <span
-                  key={idx}
-                  className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/80 text-[#155DFC] dark:text-[#38BDF8] border border-blue-100 dark:border-blue-900/50"
-                >
-                  {service}
-                </span>
-              ))}
-              {business.services.length > 3 && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] text-slate-400 dark:text-slate-400 font-medium">
-                  +{business.services.length - 3} more
-                </span>
-              )}
-            </div>
           )}
         </div>
 
-        {/* Action Buttons: One-Tap Contact & Engagement */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-          {/* Top Row: Direct One-Tap Contact Channels (Website & Call) */}
-          {(business.website || business.phone) && (
-            <div className="grid grid-cols-2 gap-2">
-              {business.website ? (
-                <a
-                  href={business.website.startsWith('http') ? business.website : `https://${business.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-[#155DFC] dark:hover:text-[#38BDF8] transition-all text-xs font-bold border border-slate-200/80 dark:border-slate-700 shadow-2xs group/web cursor-pointer min-h-[36px]"
-                  title={`Visit ${business.name} Website`}
-                >
-                  <Globe className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8] group-hover/web:rotate-12 transition-transform shrink-0" />
-                  <span className="truncate">Website</span>
-                  <ExternalLink className="w-2.5 h-2.5 opacity-60 ml-0.5 shrink-0" />
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onOpenQuote) onOpenQuote(business);
-                    else onSelect(business);
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200/80 dark:border-slate-700 min-h-[36px]"
-                >
-                  <FileText className="w-3.5 h-3.5 text-[#155DFC] dark:text-[#38BDF8]" />
-                  <span>Inquire</span>
-                </button>
-              )}
+        {/* Card Body matching Image 1 */}
+        <div className="p-3.5 space-y-1.5 text-left">
+          
+          {/* Business Name */}
+          <h3 className="font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-sm sm:text-base leading-snug line-clamp-1">
+            {business.name}
+          </h3>
 
-              {business.phone ? (
-                <a
-                  href={`tel:${business.phone}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-600 hover:text-white text-emerald-800 dark:text-emerald-300 transition-all text-xs font-bold border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs group/call cursor-pointer min-h-[36px]"
-                  title={`Call ${business.name}: ${business.phone}`}
-                >
-                  <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover/call:text-white group-hover/call:scale-110 transition-transform shrink-0" />
-                  <span className="truncate">Call</span>
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelect(business);
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-black/50 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-slate-800 min-h-[36px]"
-                >
-                  <Eye className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Details</span>
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Bottom Row: Profile Modal, Quote, and WhatsApp */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Primary View Profile Button */}
-            <button
-              type="button"
-              onClick={() => onSelect(business)}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#155DFC] hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-bold py-2.5 px-3 rounded-xl transition-all shadow-xs cursor-pointer min-h-[38px]"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Full Profile</span>
-            </button>
-
-            {/* Quick Quote / Inquiry Button */}
-            {onOpenQuote && (
-              <button
-                type="button"
-                onClick={() => onOpenQuote(business)}
-                className="inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#155DFC] dark:text-blue-300 hover:bg-[#155DFC] hover:text-white transition-all text-xs font-semibold border border-blue-200/80 dark:border-blue-800/60 cursor-pointer min-h-[38px]"
-                title="Request Quote"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Quote</span>
-              </button>
-            )}
-
-            {/* Quick WhatsApp Contact */}
-            <button
-              type="button"
-              onClick={() => onQuickContactWhatsApp(business)}
-              className="inline-flex items-center justify-center p-2.5 rounded-xl bg-blue-50/70 dark:bg-slate-800/90 backdrop-blur-md text-[#155DFC] dark:text-[#38BDF8] hover:bg-[#155DFC] hover:text-white dark:hover:bg-[#155DFC] dark:hover:text-white transition-all border border-blue-200/80 dark:border-slate-700/80 shadow-xs cursor-pointer min-h-[38px] min-w-[38px]"
-              title="Chat directly on WhatsApp"
-              aria-label="WhatsApp chat"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </button>
+          {/* Category */}
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            {getCategoryIcon(business.category)}
+            <span className="truncate">{business.category}</span>
           </div>
+
+          {/* Location */}
+          <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+            <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+            <span className="truncate">{business.city || business.region}</span>
+          </div>
+
+          {/* Rating */}
+          <div className="flex items-center gap-1 text-xs pt-0.5">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span className="font-bold text-slate-800 dark:text-slate-200">{displayRating.toFixed(1)}</span>
+            <span className="text-slate-400 text-[11px]">({displayReviews} reviews)</span>
+          </div>
+
         </div>
       </div>
+
+      {/* Action Buttons: [ Call ] (blue) and [ WhatsApp ] (green) matching Image 1 */}
+      <div className="p-3.5 pt-0 grid grid-cols-2 gap-2">
+        <a
+          href={cleanPhone ? `tel:${cleanPhone}` : '#'}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!cleanPhone) e.preventDefault();
+          }}
+          className="py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+          title={`Call ${business.name}`}
+        >
+          <Phone className="w-3 h-3 fill-white" />
+          <span>Call</span>
+        </a>
+
+        <a
+          href={whatsappNum ? `https://wa.me/${whatsappNum}?text=Hello%20${encodeURIComponent(business.name)},%20I%20found%20your%20business%20on%20AuraCentra.` : '#'}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!whatsappNum) e.preventDefault();
+          }}
+          className="py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+          title={`Chat with ${business.name} on WhatsApp`}
+        >
+          <MessageSquare className="w-3 h-3 fill-white" />
+          <span>WhatsApp</span>
+        </a>
+      </div>
+
     </div>
   );
 };
